@@ -1,7 +1,7 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
-  output = "./src/db/postgresql"
+  output          = "./generated/postgresql-client"
 }
 
 datasource db {
@@ -99,7 +99,7 @@ enum RewardRevokeCreditType {
 
 model User {
   id            String    @id @default(uuid())
-  name          String
+  name          String @unique
   hashedPassword String?  @map("hashed_password")
   email         String?   @unique
   userId        Int    @map("user_id")
