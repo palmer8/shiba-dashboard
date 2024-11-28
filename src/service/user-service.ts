@@ -1,9 +1,9 @@
-import mysqlClient from "@/db/mysql/mysql-client";
-import postgresqlClient from "@/db/postgresql/postgresql-client";
+import prisma from "@/db/prisma";
 import { GlobalReturn } from "@/types/global-return";
 import { SignUpUser } from "@/types/user";
 import bcrypt from "bcrypt";
 import { UserRole } from "@prisma/client";
+import pool from "@/db/mysql";
 
 class UserService {
   async signup(data: {
@@ -26,7 +26,7 @@ class UserService {
         };
       }
 
-      const user = await postgresqlClient.user.create({
+      const user = await prisma.user.create({
         data: {
           name: data.name,
           hashedPassword,
@@ -57,7 +57,7 @@ class UserService {
   }
 
   async findByUserId(userId: number) {
-    return postgresqlClient.user.findFirst({
+    return prisma.user.findFirst({
       where: { userId },
     });
   }
@@ -67,30 +67,42 @@ class UserService {
   }
 
   async getGameNicknameByUserId(userId: number): Promise<GlobalReturn<string>> {
-    const result = await mysqlClient.vrp_users
-      .findFirst({
-        where: {
-          id: userId,
-        },
-      })
-      .then((result) => result?.last_login?.split(" ")[3]);
-    if (!result)
+    try {
+      const [rows] = await pool.execute(
+        "SELECT last_login FROM vrp_users WHERE id = ?",
+        [userId]
+      );
+
+      const result = (rows as any[])[0];
+
+      if (!result) {
+        return {
+          success: false,
+          message: "닉네임을 찾을 수 없습니다.",
+          data: null,
+          error: null,
+        };
+      }
+
       return {
-        success: false,
-        message: "닉네임을 찾을 수 없습니다.",
-        data: null,
+        success: true,
+        message: "닉네임을 찾았습니다.",
+        data: result.last_login.split(" ")[3],
         error: null,
       };
-    return {
-      success: true,
-      message: "닉네임을 찾았습니다.",
-      data: result,
-      error: null,
-    };
+    } catch (error) {
+      console.error("MySQL query error:", error);
+      return {
+        success: false,
+        message: "데이터베이스 조회 중 오류가 발생했습니다.",
+        data: null,
+        error,
+      };
+    }
   }
 
   async isAccessiblePage(userId: string): Promise<GlobalReturn<boolean>> {
-    const result = await postgresqlClient.user.findFirst({
+    const result = await prisma.user.findFirst({
       where: {
         AND: [{ id: userId }, { isPermissive: true }],
       },
@@ -113,7 +125,7 @@ class UserService {
   }
 
   async isAccountPermissive(username: string, password: string) {
-    const result = await postgresqlClient.user.findFirst({
+    const result = await prisma.user.findFirst({
       where: { AND: [{ name: username }] },
     });
 
