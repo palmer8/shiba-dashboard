@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/db/postgresql/postgresql-client";
 import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcrypt";
+import { compare } from "bcrypt";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 2 },
@@ -13,14 +13,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   providers: [
     CredentialsProvider({
-      name: "Sign in",
-      id: "credentials",
       credentials: {
         name: { label: "name", type: "text" },
-        password: { label: "Password", type: "password" },
+        password: { label: "password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.name || !credentials.password) {
+        if (!credentials || !credentials.name || !credentials.password) {
           return null;
         }
 
@@ -28,37 +26,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: {
             name: credentials.name as string,
           },
-          select: {
-            id: true,
-            name: true,
-            hashedPassword: true,
-          },
         });
 
-        if (!user) {
-          return null;
-        }
+        if (!user || !user.hashedPassword) return null;
 
-        const isValid = await bcrypt.compare(
+        const isValid = await compare(
           credentials.password as string,
-          user.hashedPassword as string
+          user.hashedPassword
         );
 
-        if (!isValid) {
-          return null;
-        }
-
-        return {
-          id: String(user.id),
-          name: user.name,
-        };
+        if (!isValid) return null;
+        return user;
       },
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async session({ session, token }) {
-      session.user.name = token.name;
       session.user.id = token.sub as string;
       return session;
     },

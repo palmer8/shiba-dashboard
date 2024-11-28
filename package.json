@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "bun run db:generate",
-    "vercel-build": "bun run db:generate && next build",
+    "vercel-build": "prisma generate --schema=./src/db/postgresql/schema.prisma && prisma generate --schema=./src/db/mysql/schema.prisma && next build",
     "db:pg:generate": "prisma generate --schema=./src/db/postgresql/schema.prisma",
     "db:pg:push": "prisma db push --schema=./src/db/postgresql/schema.prisma",
     "db:pg:pull": "prisma db pull --schema=./src/db/postgresql/schema.prisma",
