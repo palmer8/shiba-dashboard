@@ -31,7 +31,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           select: {
             id: true,
             name: true,
-            nickname: true,
             hashedPassword: true,
           },
         });
@@ -50,7 +49,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return {
           id: user.id,
           name: user.name,
-          nickname: user.nickname,
         };
       },
     }),
