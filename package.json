@@ -18,7 +18,6 @@
     "db:mysql:pull": "prisma db pull --schema=./src/db/mysql/schema.prisma",
     "db:mysql:studio": "prisma studio --schema=./src/db/mysql/schema.prisma",
     "db:generate": "bun run db:pg:generate && bun run db:mysql:generate",
-    "db:push": "bun run db:pg:push && bun run db:mysql:push",
     "db:pull": "bun run db:pg:pull && bun run db:mysql:pull",
     "db:migrate": "bun run db:pg:migrate && bun run db:mysql:migrate"
   },
