@@ -1,6 +1,7 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
+  output = "./src/db/postgresql"
 }
 
 datasource db {
@@ -101,7 +102,7 @@ model User {
   name          String
   hashedPassword String?  @map("hashed_password")
   email         String?   @unique
-  userId        String    @map("user_id")
+  userId        Int    @map("user_id")
   emailVerified DateTime? @map("email_verified")
   nickname      String
   image         String?
@@ -195,7 +196,7 @@ model GroupMail {
 
 model PersonalMail {
   id        String   @id @default(uuid())
-  userId    String   @map("user_id")
+  userId    Int   @map("user_id")
   reason    String
   content   String
   reward    Json     @default("{}")
@@ -225,7 +226,7 @@ model IpBlock {
 model AccountBlock {
   id            String           @id @default(uuid())
   reason        String
-  userId        String           @map("user_id")
+  userId        Int           @map("user_id")
   type          AccountBlockType
   blockDuration Int?            @map("block_duration")
   isPermanent   Boolean         @default(false) @map("is_permanent")
@@ -286,7 +287,7 @@ model CouponLog {
 
 model ItemQuantity {
   id           String            @id @default(uuid())
-  userId       String            @map("user_id")
+  userId       Int            @map("user_id")
   itemId       String            @map("item_id")
   itemName     String            @map("item_name")
   amount       Int               @map("quantity")
@@ -306,7 +307,7 @@ model ItemQuantity {
 
 model RewardRevoke {
   id           String               @id @default(uuid())
-  userId       String               @map("user_id")
+  userId       Int               @map("user_id")
   amount       Int
   status       Status               @default(PENDING)
   type         ActionType
@@ -336,7 +337,7 @@ model Items {
 model Groups {
   id        String   @id @default(uuid())
   groupId   String   @unique @map("group_id")
-  groupName String   @map("group_name")
+  groupBoolean Boolean   @map("group_boolean")
   minRole   UserRole @default(MANAGER) @map("min_role")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -346,7 +347,7 @@ model Groups {
 
 model CreditManagement {
   id           String        @id @default(uuid())
-  userId       String        @map("user_id")
+  userId       Int        @map("user_id")
   type         ActionType
   creditType   CreditType    @map("credit_type")
   amount       Int
@@ -384,11 +385,11 @@ model Board {
   title     String
   content   String
   views     Int          @default(0)
-  userId    String?       @map("user_id")
+  registrantId    String?       @map("registrant_id")
   isNotice  Boolean      @default(false) @map("is_notice")
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
-  author    User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  registrant    User?        @relation(fields: [registrantId], references: [id], onDelete: SetNull)
   comments  BoardComment[]
 
   @@map("board")
@@ -398,11 +399,11 @@ model BoardComment {
   id        String   @id @default(uuid())
   content   String
   boardId   String   @map("board_id")
-  userId    String   @map("user_id")
+  registrantId    String   @map("registrant_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  author    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  registrant    User     @relation(fields: [registrantId], references: [id], onDelete: Cascade)
 
   @@map("board_comment")
 }
@@ -410,10 +411,10 @@ model BoardComment {
 model AccountUsingQuerylog {
   id        String   @id @default(uuid())
   content   String
-  userId    String?  @map("user_id")
+  registrantId    String?  @map("registrant_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  registrant    User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
 
   @@map("account_using_querylog")
 }
