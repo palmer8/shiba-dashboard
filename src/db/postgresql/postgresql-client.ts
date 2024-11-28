@@ -1,17 +1,11 @@
 import { PrismaClient } from "@prisma/client";
 
-const postgresqlClientSingleton = () => {
-  return new PrismaClient();
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
 };
 
-declare const globalThis: {
-  postgresqlClient: ReturnType<typeof postgresqlClientSingleton>;
-} & typeof global;
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
-const postgresqlClient =
-  globalThis.postgresqlClient ?? postgresqlClientSingleton();
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-export default postgresqlClient;
-
-if (process.env.NODE_ENV !== "production")
-  globalThis.postgresqlClient = postgresqlClient;
+export default prisma;
