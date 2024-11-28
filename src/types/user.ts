@@ -1,4 +1,4 @@
-import { Prisma } from "../../generated/postgresql";
+import { Prisma } from "@prisma/client";
 
 type SignUpUser = Omit<Prisma.UserCreateInput, "hashedPassword">;
 

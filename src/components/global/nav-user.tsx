@@ -2,7 +2,6 @@
 
 import { ChevronsUpDown, LogOut, Settings } from "lucide-react";
 // import { formatRole } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,10 +19,10 @@ import {
 } from "@/components/ui/sidebar";
 import { signOut } from "next-auth/react";
 import { formatRole } from "@/lib/utils";
-import { UserRole } from "@generated/postgresql";
-import { User } from "next-auth";
+import { UserRole } from "@prisma/client";
+import { Session } from "next-auth";
 
-export function NavUser({ user }: { user: User }) {
+export function NavUser({ user }: { user: Session["user"] }) {
   const { isMobile } = useSidebar();
 
   return (

@@ -5,7 +5,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarRail,
 } from "@/components/ui/sidebar";
 import Image from "next/image";
 import { useSession } from "next-auth/react";

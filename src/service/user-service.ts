@@ -3,7 +3,7 @@ import postgresqlClient from "@/db/postgresql/postgresql-client";
 import { GlobalReturn } from "@/types/global-return";
 import { SignUpUser } from "@/types/user";
 import bcrypt from "bcrypt";
-import { UserRole } from "../../generated/postgresql";
+import { UserRole } from "@prisma/client";
 
 class UserService {
   async signup(data: {

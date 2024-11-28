@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ADMIN_LINKS } from "@/constant/constant";
 import { Session } from "next-auth";
-import { UserRole } from "@generated/postgresql";
+import { UserRole } from "@prisma/client";
 
 const ICONS: { [key: string]: LucideIcon } = {
   audit: FileSearch,

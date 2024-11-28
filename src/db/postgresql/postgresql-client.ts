@@ -1,4 +1,4 @@
-import { PrismaClient } from "@generated/postgresql";
+import { PrismaClient } from "@prisma/client";
 
 const postgresqlClientSingleton = () => {
   return new PrismaClient();
