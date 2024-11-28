@@ -21,24 +21,18 @@ import { toast } from "sonner";
 const formSchema = z.object({
   name: z
     .string()
-    .min(2, "이름은 2글자 이상이어야 합니다.")
-    .max(100, "이름은 100글자를 초과할 수 없습니다."),
+    .min(2, "아이디는 2글자 이상이어야 합니다.")
+    .max(20, "아이디는 20글자를 초과할 수 없습니다."),
   password: z
     .string()
     .min(8, "비밀번호는 최소 8자 이상이어야 합니다.")
-    .max(100, "비밀번호는 100자를 초과할 수 없습니다.")
+    .max(20, "비밀번호는 20자를 초과할 수 없습니다.")
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
       "비밀번호는 영문 대/소문자, 숫자, 특수문자를 포함해야 합니다."
     ),
-  userId: z
-    .string()
-    .min(4, "게임 아이디는 4글자 이상이어야 합니다.")
-    .max(50, "게임 아이디는 50글자를 초과할 수 없습니다."),
-  nickname: z
-    .string()
-    .min(2, "닉네임은 2글자 이상이어야 합니다.")
-    .max(50, "닉네임은 50글자를 초과할 수 없습니다."),
+  userId: z.string().min(1, "고유번호를 입력해주세요"),
+  nickname: z.string().min(1, "고유번호에 따른 닉네임을 찾을 수 없습니다."),
 });
 
 type FormValues = z.infer<typeof formSchema>;
