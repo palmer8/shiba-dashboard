@@ -1,17 +1,12 @@
 import NextAuth from "next-auth";
-import { Adapter } from "next-auth/adapters";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/db/postgresql/postgresql-client";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { DefaultArgs } from "@prisma/client/runtime/library";
-import { Prisma, PrismaClient } from "@generated/postgresql";
+import { Adapter } from "next-auth/adapters";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 2 },
-  adapter: PrismaAdapter(
-    prisma as PrismaClient<Prisma.PrismaClientOptions, never, DefaultArgs>
-  ) as Adapter,
-
+  adapter: PrismaAdapter(prisma) as Adapter,
   pages: {
     signIn: "/login",
     signOut: "/",
@@ -48,8 +43,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user && user.id) {
         token.id = user.id;
-        token.nickname = user.nickname;
-        token.role = user.role;
       }
       return token;
     },
