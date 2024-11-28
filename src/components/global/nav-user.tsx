@@ -20,9 +20,9 @@ import {
 import { signOut } from "next-auth/react";
 import { formatRole } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
-import { Session } from "next-auth";
+import { User } from "next-auth";
 
-export function NavUser({ user }: { user: Session["user"] }) {
+export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
 
   return (
