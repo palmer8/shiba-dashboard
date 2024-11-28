@@ -73,7 +73,7 @@ class UserService {
         [userId]
       );
 
-      const result = (rows as any[])[0];
+      const result = (rows as { last_login: string }[])[0];
 
       if (!result) {
         return {
