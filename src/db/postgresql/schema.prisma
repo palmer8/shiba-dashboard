@@ -98,7 +98,7 @@ enum RewardRevokeCreditType {
 
 model User {
   id            String    @id @default(uuid())
-  name          String @unique
+  name          String    @unique
   hashedPassword String?  @map("hashed_password")
   email         String?   @unique
   userId        Int    @map("user_id")
