@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -7,6 +9,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { TOTAL_LINKS } from "@/constant/constant";
 import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
 import { Fragment } from "react";
 
 interface BreadcrumbPath {
@@ -14,7 +17,8 @@ interface BreadcrumbPath {
   isLast: boolean;
 }
 
-export function PageBreadcrumb({ pathname }: { pathname: string }) {
+export function PageBreadcrumb() {
+  const pathname = usePathname();
   const normalizedPath = pathname.endsWith("/")
     ? pathname.slice(0, -1)
     : pathname;

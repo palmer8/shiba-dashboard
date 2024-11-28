@@ -37,57 +37,54 @@ export function LoginForm() {
   });
 
   async function onSubmit(data: FormValues) {
-    const isPermissive = await isAccountPermissiveAction(
-      data.name,
-      data.password
-    );
+    try {
+      const isPermissive = await isAccountPermissiveAction(
+        data.name,
+        data.password
+      );
 
-    console.log("isPermissive response:", isPermissive);
+      if (isPermissive.data === false && isPermissive.success) {
+        toast({
+          title: isPermissive.message,
+          description: "관리자에게 문의해주세요.",
+          variant: "destructive",
+        });
+        return;
+      } else if (isPermissive.success === false || isPermissive.error) {
+        toast({
+          title: isPermissive.message,
+          variant: "destructive",
+        });
+        return;
+      }
 
-    if (!isPermissive) {
-      console.log("isPermissive is undefined");
+      if (isPermissive.data === true && isPermissive.success) {
+        const result = await signIn("credentials", {
+          name: data.name,
+          password: data.password,
+          redirect: false,
+          redirectTo: "/",
+        });
+
+        if (result?.error) {
+          toast({
+            title: "로그인 중 에러가 발생하였습니다",
+            description: "잠시 후에 다시 시도해주세요",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        router.push("/");
+      }
+    } catch (error) {
       toast({
-        title: "서버 오류가 발생했습니다",
-        description: "잠시 후 다시 시도해주세요",
+        title: "로그인 중 에러가 발생하였습니다",
+        description: "잠시 후에 다시 시도해주세요",
         variant: "destructive",
       });
-      return;
+      console.error(error);
     }
-
-    if (isPermissive.data === false && isPermissive.success) {
-      toast({
-        title: isPermissive.message,
-        description: "관리자에게 문의해주세요.",
-        variant: "destructive",
-      });
-      return;
-    } else if (isPermissive.success === false || isPermissive.error) {
-      toast({
-        title: isPermissive.message,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // if (isPermissive.data === true && isPermissive.success) {
-    //   const result = await signIn("credentials", {
-    //     name: data.name,
-    //     password: data.password,
-    //     redirect: false,
-    //     redirectTo: "/",
-    //   });
-
-    //   if (result?.error) {
-    //     toast({
-    //       title: "로그인 중 에러가 발생하였습니다",
-    //       description: "잠시 후에 다시 시도해주세요",
-    //       variant: "destructive",
-    //     });
-    //     return;
-    //   }
-
-    //   router.push("/");
-    // }
   }
 
   return (

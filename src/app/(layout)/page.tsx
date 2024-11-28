@@ -1,13 +1,9 @@
 import { GlobalTitle } from "@/components/global/global-title";
 import { auth } from "@/lib/auth-config";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export default async function Home() {
   const session = await auth();
-  const headerList = await headers();
-
-  const pathname = headerList.get("x-current-path");
 
   if (!session?.user) return redirect("/login");
 
