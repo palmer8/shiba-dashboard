@@ -119,8 +119,8 @@ export type AccountUsingQuerylog = $Result.DefaultSelection<Prisma.$AccountUsing
  */
 export namespace $Enums {
   export const UserRole: {
-  MANAGER: 'MANAGER',
-  ADMIN: 'ADMIN',
+  STAFF: 'STAFF',
+  INGAME_ADMIN: 'INGAME_ADMIN',
   MASTER: 'MASTER',
   SUPERMASTER: 'SUPERMASTER'
 };
@@ -2900,7 +2900,6 @@ export namespace Prisma {
     nickname: string | null
     image: string | null
     role: $Enums.UserRole | null
-    isUsingAccount: boolean | null
     isPermissive: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -2916,7 +2915,6 @@ export namespace Prisma {
     nickname: string | null
     image: string | null
     role: $Enums.UserRole | null
-    isUsingAccount: boolean | null
     isPermissive: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -2932,7 +2930,6 @@ export namespace Prisma {
     nickname: number
     image: number
     role: number
-    isUsingAccount: number
     isPermissive: number
     createdAt: number
     updatedAt: number
@@ -2958,7 +2955,6 @@ export namespace Prisma {
     nickname?: true
     image?: true
     role?: true
-    isUsingAccount?: true
     isPermissive?: true
     createdAt?: true
     updatedAt?: true
@@ -2974,7 +2970,6 @@ export namespace Prisma {
     nickname?: true
     image?: true
     role?: true
-    isUsingAccount?: true
     isPermissive?: true
     createdAt?: true
     updatedAt?: true
@@ -2990,7 +2985,6 @@ export namespace Prisma {
     nickname?: true
     image?: true
     role?: true
-    isUsingAccount?: true
     isPermissive?: true
     createdAt?: true
     updatedAt?: true
@@ -3093,7 +3087,6 @@ export namespace Prisma {
     nickname: string
     image: string | null
     role: $Enums.UserRole
-    isUsingAccount: boolean
     isPermissive: boolean
     createdAt: Date
     updatedAt: Date
@@ -3128,7 +3121,6 @@ export namespace Prisma {
     nickname?: boolean
     image?: boolean
     role?: boolean
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -3162,7 +3154,6 @@ export namespace Prisma {
     nickname?: boolean
     image?: boolean
     role?: boolean
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -3178,7 +3169,6 @@ export namespace Prisma {
     nickname?: boolean
     image?: boolean
     role?: boolean
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
@@ -3237,7 +3227,6 @@ export namespace Prisma {
       nickname: string
       image: string | null
       role: $Enums.UserRole
-      isUsingAccount: boolean
       isPermissive: boolean
       createdAt: Date
       updatedAt: Date
@@ -3660,7 +3649,6 @@ export namespace Prisma {
     readonly nickname: FieldRef<"User", 'String'>
     readonly image: FieldRef<"User", 'String'>
     readonly role: FieldRef<"User", 'UserRole'>
-    readonly isUsingAccount: FieldRef<"User", 'Boolean'>
     readonly isPermissive: FieldRef<"User", 'Boolean'>
     readonly createdAt: FieldRef<"User", 'DateTime'>
     readonly updatedAt: FieldRef<"User", 'DateTime'>
@@ -23391,7 +23379,6 @@ export namespace Prisma {
     nickname: 'nickname',
     image: 'image',
     role: 'role',
-    isUsingAccount: 'isUsingAccount',
     isPermissive: 'isPermissive',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
@@ -23932,7 +23919,6 @@ export namespace Prisma {
     nickname?: StringFilter<"User"> | string
     image?: StringNullableFilter<"User"> | string | null
     role?: EnumUserRoleFilter<"User"> | $Enums.UserRole
-    isUsingAccount?: BoolFilter<"User"> | boolean
     isPermissive?: BoolFilter<"User"> | boolean
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
@@ -23965,7 +23951,6 @@ export namespace Prisma {
     nickname?: SortOrder
     image?: SortOrderInput | SortOrder
     role?: SortOrder
-    isUsingAccount?: SortOrder
     isPermissive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -23991,17 +23976,16 @@ export namespace Prisma {
   export type UserWhereUniqueInput = Prisma.AtLeast<{
     id?: string
     email?: string
+    userId?: number
     AND?: UserWhereInput | UserWhereInput[]
     OR?: UserWhereInput[]
     NOT?: UserWhereInput | UserWhereInput[]
     name?: StringNullableFilter<"User"> | string | null
     hashedPassword?: StringNullableFilter<"User"> | string | null
-    userId?: IntFilter<"User"> | number
     emailVerified?: DateTimeNullableFilter<"User"> | Date | string | null
     nickname?: StringFilter<"User"> | string
     image?: StringNullableFilter<"User"> | string | null
     role?: EnumUserRoleFilter<"User"> | $Enums.UserRole
-    isUsingAccount?: BoolFilter<"User"> | boolean
     isPermissive?: BoolFilter<"User"> | boolean
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
@@ -24022,7 +24006,7 @@ export namespace Prisma {
     approvedRewardRevokes?: RewardRevokeListRelationFilter
     boards?: BoardListRelationFilter
     boardComments?: BoardCommentListRelationFilter
-  }, "id" | "email">
+  }, "id" | "email" | "userId">
 
   export type UserOrderByWithAggregationInput = {
     id?: SortOrder
@@ -24034,7 +24018,6 @@ export namespace Prisma {
     nickname?: SortOrder
     image?: SortOrderInput | SortOrder
     role?: SortOrder
-    isUsingAccount?: SortOrder
     isPermissive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -24058,7 +24041,6 @@ export namespace Prisma {
     nickname?: StringWithAggregatesFilter<"User"> | string
     image?: StringNullableWithAggregatesFilter<"User"> | string | null
     role?: EnumUserRoleWithAggregatesFilter<"User"> | $Enums.UserRole
-    isUsingAccount?: BoolWithAggregatesFilter<"User"> | boolean
     isPermissive?: BoolWithAggregatesFilter<"User"> | boolean
     createdAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
@@ -25483,7 +25465,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -25516,7 +25497,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -25549,7 +25529,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -25582,7 +25561,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -25615,7 +25593,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -25631,7 +25608,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -25647,7 +25623,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -27391,7 +27366,6 @@ export namespace Prisma {
     nickname?: SortOrder
     image?: SortOrder
     role?: SortOrder
-    isUsingAccount?: SortOrder
     isPermissive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -27411,7 +27385,6 @@ export namespace Prisma {
     nickname?: SortOrder
     image?: SortOrder
     role?: SortOrder
-    isUsingAccount?: SortOrder
     isPermissive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -27427,7 +27400,6 @@ export namespace Prisma {
     nickname?: SortOrder
     image?: SortOrder
     role?: SortOrder
-    isUsingAccount?: SortOrder
     isPermissive?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
@@ -31182,7 +31154,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31214,7 +31185,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31262,7 +31232,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31294,7 +31263,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31326,7 +31294,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31358,7 +31325,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31406,7 +31372,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31438,7 +31403,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31470,7 +31434,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31502,7 +31465,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31550,7 +31512,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31582,7 +31543,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31614,7 +31574,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31646,7 +31605,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31694,7 +31652,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31726,7 +31683,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31758,7 +31714,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31790,7 +31745,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31838,7 +31792,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31870,7 +31823,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -31902,7 +31854,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31934,7 +31885,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -31982,7 +31932,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32014,7 +31963,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32302,7 +32250,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -32334,7 +32281,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -32371,7 +32317,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -32403,7 +32348,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -32451,7 +32395,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32483,7 +32426,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32526,7 +32468,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32558,7 +32499,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32590,7 +32530,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -32622,7 +32561,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -32659,7 +32597,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -32691,7 +32628,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -32739,7 +32675,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32771,7 +32706,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32814,7 +32748,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32846,7 +32779,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -32878,7 +32810,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -32910,7 +32841,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -32947,7 +32877,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -32979,7 +32908,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -33027,7 +32955,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33059,7 +32986,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33102,7 +33028,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33134,7 +33059,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33166,7 +33090,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -33198,7 +33121,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -33235,7 +33157,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -33267,7 +33188,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -33315,7 +33235,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33347,7 +33266,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33390,7 +33308,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33422,7 +33339,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33454,7 +33370,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -33486,7 +33401,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -33560,7 +33474,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33592,7 +33505,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33667,7 +33579,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -33699,7 +33610,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -33780,7 +33690,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33812,7 +33721,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33844,7 +33752,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -33876,7 +33783,6 @@ export namespace Prisma {
     nickname: string
     image?: string | null
     role?: $Enums.UserRole
-    isUsingAccount?: boolean
     isPermissive?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -33924,7 +33830,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -33956,7 +33861,6 @@ export namespace Prisma {
     nickname?: StringFieldUpdateOperationsInput | string
     image?: NullableStringFieldUpdateOperationsInput | string | null
     role?: EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-    isUsingAccount?: BoolFieldUpdateOperationsInput | boolean
     isPermissive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string

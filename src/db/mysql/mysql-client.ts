@@ -1,15 +1,14 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@generated/mysql";
 
-const prismaClientSingleton = () => {
+const mysqlClientSingleton = () => {
   return new PrismaClient();
 };
-
 declare const globalThis: {
-  prismaGlobal: ReturnType<typeof prismaClientSingleton>;
+  mysqlClient: ReturnType<typeof mysqlClientSingleton>;
 } & typeof global;
 
-const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
+const mysqlClient = globalThis.mysqlClient ?? mysqlClientSingleton();
 
-export default prisma;
+export default mysqlClient;
 
-if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal = prisma;
+if (process.env.NODE_ENV !== "production") globalThis.mysqlClient = mysqlClient;

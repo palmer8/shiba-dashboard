@@ -12,8 +12,8 @@ datasource db {
 }
 
 enum UserRole {
-  MANAGER
-  ADMIN
+  STAFF
+  INGAME_ADMIN
   MASTER
   SUPERMASTER
 
@@ -101,12 +101,11 @@ model User {
   name           String?
   hashedPassword String?   @map("password")
   email          String?   @unique
-  userId         Int       @map("user_id")
+  userId         Int       @unique @map("user_id")
   emailVerified  DateTime? @map("email_verified")
   nickname       String
   image          String?
-  role           UserRole  @default(MANAGER)
-  isUsingAccount Boolean   @default(true) @map("is_using_account")
+  role           UserRole  @default(STAFF)
   isPermissive   Boolean   @default(false) @map("is_permissive")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
@@ -337,7 +336,7 @@ model Groups {
   id           String   @id @default(uuid())
   groupId      String   @unique @map("group_id")
   groupBoolean Boolean  @map("group_boolean")
-  minRole      UserRole @default(MANAGER) @map("min_role")
+  minRole      UserRole @default(STAFF) @map("min_role")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

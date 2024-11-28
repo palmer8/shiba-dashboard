@@ -132,7 +132,6 @@ exports.Prisma.UserScalarFieldEnum = {
   nickname: 'nickname',
   image: 'image',
   role: 'role',
-  isUsingAccount: 'isUsingAccount',
   isPermissive: 'isPermissive',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -381,8 +380,8 @@ exports.Prisma.JsonNullValueFilter = {
   AnyNull: Prisma.AnyNull
 };
 exports.UserRole = exports.$Enums.UserRole = {
-  MANAGER: 'MANAGER',
-  ADMIN: 'ADMIN',
+  STAFF: 'STAFF',
+  INGAME_ADMIN: 'INGAME_ADMIN',
   MASTER: 'MASTER',
   SUPERMASTER: 'SUPERMASTER'
 };

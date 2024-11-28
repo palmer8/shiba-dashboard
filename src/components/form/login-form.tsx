@@ -15,8 +15,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { signIn } from "next-auth/react";
+import { toast } from "@/hooks/use-toast";
+import { isAccountPermissiveAction } from "@/actions/user-action";
 
 const formSchema = z.object({
   name: z.string().min(1, "아이디를 입력해주세요."),
@@ -37,22 +38,51 @@ export function LoginForm() {
 
   async function onSubmit(data: FormValues) {
     try {
-      const result = await signIn("credentials", {
-        name: data.name,
-        password: data.password,
-        redirect: false,
-      });
+      const isPermissive = await isAccountPermissiveAction(
+        data.name,
+        data.password
+      );
 
-      if (result?.error) {
-        toast.error("아이디 또는 비밀번호가 일치하지 않습니다.");
+      if (isPermissive.data === false && isPermissive.success) {
+        toast({
+          title: isPermissive.message,
+          description: "관리자에게 문의해주세요.",
+          variant: "destructive",
+        });
+        return;
+      } else if (isPermissive.success === false || isPermissive.error) {
+        toast({
+          title: isPermissive.message,
+          variant: "destructive",
+        });
         return;
       }
 
-      toast.success("로그인되었습니다.");
-      router.push("/dashboard");
-      router.refresh();
+      if (isPermissive.data === true && isPermissive.success) {
+        const result = await signIn("credentials", {
+          name: data.name,
+          password: data.password,
+          redirect: false,
+          redirectTo: "/",
+        });
+
+        if (result?.error) {
+          toast({
+            title: "로그인 중 에러가 발생하였습니다",
+            description: "잠시 후에 다시 시도해주세요",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        router.push("/");
+      }
     } catch (error) {
-      toast.error("로그인 중 오류가 발생했습니다.");
+      toast({
+        title: "로그인 중 에러가 발생하였습니다",
+        description: "잠시 후에 다시 시도해주세요",
+        variant: "destructive",
+      });
       console.error(error);
     }
   }

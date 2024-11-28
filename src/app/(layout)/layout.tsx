@@ -1,4 +1,4 @@
-import ShibaSidebar from "@/components/global/shiba-sidebar";
+import { ShibaSidebar } from "@/components/global/shiba-sidebar";
 
 export default function RootLayout({
   children,
