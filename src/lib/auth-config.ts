@@ -23,9 +23,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!credentials?.name || !credentials.password) {
           return null;
         }
-        const user = await prisma.user.findFirst({
+
+        const user = await prisma.user.findUnique({
           where: {
-            name: credentials.name,
+            name: credentials.name as string,
           },
           select: {
             id: true,
@@ -34,19 +35,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
-        if (
-          !user ||
-          !user.hashedPassword ||
-          !(await bcrypt.compare(
-            credentials.password as string,
-            user.hashedPassword
-          ))
-        ) {
+        if (!user) {
+          return null;
+        }
+
+        const isValid = await bcrypt.compare(
+          credentials.password as string,
+          user.hashedPassword as string
+        );
+
+        if (!isValid) {
           return null;
         }
 
         return {
-          id: user.id,
+          id: String(user.id),
           name: user.name,
         };
       },
