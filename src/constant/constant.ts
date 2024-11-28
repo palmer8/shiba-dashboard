@@ -142,6 +142,11 @@ export const ADMIN_LINKS = {
   },
 };
 
+export const TOTAL_LINKS = {
+  ...ROLE_LINKS,
+  ...ADMIN_LINKS,
+};
+
 const PENALTY_TYPE = {
   WARNING: "경고",
   GAME_BAN: "게임정지",

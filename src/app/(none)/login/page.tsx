@@ -26,6 +26,7 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-zinc-900" />
         <div className="absolute inset-0">
           <Image
+            quality={80}
             src="/background-logo.webp"
             alt="Background Logo"
             fill

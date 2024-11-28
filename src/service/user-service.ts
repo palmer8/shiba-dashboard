@@ -38,7 +38,6 @@ class UserService {
         },
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { hashedPassword: omittedPassword, ...userWithoutPassword } = user;
       return {
         success: true,
