@@ -1,14 +1,29 @@
-import NextAuth from "next-auth";
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { UserRole } from "@generated/postgresql";
+import NextAuth, { DefaultSession, User } from "next-auth";
+import { JWT } from "next-auth/jwt";
 
 declare module "next-auth" {
-  /**
-   * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
-   */
-  interface Session {
-    user: {
-      /** The user's postal address. */
-      role: string;
+  interface User {
+    id: string;
+    name: string;
+    email?: string | null;
+    nickname: string;
+    role: UserRole;
+  }
+
+  interface Session extends DefaultSession {
+    user?: User & {
       nickname: string;
-    } & DefaultSession["user"];
+      role: UserRole;
+    };
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    nickname: string;
+    role: UserRole;
   }
 }
