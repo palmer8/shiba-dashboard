@@ -1,14 +1,15 @@
-import NextAuth, { User } from "next-auth";
+import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/db/postgresql/postgresql-client";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcrypt";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 2 },
   adapter: PrismaAdapter(prisma),
   pages: {
     signIn: "/login",
+    signOut: "/",
   },
   providers: [
     CredentialsProvider({
@@ -27,13 +28,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: {
             name: credentials.name,
           },
+          select: {
+            id: true,
+            name: true,
+            nickname: true,
+            hashedPassword: true,
+          },
         });
 
         if (
           !user ||
+          !user.hashedPassword ||
           !(await bcrypt.compare(
-            String(credentials.password),
-            user.hashedPassword!
+            credentials.password as string,
+            user.hashedPassword
           ))
         ) {
           return null;
@@ -42,44 +50,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return {
           id: user.id,
           name: user.name,
+          nickname: user.nickname,
         };
       },
     }),
   ],
+  secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const paths = ["/profile", "/client-side"];
-      const isProtected = paths.some((path) =>
-        nextUrl.pathname.startsWith(path)
-      );
-
-      if (isProtected && !isLoggedIn) {
-        const redirectUrl = new URL("/api/auth/signin", nextUrl.origin);
-        redirectUrl.searchParams.append("callbackUrl", nextUrl.href);
-        return Response.redirect(redirectUrl);
-      }
-      return true;
+    async session({ session, token }) {
+      session.user.name = token.name;
+      session.user.id = token.sub as string;
+      return session;
     },
-    jwt: ({ token, user }) => {
-      if (user) {
-        const u = user as unknown as User;
-        return {
-          ...token,
-          id: u.id,
-        };
+    async jwt({ token, user }) {
+      if (user && user.id) {
+        token.id = user.id;
       }
       return token;
-    },
-    session(params) {
-      return {
-        ...params.session,
-        user: {
-          ...params.session.user,
-          id: params.token.id as string,
-          randomKey: params.token.randomKey,
-        },
-      };
     },
   },
 });
