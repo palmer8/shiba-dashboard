@@ -1,6 +1,6 @@
 import NextAuth, { User } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import prisma from "@/lib/prisma";
+import prisma from "@/db/postgresql/postgresql-client";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcrypt";
 
@@ -15,34 +15,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       name: "Sign in",
       id: "credentials",
       credentials: {
-        email: {
-          label: "Email",
-          type: "email",
-          placeholder: "example@example.com",
-        },
+        userId: { label: "userId", type: "text" },
+        username: { label: "username", type: "text" },
+        name: { label: "name", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) {
+        if (
+          !credentials?.userId ||
+          !credentials?.username ||
+          !credentials.password
+        ) {
           return null;
         }
 
-        const user = await prisma.user.findUnique({
+        const user = await prisma.user.findFirst({
           where: {
-            email: String(credentials.email),
+            userId: Number(credentials.userId),
           },
         });
 
         if (
           !user ||
-          !(await bcrypt.compare(String(credentials.password), user.password!))
+          !(await bcrypt.compare(
+            String(credentials.password),
+            user.hashedPassword!
+          ))
         ) {
           return null;
         }
 
         return {
           id: user.id,
-          email: user.email,
           name: user.name,
         };
       },
