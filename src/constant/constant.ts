@@ -37,12 +37,12 @@ const ROLE_LINKS = {
     routes: [
       {
         name: "유저 로그 조회",
-        href: "/logs/user",
+        href: "/log/user",
         role: ["INGAME_ADMIN", "MASTER", "STAFF", "SUPERMASTER"],
       },
       {
         name: "게임 데이터 조회",
-        href: "/logs/game",
+        href: "/log/game",
         role: ["INGAME_ADMIN", "MASTER", "SUPERMASTER"],
       },
     ],
@@ -53,7 +53,7 @@ const ROLE_LINKS = {
     routes: [
       {
         name: "재화 지급/회수",
-        href: "/game/reward-revoke",
+        href: "/game/credit",
         role: ["STAFF", "INGAME_ADMIN", "MASTER", "SUPERMASTER"],
       },
       {
@@ -68,7 +68,7 @@ const ROLE_LINKS = {
       },
       {
         name: "아이템 지급/회수",
-        href: "/game/quantity",
+        href: "/game/item",
         role: ["INGAME_ADMIN", "MASTER", "STAFF", "SUPERMASTER"],
       },
     ],
@@ -111,7 +111,7 @@ const ROLE_LINKS = {
       },
       {
         name: "IP 관리",
-        href: "/block/whitelist",
+        href: "/block/ip",
         role: ["MASTER", "SUPERMASTER"],
       },
     ],
@@ -125,7 +125,7 @@ export const ADMIN_LINKS = {
     routes: [
       {
         name: "어드민 관리",
-        href: "/admin/manager",
+        href: "/admin",
         role: ["MASTER", "SUPERMASTER"],
       },
       {
@@ -135,7 +135,7 @@ export const ADMIN_LINKS = {
       },
       {
         name: "사건처리 보고 승인",
-        href: "/block/ticket",
+        href: "/admin/report",
         role: ["MASTER", "SUPERMASTER"],
       },
     ],

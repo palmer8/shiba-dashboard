@@ -30,6 +30,7 @@ import {
 import { ROLE_LINKS } from "@/constant/constant";
 import { Session } from "next-auth";
 import { UserRole } from "@prisma/client";
+import Link from "next/link";
 
 const ICONS: { [key: string]: LucideIcon } = {
   dashboard: LayoutDashboard,
@@ -43,9 +44,7 @@ const ICONS: { [key: string]: LucideIcon } = {
 };
 
 export function NavLinks({ session }: { session: Session | null }) {
-  //   const userRole = session?.user?.role;
-  const userRole = UserRole.STAFF;
-
+  const userRole = session?.user?.role;
   const filteredLinks = Object.entries(ROLE_LINKS).filter(([_, value]) =>
     value.role.includes(userRole)
   );
@@ -76,9 +75,9 @@ export function NavLinks({ session }: { session: Session | null }) {
                     .map((route) => (
                       <SidebarMenuSubItem key={route.href}>
                         <SidebarMenuSubButton asChild>
-                          <a href={route.href}>
+                          <Link href={route.href}>
                             <span>{route.name}</span>
-                          </a>
+                          </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}

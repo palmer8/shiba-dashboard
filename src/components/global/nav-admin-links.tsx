@@ -18,6 +18,7 @@ import {
 import { ADMIN_LINKS } from "@/constant/constant";
 import { Session } from "next-auth";
 import { UserRole } from "@prisma/client";
+import Link from "next/link";
 
 const ICONS: { [key: string]: LucideIcon } = {
   audit: FileSearch,
@@ -55,9 +56,9 @@ export function NavAdminLinks({ session }: { session: Session | null }) {
                     .map((route) => (
                       <SidebarMenuSubItem key={route.href}>
                         <SidebarMenuSubButton asChild>
-                          <a href={route.href}>
+                          <Link href={route.href}>
                             <span>{route.name}</span>
-                          </a>
+                          </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}
