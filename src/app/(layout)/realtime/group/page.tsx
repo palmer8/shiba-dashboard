@@ -1,3 +1,3 @@
 export default async function RealtimeGroupPage() {
-  return <div>RealtimeGroupPage</div>;
+  return <main>RealtimeGroupPage</main>;
 }

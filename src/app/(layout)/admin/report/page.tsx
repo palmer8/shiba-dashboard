@@ -1,3 +1,3 @@
 export default async function AdminReportPage() {
-  return <div>AdminReportPage</div>;
+  return <main>AdminReportPage</main>;
 }

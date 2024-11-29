@@ -19,17 +19,17 @@ export function ShibaSidebar({
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <div className="flex justify-center items-center pt-2">
+      <div className="flex justify-center items-center py-4">
         <Image
           priority
           src="/logo.webp"
           alt="logo"
-          width={150}
-          height={100}
-          className="w-auto h-auto"
+          width={130}
+          height={130}
+          className="w-[130px] h-[130px]"
         />
       </div>
-      <SidebarContent>
+      <SidebarContent className="no-scrollbar">
         <NavLinks session={session} />
         <NavAdminLinks session={session} />
       </SidebarContent>

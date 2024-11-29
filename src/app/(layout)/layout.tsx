@@ -1,3 +1,4 @@
+import MobileSheet from "@/components/global/mobile-sheet";
 import { ShibaSidebar } from "@/components/global/shiba-sidebar";
 
 export default function RootLayout({
@@ -8,6 +9,7 @@ export default function RootLayout({
   return (
     <>
       <ShibaSidebar />
+      <MobileSheet />
       {children}
     </>
   );

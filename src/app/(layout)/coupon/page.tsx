@@ -1,3 +1,3 @@
 export default async function CouponPage() {
-  return <div>CouponPage</div>;
+  return <main>CouponPage</main>;
 }

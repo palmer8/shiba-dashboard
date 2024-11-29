@@ -1,3 +1,3 @@
 export default async function GameCreditPage() {
-  return <div>GameCreditPage</div>;
+  return <main>GameCreditPage</main>;
 }

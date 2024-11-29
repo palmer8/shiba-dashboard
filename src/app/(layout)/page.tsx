@@ -8,11 +8,11 @@ export default async function Home() {
   if (!session?.user) return redirect("/login");
 
   return (
-    <div className="grid p-6 gap-12 w-full min-h-screen">
+    <main>
       <GlobalTitle
         title="대시보드"
         description="SHIBA와 대시보드의 실시간 정보를 한 눈에 확인하세요."
       />
-    </div>
+    </main>
   );
 }

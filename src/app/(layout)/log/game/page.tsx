@@ -1,3 +1,3 @@
 export default async function LogGamePage() {
-  return <div>LogGamePage</div>;
+  return <main>LogGamePage</main>;
 }

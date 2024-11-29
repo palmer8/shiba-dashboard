@@ -1,7 +1,6 @@
 "use client";
 
-import { ChevronsUpDown, LogOut, Settings } from "lucide-react";
-// import { formatRole } from "@/lib/utils";
+import { ChevronsUpDown, LogOut, Moon, Settings, Sun } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,9 +20,11 @@ import { signOut } from "next-auth/react";
 import { formatRole } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { User } from "next-auth";
+import { useTheme } from "next-themes";
 
 export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
+  const { theme, setTheme } = useTheme();
 
   return (
     <SidebarMenu>
@@ -72,6 +73,14 @@ export function NavUser({ user }: { user: User }) {
               <DropdownMenuItem>
                 <Settings />
                 계정 정보 수정
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              >
+                {theme === "dark" ? <Sun /> : <Moon />}
+                {theme === "dark" ? "라이트 모드" : "다크 모드"} 변경
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

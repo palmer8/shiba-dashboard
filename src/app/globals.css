@@ -75,6 +75,15 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}
 
 @layer base {
   * {
@@ -91,5 +100,8 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  main {
+    @apply flex flex-col gap-4 p-6 w-full min-h-screen;
   }
 }

@@ -1,3 +1,3 @@
 export default async function BoardsPage() {
-  return <div>BoardsPage</div>;
+  return <main>BoardsPage</main>;
 }

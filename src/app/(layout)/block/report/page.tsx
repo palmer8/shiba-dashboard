@@ -8,8 +8,8 @@ export default async function ReportPage() {
   if (!session?.user) return redirect("/login");
 
   return (
-    <div className="grid p-6 gap-12 w-full min-h-screen">
+    <main>
       <PageBreadcrumb />
-    </div>
+    </main>
   );
 }

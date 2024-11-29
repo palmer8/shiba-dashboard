@@ -1,3 +1,3 @@
 export default async function GameGroupMailPage() {
-  return <div>GameGroupMailPage</div>;
+  return <main>GameGroupMailPage</main>;
 }

@@ -4,6 +4,7 @@ import { SignUpFormValues } from "@/components/form/signup-form";
 import { userService } from "@/service/user-service";
 import { GlobalReturn } from "@/types/global-return";
 import { SignUpUser } from "@/types/user";
+import { UserRole } from "@prisma/client";
 
 export async function signUpAction(
   data: SignUpFormValues
@@ -20,9 +21,10 @@ export async function getGameNicknameByUserIdAction(
 }
 
 export async function isAccessiblePageAction(
-  userId: string
+  userId: string,
+  role: UserRole
 ): Promise<GlobalReturn<boolean>> {
-  const result = await userService.isAccessiblePage(userId);
+  const result = await userService.isAccessiblePage(userId, role);
   return result;
 }
 

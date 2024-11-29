@@ -2,8 +2,9 @@ import prisma from "@/db/prisma";
 import { GlobalReturn } from "@/types/global-return";
 import { SignUpUser } from "@/types/user";
 import bcrypt from "bcrypt";
-import { UserRole } from "@prisma/client";
+import { User, UserRole } from "@prisma/client";
 import pool from "@/db/mysql";
+import { hasAccess } from "@/lib/utils";
 
 class UserService {
   async signup(data: {
@@ -101,14 +102,25 @@ class UserService {
     }
   }
 
-  async isAccessiblePage(userId: string): Promise<GlobalReturn<boolean>> {
+  async isAccessiblePage(
+    userId: string | null,
+    role: UserRole
+  ): Promise<GlobalReturn<boolean>> {
+    if (!userId)
+      return {
+        success: false,
+        message: "접근 권한이 없습니다.",
+        data: null,
+        error: null,
+      };
+
     const result = await prisma.user.findFirst({
       where: {
         AND: [{ id: userId }, { isPermissive: true }],
       },
     });
 
-    if (!result)
+    if (!result || !hasAccess(result.role, role))
       return {
         success: false,
         message: "접근 권한이 없습니다.",
@@ -162,6 +174,27 @@ class UserService {
       success: true,
       message: "계정이 활성화되어 있지 않습니다.",
       data: false,
+      error: null,
+    };
+  }
+
+  async getUserById(id: string): Promise<GlobalReturn<User>> {
+    const user = await prisma.user.findFirst({
+      where: { id },
+    });
+
+    if (!user)
+      return {
+        success: false,
+        message: "유저를 찾을 수 없습니다.",
+        data: null,
+        error: null,
+      };
+
+    return {
+      success: true,
+      message: "유저를 찾았습니다.",
+      data: user,
       error: null,
     };
   }
