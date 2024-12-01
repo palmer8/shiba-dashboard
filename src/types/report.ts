@@ -61,6 +61,7 @@ export type AddWhitelistData = {
 };
 
 export type ReportFilters = {
+  page: number;
   penalty_type?: string;
   reason?: string;
   target_user_id?: string;

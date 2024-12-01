@@ -4,7 +4,7 @@ import { SignUpFormValues } from "@/components/form/signup-form";
 import { userService } from "@/service/user-service";
 import { GlobalReturn } from "@/types/global-return";
 import { SignUpUser } from "@/types/user";
-import { UserRole } from "@prisma/client";
+import { User, UserRole } from "@prisma/client";
 
 export async function signUpAction(
   data: SignUpFormValues
@@ -33,5 +33,12 @@ export async function isAccountPermissiveAction(
   password: string
 ): Promise<GlobalReturn<boolean>> {
   const result = await userService.isAccountPermissive(name, password);
+  return result;
+}
+
+export async function getUserByIdAction(
+  id: string
+): Promise<GlobalReturn<User>> {
+  const result = await userService.getUserById(id);
   return result;
 }

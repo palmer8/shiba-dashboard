@@ -109,4 +109,7 @@
   main {
     @apply flex flex-col gap-4 p-6 w-full min-h-screen;
   }
+  th {
+    @apply text-sm font-medium text-muted-foreground whitespace-nowrap;
+  }
 }

@@ -9,7 +9,6 @@ class RealtimeService {
         `${process.env.PRIVATE_API_URL}/DokkuApi/getPlayersCount`,
         {
           method: "POST",
-          cache: "no-store",
           body: JSON.stringify({}),
           headers: {
             "Content-Type": "application/json",
