@@ -136,7 +136,12 @@ export default function AddGroupDialog({
                   취소
                 </Button>
               </DialogClose>
-              <Button disabled={!form.formState.isValid} type="submit">
+              <Button
+                disabled={
+                  !form.formState.isValid || form.formState.isSubmitting
+                }
+                type="submit"
+              >
                 추가
               </Button>
             </div>

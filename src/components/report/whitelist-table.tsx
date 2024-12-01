@@ -1,6 +1,6 @@
 "use client";
 
-import { IncidentReport } from "@/types/report";
+import { WhitelistIP } from "@/types/report";
 import {
   Table,
   TableBody,
@@ -16,7 +16,7 @@ import {
   Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { useMemo, useState, useCallback, Fragment } from "react";
+import { useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { formatKoreanDateTime } from "@/lib/utils";
 import {
@@ -28,92 +28,91 @@ import {
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Pencil, Trash } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PENALTY_TYPE } from "@/constant/constant";
+import { deleteWhitelistAction } from "@/actions/report-action";
+import { toast } from "@/hooks/use-toast";
+import { WHITELIST_STATUS } from "@/constant/constant";
 
-interface IncidentReportTableProps {
+interface WhitelistTableProps {
   data: {
-    records: IncidentReport[];
+    records: WhitelistIP[];
     total: number;
     page: number;
     totalPages: number;
   };
 }
 
-export default function IncidentReportTable({
-  data,
-}: IncidentReportTableProps) {
+export default function WhitelistTable({ data }: WhitelistTableProps) {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const columns: ColumnDef<IncidentReport>[] = useMemo(
+  const columns: ColumnDef<WhitelistIP>[] = useMemo(
     () => [
       {
-        header: "보고서 ID",
-        accessorKey: "report_id",
-        cell: ({ row }) => row.original.report_id,
+        header: "ID",
+        accessorKey: "id",
       },
       {
-        header: "처벌 유형",
-        accessorKey: "penalty_type",
+        header: "IP 주소",
+        accessorKey: "user_ip",
+      },
+      {
+        header: "상태",
+        accessorKey: "status",
         cell: ({ row }) => (
           <span
             className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-              row.original.penalty_type === "게임정지"
-                ? "bg-background text-yellow-700 ring-1 ring-inset ring-yellow-600/20"
-                : row.original.penalty_type === "경고"
+              row.original.status === 0
+                ? "bg-background text-green-700 ring-1 ring-inset ring-green-600/20"
+                : row.original.status === 1
                 ? "bg-secondary text-red-700 ring-1 ring-inset ring-red-600/20"
-                : row.original.penalty_type === "구두경고"
-                ? "bg-muted text-orange-700 ring-1 ring-inset ring-orange-600/20"
-                : "bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-600/20"
+                : "bg-muted text-yellow-700 ring-1 ring-inset ring-yellow-600/20"
             }`}
           >
-            {row.original.penalty_type}
+            {
+              WHITELIST_STATUS[
+                row.original.status as keyof typeof WHITELIST_STATUS
+              ]
+            }
           </span>
         ),
       },
       {
-        header: "사유",
-        accessorKey: "reason",
-        cell: ({ row }) => row.original.reason,
+        header: "설명",
+        accessorKey: "comment",
       },
       {
-        header: "대상자",
-        accessorKey: "target_user_nickname",
-        cell: ({ row }) => (
-          <div>
-            {row.original.target_user_nickname} ({row.original.target_user_id})
-          </div>
-        ),
+        header: "등록자",
+        accessorKey: "registrant",
       },
       {
-        header: "신고자",
-        accessorKey: "reporting_user_nickname",
-        cell: ({ row }) => (
-          <div>
-            {row.original.reporting_user_id ? (
-              `${row.original.reporting_user_nickname} (${row.original.reporting_user_id})`
-            ) : (
-              <span className="text-muted-foreground">정보없음</span>
-            )}
-          </div>
-        ),
-      },
-      {
-        header: "처리자",
-        accessorKey: "admin",
-      },
-      {
-        header: "처리 일시",
-        accessorKey: "incident_time",
-        cell: ({ row }) => formatKoreanDateTime(row.original.incident_time),
+        header: "등록일시",
+        accessorKey: "date",
+        cell: ({ row }) => formatKoreanDateTime(row.original.date),
       },
       ...(session?.user?.role === "SUPERMASTER"
         ? [
             {
               id: "actions",
               header: "관리",
-              cell: ({ row }: { row: Row<IncidentReport> }) => {
+              cell: ({ row }: { row: Row<WhitelistIP> }) => {
+                const handleDelete = async () => {
+                  if (confirm("정말로 이 화이트리스트를 삭제하시겠습니까?")) {
+                    const result = await deleteWhitelistAction(row.original.id);
+                    if (result.success) {
+                      toast({
+                        title: "화이트리스트 삭제 성공",
+                        description: "화이트리스트가 삭제되었습니다.",
+                      });
+                    } else {
+                      toast({
+                        title: "화이트리스트 삭제 실패",
+                        description: "화이트리스트 삭제에 실패했습니다.",
+                      });
+                    }
+                  }
+                };
+
                 return (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -131,11 +130,7 @@ export default function IncidentReportTable({
                         <span>수정</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={async () => {
-                          if (confirm("정말로 이 보고서를 삭제하시겠습니까?")) {
-                            // TODO: 삭제 API 연동
-                          }
-                        }}
+                        onClick={handleDelete}
                         className="text-red-600"
                       >
                         <Trash className="mr-2 h-4 w-4" />
@@ -149,11 +144,11 @@ export default function IncidentReportTable({
           ]
         : []),
     ],
-    [session]
+    [session, router]
   );
 
   const table = useReactTable({
-    data: data.records || [],
+    data: data.records,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -188,38 +183,21 @@ export default function IncidentReportTable({
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.map((row) => (
-            <Fragment key={row.id}>
-              <TableRow
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => row.toggleExpanded()}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-              {row.getIsExpanded() && (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="bg-muted/30">
-                    <div className="p-2 grid gap-2">
-                      <p className="text-lg font-bold">상세 내용</p>
-                      <p className="text-sm whitespace-pre-wrap">
-                        {row.original.incident_description}
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </Fragment>
+            <TableRow key={row.id}>
+              {row.getVisibleCells().map((cell) => (
+                <TableCell key={cell.id}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
           ))}
         </TableBody>
       </Table>
 
       <div className="flex items-center justify-between py-2">
         <div className="text-sm text-muted-foreground">
-          총 {data.total}개 중 {(data.page - 1) * 10 + 1}-
-          {Math.min(data.page * 10, data.total)}개 표시
+          총 {data.total}개 중 {(data.page - 1) * 50 + 1}-
+          {Math.min(data.page * 50, data.total)}개 표시
         </div>
         <div className="flex items-center gap-2">
           <Button

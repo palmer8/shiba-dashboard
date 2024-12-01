@@ -154,6 +154,12 @@ const PENALTY_TYPE = {
   UNBAN: "정지해제",
 };
 
+const WHITELIST_STATUS = {
+  0: "화이트리스트",
+  1: "블랙리스트",
+  2: "모니터링",
+};
+
 const reasonOptions = [
   "부적절한 언어 사용",
   "NON-RP",
@@ -168,4 +174,4 @@ const reasonOptions = [
   "현금 거래",
 ];
 
-export { ROLE_LINKS, PENALTY_TYPE, reasonOptions };
+export { ROLE_LINKS, PENALTY_TYPE, reasonOptions, WHITELIST_STATUS };

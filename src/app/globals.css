@@ -112,4 +112,7 @@
   th {
     @apply text-sm font-medium text-muted-foreground whitespace-nowrap;
   }
+  textarea {
+    @apply resize-none;
+  }
 }

@@ -1,4 +1,4 @@
-import { Session } from "next-auth";
+export type PenaltyType = "경고" | "게임정지" | "구두경고" | "정지해제";
 
 export type IncidentReport = {
   report_id: number;
@@ -9,7 +9,7 @@ export type IncidentReport = {
   target_user_nickname: string;
   reporting_user_id: number;
   reporting_user_nickname: string;
-  penalty_type: string;
+  penalty_type: PenaltyType;
   warning_count: number | null;
   detention_time_minutes: number | null;
   ban_duration_hours: number | null;
@@ -19,6 +19,7 @@ export type IncidentReport = {
 export type WhitelistIP = {
   id: number;
   user_ip: string;
+  status: number;
   comment: string | null;
   registrant: string;
   date: Date;
@@ -30,15 +31,12 @@ export type AddIncidentReportData = {
   incidentTime: Date;
   targetUserId: number;
   targetUserNickname: string;
-  reportingUserId: number;
-  reportingUserNickname: string;
-  penaltyType: string;
+  reportingUserId?: number;
+  reportingUserNickname?: string;
+  penaltyType: PenaltyType;
   warningCount: number | null;
   detentionTimeMinutes: number | null;
   banDurationHours: number | null;
-  admin: string;
-  isTicket: boolean;
-  session: Session;
 };
 
 export type EditIncidentReportData = {
@@ -46,7 +44,7 @@ export type EditIncidentReportData = {
   reason: string;
   incidentDescription: string;
   incidentTime: Date;
-  penaltyType: string;
+  penaltyType: PenaltyType;
   warningCount?: number | null;
   detentionTimeMinutes?: number | null;
   banDurationHours?: number | null;
@@ -54,15 +52,22 @@ export type EditIncidentReportData = {
   userId: string;
 };
 
+export type EditWhitelistData = {
+  id: number;
+  user_ip?: string;
+  comment?: string;
+  status?: number;
+};
+
 export type AddWhitelistData = {
   user_ip: string[];
+  status?: number;
   comment?: string;
-  session: Session;
 };
 
 export type ReportFilters = {
   page: number;
-  penalty_type?: string;
+  penalty_type?: PenaltyType;
   reason?: string;
   target_user_id?: string;
   reporting_user_id?: string;
@@ -71,8 +76,28 @@ export type ReportFilters = {
 };
 
 export type WhitelistFilters = {
+  page: number;
   user_ip?: string;
   comment?: string;
   registrant?: string;
   date?: Date[];
+};
+
+export type ReportResponse = {
+  records: IncidentReport[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
+export type WhitelistResponse = {
+  records: WhitelistIP[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
+export type AddBlockTicketData = {
+  userId: string;
+  reportId: number;
 };

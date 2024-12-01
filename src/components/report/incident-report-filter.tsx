@@ -92,9 +92,10 @@ export default function IncidentReportFilter({
               <SelectValue placeholder="처벌 유형 선택" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="warning">경고</SelectItem>
-              <SelectItem value="detention">구금</SelectItem>
-              <SelectItem value="ban">밴</SelectItem>
+              <SelectItem value="경고">경고</SelectItem>
+              <SelectItem value="정지해제">정지해제</SelectItem>
+              <SelectItem value="게임정지">게임정지</SelectItem>
+              <SelectItem value="구두경고">구두경고</SelectItem>
             </SelectContent>
           </Select>
         </div>
