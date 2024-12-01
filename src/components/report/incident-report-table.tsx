@@ -75,8 +75,11 @@ export default function IncidentReportTable({
         accessorKey: "reporting_user_nickname",
         cell: ({ row }) => (
           <div>
-            {row.original.reporting_user_nickname} (
-            {row.original.reporting_user_id})
+            {row.original.reporting_user_id ? (
+              `${row.original.reporting_user_nickname} (${row.original.reporting_user_id})`
+            ) : (
+              <span className="text-muted-foreground">정보없음</span>
+            )}
           </div>
         ),
       },

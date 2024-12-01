@@ -14,14 +14,15 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatKoreanDateTime } from "@/lib/utils";
+import { Payment } from "@/types/payment";
 
 interface PaymentTableProps {
   data: {
-    items: unknown[];
+    items: Payment[];
     total: number;
     page: number;
     totalPages: number;
@@ -31,10 +32,11 @@ interface PaymentTableProps {
 export default function PaymentTable({ data }: PaymentTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const [columnVisibility, setColumnVisibility] = useState({});
 
-  const columns = useMemo<ColumnDef<unknown>[]>(
+  const columns: ColumnDef<Payment>[] = useMemo(
     () => [
       {
         accessorKey: "transid",
@@ -107,13 +109,25 @@ export default function PaymentTable({ data }: PaymentTableProps) {
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
+              <Fragment key={row.id}>
+                <TableRow onClick={() => row.toggleExpanded()}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                {row.getIsExpanded() && (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="bg-muted/50">
+                      <PackageList packageString={row.original.packagename} />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
             ))
           ) : (
             <TableRow>
@@ -169,4 +183,36 @@ export default function PaymentTable({ data }: PaymentTableProps) {
       </div>
     </div>
   );
+}
+
+function PackageList({ packageString }: { packageString: string }) {
+  try {
+    const items = JSON.parse(packageString);
+    return (
+      <div className="p-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>No.</TableHead>
+              <TableHead>구매 아이템</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((item: string, index: number) => (
+              <TableRow key={index}>
+                <TableCell className="w-[100px]">{index + 1}</TableCell>
+                <TableCell>{item}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  } catch (error) {
+    return (
+      <div className="p-4 text-muted-foreground">
+        유효하지 않은 패키지 데이터입니다.
+      </div>
+    );
+  }
 }

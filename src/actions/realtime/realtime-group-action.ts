@@ -23,3 +23,8 @@ export async function getRealtimeUserGroupsAction(userId: number) {
   const result = await realtimeService.getUserGroups(userId);
   return result;
 }
+
+export async function getGroupsByGroupIdAction(groupId: string) {
+  const result = await realtimeService.getGroupsByGroupId(groupId);
+  return result;
+}

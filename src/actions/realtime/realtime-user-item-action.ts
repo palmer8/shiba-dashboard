@@ -5,6 +5,7 @@ import {
   RemoveUserWeaponDto,
   UpdateUserDataDto,
 } from "@/dto/realtime.dto";
+import { realtimeService } from "@/service/realtime-service";
 import { realtimeUpdateService } from "@/service/realtime-update-service";
 import { GlobalReturn } from "@/types/global-return";
 import { UpdateUserData } from "@/types/user";
@@ -27,5 +28,10 @@ export async function removeUserWeaponAction(data: RemoveUserWeaponDto) {
 export async function removeUserVehicleAction(data: RemoveUserVehicleDto) {
   const result = await realtimeUpdateService.removeUserVehicle(data);
   revalidatePath("/realtime/user");
+  return result;
+}
+
+export async function getItemsByItemNameAction(itemName: string) {
+  const result = await realtimeService.getItemsByItemName(itemName);
   return result;
 }

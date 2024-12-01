@@ -1,6 +1,10 @@
 import { auth } from "@/lib/auth-config";
 import { GlobalReturn } from "@/types/global-return";
 import { boardService } from "./board-service";
+import prisma from "@/db/prisma";
+import { ROLE_HIERARCHY } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
+import { userService } from "./user-service";
 
 class RealtimeService {
   private async getRealtimeUser(): Promise<GlobalReturn<number>> {
@@ -190,6 +194,92 @@ class RealtimeService {
         error,
       };
     }
+  }
+
+  async getGroupsByGroupId(groupId: string) {
+    const session = await auth();
+
+    if (!session?.user?.role) {
+      return {
+        success: false,
+        message: "권한이 없습니다.",
+        data: [],
+        error: "Unauthorized",
+      };
+    }
+
+    const userRole = session.user.role as UserRole;
+
+    const groups = await prisma.groups.findMany({
+      select: {
+        groupId: true,
+        groupBoolean: true,
+      },
+      where: {
+        AND: [
+          {
+            groupId: {
+              contains: groupId,
+              mode: "insensitive",
+            },
+          },
+          {
+            minRole: {
+              in: Object.keys(ROLE_HIERARCHY).filter(
+                (role) =>
+                  ROLE_HIERARCHY[role as UserRole] <= ROLE_HIERARCHY[userRole]
+              ) as UserRole[],
+            },
+          },
+        ],
+      },
+      orderBy: {
+        groupId: "asc",
+      },
+      take: 5,
+    });
+
+    return {
+      success: true,
+      message: "그룹 조회 성공",
+      data: groups,
+      error: null,
+    };
+  }
+
+  async getItemsByItemName(itemName: string) {
+    const session = await auth();
+
+    if (!session || !session.user || !session.user.id) {
+      return {
+        success: false,
+        message: "권한이 없습니다.",
+        data: [],
+        error: "Unauthorized",
+      };
+    }
+
+    const items = await prisma.items.findMany({
+      select: {
+        itemId: true,
+        itemName: true,
+      },
+      where: {
+        itemName: {
+          contains: itemName,
+          mode: "insensitive",
+        },
+      },
+      orderBy: { itemName: "asc" },
+      take: 5,
+    });
+
+    return {
+      success: true,
+      message: "아이템 조회 성공",
+      data: items,
+      error: null,
+    };
   }
 }
 

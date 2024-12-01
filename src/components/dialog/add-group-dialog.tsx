@@ -22,12 +22,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import {
   updateUserGroupAction,
   updateUserGroupByGroupMenuAction,
 } from "@/actions/realtime/realtime-group-action";
 import { toast } from "@/hooks/use-toast";
+import { GroupComboBox } from "@/components/global/group-combo-box";
 
 const addGroupSchema = z.object({
   groupName: z.string().min(1, "그룹 이름을 입력해주세요."),
@@ -68,6 +68,8 @@ export default function AddGroupDialog({
         });
         setOpen(false);
         form.reset();
+        console.log(data);
+
         onSuccess?.();
         return;
       } else {
@@ -122,7 +124,7 @@ export default function AddGroupDialog({
                 <FormItem>
                   <FormLabel>그룹 이름</FormLabel>
                   <FormControl>
-                    <Input {...field} className="w-full" />
+                    <GroupComboBox {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -134,7 +136,9 @@ export default function AddGroupDialog({
                   취소
                 </Button>
               </DialogClose>
-              <Button type="submit">추가</Button>
+              <Button disabled={!form.formState.isValid} type="submit">
+                추가
+              </Button>
             </div>
           </form>
         </Form>
