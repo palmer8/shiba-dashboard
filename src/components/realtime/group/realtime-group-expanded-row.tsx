@@ -123,15 +123,25 @@ export function RealtimeGroupExpandedRow({
                           size="sm"
                           onClick={async () => {
                             try {
-                              await updateUserGroupByGroupMenuAction({
-                                user_id: Number(userId),
-                                group: groupName,
-                                action: "remove",
-                              });
-                              toast({
-                                title: "그룹에서 제거되었습니다",
-                              });
-                              fetchUserGroups();
+                              const result =
+                                await updateUserGroupByGroupMenuAction({
+                                  user_id: Number(userId),
+                                  group: groupName,
+                                  action: "remove",
+                                });
+                              if (result.success) {
+                                toast({
+                                  title:
+                                    "해당 그룹에서 성공적으로 추방하였습니다.",
+                                });
+                                fetchUserGroups();
+                              } else {
+                                toast({
+                                  title: "그룹 삭제에 실패하였습니다",
+                                  description: result.message,
+                                  variant: "destructive",
+                                });
+                              }
                             } catch (error) {
                               toast({
                                 title: "그룹 제거 실패",

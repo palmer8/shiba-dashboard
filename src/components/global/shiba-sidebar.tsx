@@ -49,7 +49,7 @@ export function ShibaSidebar({
       </div>
       <SidebarContent className="no-scrollbar">
         <NavLinks session={session} />
-        {user && hasAccess(user?.role, UserRole.INGAME_ADMIN) && (
+        {user && hasAccess(user?.role, UserRole.MASTER) && (
           <NavAdminLinks session={session} />
         )}
       </SidebarContent>
