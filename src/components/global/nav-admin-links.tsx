@@ -57,7 +57,9 @@ export function NavAdminLinks({ session }: { session: Session | null }) {
                       <SidebarMenuSubItem key={route.href}>
                         <SidebarMenuSubButton asChild>
                           <Link href={route.href}>
-                            <span>{route.name}</span>
+                            <span className="text-muted-foreground">
+                              {route.name}
+                            </span>
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>

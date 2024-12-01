@@ -10,10 +10,10 @@ import { Menu } from "lucide-react";
 export default function MobileSheet() {
   return (
     <Sheet>
-      <SheetTrigger className="w-full bg-transparent fixed top-0 right-4 z-10 flex justify-end items-center h-12">
+      <SheetTrigger className="w-full bg-transparent fixed top-0 right-4 z-10 flex justify-end items-center h-12 md:hidden">
         <Menu />
       </SheetTrigger>
-      <SheetContent>
+      <SheetContent className="md:hidden">
         <SheetHeader>
           <SheetTitle>메뉴</SheetTitle>
           <SheetDescription>.</SheetDescription>

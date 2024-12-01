@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- CreateEnum
-CREATE TYPE "user_role" AS ENUM ('MANAGER', 'ADMIN', 'MASTER', 'SUPERMASTER');
+CREATE TYPE "user_role" AS ENUM ('STAFF', 'ADMIN', 'MASTER', 'SUPERMASTER');
 
 -- CreateEnum
 CREATE TYPE "coupon_group_type" AS ENUM ('COMMON', 'PUBLIC');
@@ -41,7 +41,7 @@ CREATE TABLE "user" (
     "email_verified" TIMESTAMP(3),
     "nickname" TEXT NOT NULL,
     "image" TEXT,
-    "role" "user_role" NOT NULL DEFAULT 'MANAGER',
+    "role" "user_role" NOT NULL DEFAULT 'STAFF',
     "is_permissive" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -245,7 +245,7 @@ CREATE TABLE "groups" (
     "id" TEXT NOT NULL,
     "group_id" TEXT NOT NULL,
     "group_boolean" BOOLEAN NOT NULL,
-    "min_role" "user_role" NOT NULL DEFAULT 'MANAGER',
+    "min_role" "user_role" NOT NULL DEFAULT 'STAFF',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 

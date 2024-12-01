@@ -51,6 +51,8 @@
     "date-fns": "^4.1.0",
     "drizzle-orm": "^0.36.4",
     "embla-carousel-react": "^8.5.1",
+    "json2csv": "^6.0.0-alpha.2",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.462.0",
     "mysql2": "^3.11.4",
     "next": "15.0.3",
@@ -72,6 +74,7 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@types/json2csv": "^5.0.7",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

@@ -3,6 +3,7 @@ import { twMerge } from "tailwind-merge";
 import { UserRole } from "@prisma/client";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
+import { Parser } from "json2csv";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -54,6 +55,39 @@ export function parseCustomDateString(dateStr: string): Date {
   );
 }
 
+export function parseTimeString(timeStr: string): Date {
+  const [time, date] = timeStr.split(" ");
+  const [hours, minutes, seconds] = time.split(":");
+  const [day, month, year] = date.split("/");
+
+  return new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hours),
+    Number(minutes),
+    Number(seconds)
+  );
+}
+
 export function formatKoreanDateTime(date: Date): string {
   return format(date, "yyyy-MM-dd HH:mm:ss", { locale: ko });
+}
+
+export function handleDownloadJson2CSV({
+  data,
+  fileName,
+}: {
+  data: unknown[];
+  fileName: string;
+}) {
+  const parser = new Parser();
+  const csv = parser.parse(data);
+
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${formatKoreanDateTime(new Date())}_${fileName}.csv`;
+  a.click();
 }

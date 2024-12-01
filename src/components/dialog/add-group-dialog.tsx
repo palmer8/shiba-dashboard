@@ -35,9 +35,15 @@ const addGroupSchema = z.object({
 
 interface AddGroupDialogProps {
   userId: number;
+  page: "group" | "user";
+  onSuccess?: () => void;
 }
 
-export default function AddGroupDialog({ userId }: AddGroupDialogProps) {
+export default function AddGroupDialog({
+  userId,
+  page,
+  onSuccess,
+}: AddGroupDialogProps) {
   const [open, setOpen] = useState(false);
 
   const form = useForm({
@@ -49,6 +55,28 @@ export default function AddGroupDialog({ userId }: AddGroupDialogProps) {
 
   async function handleSubmit(data: z.infer<typeof addGroupSchema>) {
     if (!userId) return;
+
+    if (page === "group") {
+      const result = await updateUserGroupByGroupMenuAction({
+        user_id: Number(userId),
+        group: data.groupName,
+        action: "add",
+      });
+      if (result.success) {
+        toast({
+          title: "그룹이 추가되었습니다.",
+        });
+        setOpen(false);
+        form.reset();
+        onSuccess?.();
+        return;
+      } else {
+        toast({
+          title: "그룹 추가에 실패했습니다.",
+          variant: "destructive",
+        });
+      }
+    }
 
     const result = await updateUserGroupAction({
       user_id: Number(userId),

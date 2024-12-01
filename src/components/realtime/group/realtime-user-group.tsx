@@ -53,7 +53,7 @@ export default function RealtimeUserGroup({
   return (
     <div className="grid gap-4">
       <div className="flex justify-end">
-        <AddGroupDialog userId={userId} />
+        <AddGroupDialog userId={userId} page="user" />
       </div>
       <Card>
         <CardHeader>

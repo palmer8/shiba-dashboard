@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, User } from "@prisma/client";
 
 type SignUpUser = Omit<Prisma.UserCreateInput, "hashedPassword">;
 type RealtimeGameUserData = {
@@ -39,4 +39,32 @@ type UpdateUserData = {
   type: "add" | "remove";
 };
 
-export type { SignUpUser, RealtimeGameUserData, UpdateUserData };
+type AdminUser = Pick<
+  User,
+  "id" | "nickname" | "role" | "createdAt" | "name" | "userId" | "isPermissive"
+>;
+
+type RealtimeGroupData = {
+  user_id: string;
+  name: string;
+  job: string;
+};
+
+type RealtimeAdminData = {
+  users: RealtimeGroupData[];
+};
+
+type RealtimeAdmin = {
+  user_id: string;
+  name: string;
+};
+
+export type {
+  SignUpUser,
+  RealtimeGameUserData,
+  UpdateUserData,
+  AdminUser,
+  RealtimeGroupData,
+  RealtimeAdminData,
+  RealtimeAdmin,
+};

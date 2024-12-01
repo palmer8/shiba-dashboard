@@ -216,7 +216,6 @@ export default function RealtimeUserItem({
                 <Button
                   variant="destructive"
                   onClick={() => {
-                    console.log(weapon.id);
                     handleRemoveUserWeapon({
                       user_id: userId,
                       weapon: weapon.id,

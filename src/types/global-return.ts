@@ -5,4 +5,11 @@ type GlobalReturn<T> = {
   error: unknown;
 };
 
-export type { GlobalReturn };
+type Dto<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
+export type { GlobalReturn, Dto };

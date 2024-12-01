@@ -51,21 +51,6 @@ enum ActionType {
   @@map("action_type")
 }
 
-enum IpBlockType {
-  BLACKLIST
-  WHITELIST
-
-  @@map("ip_block_type")
-}
-
-enum AccountBlockType {
-  CHAT_BLOCK
-  ACCOUNT_BLOCK
-  CHAT_UNBLOCK
-  ACCOUNT_UNBLOCK
-
-  @@map("account_block_type")
-}
 
 enum PenaltyType {
   WARNING     @map("경고")
@@ -115,8 +100,6 @@ model User {
   accountUsingQuerylogs AccountUsingQuerylog[]
   groupMails    GroupMail[]
   personalMails PersonalMail[]
-  ipBlocks      IpBlock[]
-  accountBlocks AccountBlock[]
   
   registeredItemQuantities ItemQuantity[] @relation("ItemQuantityRegistrant")
   approvedItemQuantities   ItemQuantity[] @relation("ItemQuantityApprover")
@@ -206,34 +189,6 @@ model PersonalMail {
   registrant   User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
 
   @@map("personal_mail")
-}
-
-model IpBlock {
-  id           String     @id @default(uuid())
-  ip           String
-  reason       String
-  registrantId String?     @map("registrant_id")
-  type         IpBlockType
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-  registrant   User?       @relation(fields: [registrantId], references: [id], onDelete: SetNull)
-
-  @@map("ip_block")
-}
-
-model AccountBlock {
-  id            String           @id @default(uuid())
-  reason        String
-  userId        Int           @map("user_id")
-  type          AccountBlockType
-  blockDuration Int?            @map("block_duration")
-  isPermanent   Boolean         @default(false) @map("is_permanent")
-  registrantId  String?          @map("registrant_id")
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
-  registrant    User?            @relation(fields: [registrantId], references: [id], onDelete: SetNull)
-
-  @@map("account_block")
 }
 
 model CouponGroup {
