@@ -4,27 +4,43 @@ import { boardService } from "./board-service";
 
 class RealtimeService {
   private async getRealtimeUser(): Promise<GlobalReturn<number>> {
-    const realtimeUserCountResponse = await fetch(
-      `${process.env.PRIVATE_API_URL}/DokkuApi/getPlayersCount`,
-      {
-        method: "POST",
-        cache: "no-store",
-        body: JSON.stringify({}),
-        headers: {
-          "Content-Type": "application/json",
-          key: process.env.PRIVATE_API_KEY || "",
-        },
+    try {
+      const realtimeUserCountResponse = await fetch(
+        `${process.env.PRIVATE_API_URL}/DokkuApi/getPlayersCount`,
+        {
+          method: "POST",
+          cache: "no-store",
+          body: JSON.stringify({}),
+          headers: {
+            "Content-Type": "application/json",
+            key: process.env.PRIVATE_API_KEY || "",
+          },
+        }
+      );
+
+      if (!realtimeUserCountResponse.ok) {
+        throw new Error(
+          `HTTP error! status: ${realtimeUserCountResponse.status}`
+        );
       }
-    );
 
-    const realtimeUserCountData = await realtimeUserCountResponse.json();
+      const realtimeUserCountData = await realtimeUserCountResponse.json();
 
-    return {
-      success: true,
-      message: "실시간 유저 수 조회 성공",
-      data: realtimeUserCountData.playerNum,
-      error: null,
-    };
+      return {
+        success: true,
+        message: "실시간 유저 수 조회 성공",
+        data: realtimeUserCountData.playerNum || 0,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Realtime user count error:", error);
+      return {
+        success: false,
+        message: "실시간 유저 수 조회 실패",
+        data: 0,
+        error,
+      };
+    }
   }
 
   async getDashboardData() {}
@@ -142,22 +158,39 @@ class RealtimeService {
   }
 
   async getAllDashboardData() {
-    const [userCount, adminData, recentBoards] = await Promise.all([
-      this.getRealtimeUser(),
-      this.getAdminData(),
-      boardService.getRecentBoards(),
-    ]);
+    try {
+      const [userCount, adminData, recentBoards] = await Promise.all([
+        this.getRealtimeUser(),
+        this.getAdminData(),
+        boardService.getRecentBoards(),
+      ]);
 
-    return {
-      success: true,
-      message: "대시보드 데이터 조회 성공",
-      data: {
-        userCount: userCount.data,
-        adminData: adminData.data,
-        recentBoards: recentBoards.data,
-      },
-      error: null,
-    };
+      return {
+        success: true,
+        message: "대시보드 데이터 조회 성공",
+        data: {
+          userCount: userCount.data || 0,
+          adminData: adminData.data || { count: 0, users: [] },
+          recentBoards: recentBoards.data || {
+            recentBoards: [],
+            recentNotices: [],
+          },
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Dashboard data error:", error);
+      return {
+        success: false,
+        message: "대시보드 데이터 조회 실패",
+        data: {
+          userCount: 0,
+          adminData: { count: 0, users: [] },
+          recentBoards: { recentBoards: [], recentNotices: [] },
+        },
+        error,
+      };
+    }
   }
 }
 
