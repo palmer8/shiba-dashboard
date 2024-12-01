@@ -42,15 +42,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // Prisma를 사용한 배치 upsert 수행
-    await prisma.groups.createMany({
-      data: groupEntries.map((group) => ({
-        groupId: group.groupId,
-        groupBoolean: Boolean(group.groupBoolean),
-        updatedAt: group.updatedAt,
-      })),
-      skipDuplicates: true,
-    });
+    // 트랜잭션으로 처리
+    await prisma.$transaction(
+      groupEntries.map((group) =>
+        prisma.groups.upsert({
+          where: { groupId: group.groupId },
+          update: {
+            groupBoolean: group.groupBoolean,
+            updatedAt: new Date(),
+          },
+          create: {
+            groupId: group.groupId,
+            groupBoolean: group.groupBoolean,
+            updatedAt: new Date(),
+          },
+        })
+      )
+    );
 
     return NextResponse.json(
       { message: "그룹이 성공적으로 처리되었습니다." },
