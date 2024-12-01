@@ -74,7 +74,7 @@ export default function IncidentReportFilter({
   }, [localFilter, dateRange, router]);
 
   const handleReset = useCallback(() => {
-    router.replace("/report");
+    router.replace("/block/report");
     setLocalFilter({ page: 1 });
     setDateRange(undefined);
   }, [router]);
