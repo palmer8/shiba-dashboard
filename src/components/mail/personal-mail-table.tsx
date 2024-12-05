@@ -44,7 +44,7 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
   >({
-    reward: false,
+    rewards: false,
     content: false,
   });
   const { data: session } = useSession();

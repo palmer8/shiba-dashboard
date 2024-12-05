@@ -34,11 +34,12 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  const isSuperMaster = session?.user?.role === "SUPERMASTER";
   const [open, setOpen] = useState(false);
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
   >({
-    reward: false,
+    rewards: false,
     content: false,
   });
 
