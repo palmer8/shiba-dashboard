@@ -2,8 +2,9 @@
 
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
-import { SessionProvider } from "next-auth/react";
+import { SessionProvider, useSession } from "next-auth/react";
 import { ThemeProvider } from "next-themes";
+import StaleTokenProvider from "./stale-token-provider";
 
 export default function ProviderWrapper({
   children,
@@ -13,10 +14,12 @@ export default function ProviderWrapper({
   return (
     <ThemeProvider attribute="class" defaultTheme="light">
       <SessionProvider>
-        <SidebarProvider>
-          {children}
-          <Toaster />
-        </SidebarProvider>
+        <StaleTokenProvider>
+          <SidebarProvider>
+            {children}
+            <Toaster />
+          </SidebarProvider>
+        </StaleTokenProvider>
       </SessionProvider>
     </ThemeProvider>
   );
