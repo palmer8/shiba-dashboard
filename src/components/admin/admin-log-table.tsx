@@ -50,7 +50,7 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
           ))}
         </TableBody>
       </Table>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 justify-end">
         <Button
           variant="outline"
           size="sm"

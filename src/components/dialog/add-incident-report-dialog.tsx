@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -35,19 +35,37 @@ import {
 } from "@/components/ui/select";
 import { createIncidentReportAction } from "@/actions/report-action";
 import { useSession } from "next-auth/react";
+import { useDebounce } from "@/hooks/use-debounce";
+import { getGameNicknameByUserIdAction } from "@/actions/user-action";
+import { IncidentReasonCombobox } from "@/components/report/incident-reason-combobox";
 
 const schema = z.object({
   reason: z.string().min(1, "사유를 입력해주세요"),
-  incidentDescription: z.string().min(10, "상세 내용을 10자 이상 입력해주세요"),
+  incidentDescription: z.string().min(5, "상세 내용을 5자 이상 입력해주세요"),
   incidentTime: z.date(),
-  targetUserId: z.number().min(1, "대상자 ID를 입력해주세요"),
+  targetUserId: z.coerce
+    .number()
+    .min(1, "대상자 ID를 입력해주세요")
+    .transform((val) => (isNaN(val) ? 0 : val)),
   targetUserNickname: z.string().min(1, "대상자 닉네임을 입력해주세요"),
-  reportingUserId: z.number().optional(),
+  reportingUserId: z.coerce
+    .number()
+    .transform((val) => (isNaN(val) ? 0 : val))
+    .optional(),
   reportingUserNickname: z.string().optional(),
   penaltyType: z.enum(["구두경고", "경고", "게임정지", "정지해제"]),
-  warningCount: z.number().optional(),
-  detentionTimeMinutes: z.number().optional(),
-  banDurationHours: z.number().optional(),
+  warningCount: z.coerce
+    .number()
+    .transform((val) => (isNaN(val) ? 0 : val))
+    .optional(),
+  detentionTimeMinutes: z.coerce
+    .number()
+    .transform((val) => (isNaN(val) ? 0 : val))
+    .optional(),
+  banDurationHours: z.coerce
+    .number()
+    .transform((val) => (isNaN(val) ? 0 : val))
+    .optional(),
 });
 
 export default function AddIncidentReportDialog() {
@@ -66,6 +84,10 @@ export default function AddIncidentReportDialog() {
       warningCount: 0,
       detentionTimeMinutes: 0,
       banDurationHours: 0,
+      targetUserId: 0,
+      targetUserNickname: "",
+      reportingUserId: 0,
+      reportingUserNickname: "",
     },
   });
 
@@ -76,11 +98,7 @@ export default function AddIncidentReportDialog() {
 
     // 영구정지 처리 로직
     if (watchPenaltyType === "게임정지" && isPermanentBan) {
-      if (isStaff) {
-        processedData.banDurationHours = 72;
-      } else {
-        processedData.banDurationHours = -1;
-      }
+      processedData.banDurationHours = -1;
     }
 
     const result = await createIncidentReportAction({
@@ -93,16 +111,22 @@ export default function AddIncidentReportDialog() {
 
     if (result.success) {
       if (isStaff && isPermanentBan) {
-        toast.success(
-          "영구정지 요청이 등록되었습니다. 관리자 승인 후 처리됩니다."
-        );
+        toast({
+          title: "영구정지 요청이 등록되었습니다.",
+          description: "관리자 승인 후 처리됩니다.",
+        });
       } else {
-        toast.success("사건 처리 보고서가 등록되었습니다.");
+        toast({
+          title: "사건 처리 보고서가 등록되었습니다.",
+        });
       }
       setOpen(false);
       form.reset();
     } else {
-      toast.error("보고서 등록에 실패했습니다.");
+      toast({
+        title: "사건 처리 보고서 등록에 실패했습니다.",
+        description: "잠시 후에 다시 시도해주세요",
+      });
     }
   };
 
@@ -112,6 +136,40 @@ export default function AddIncidentReportDialog() {
       setIsPermanentBan(false);
     }
   }, [open, form]);
+
+  const debouncedTargetUserId = useDebounce(form.watch("targetUserId"), 500);
+  const debouncedReportingUserId = useDebounce(
+    form.watch("reportingUserId"),
+    500
+  );
+
+  useEffect(() => {
+    if (debouncedTargetUserId) {
+      getGameNicknameByUserIdAction(debouncedTargetUserId).then((result) => {
+        if (result.success && result.data) {
+          form.setValue("targetUserNickname", result.data);
+        } else {
+          form.setValue("targetUserNickname", "");
+        }
+      });
+    } else {
+      form.setValue("targetUserNickname", "");
+    }
+  }, [debouncedTargetUserId, form]);
+
+  useEffect(() => {
+    if (debouncedReportingUserId) {
+      getGameNicknameByUserIdAction(debouncedReportingUserId).then((result) => {
+        if (result.success && result.data) {
+          form.setValue("reportingUserNickname", result.data);
+        } else {
+          form.setValue("reportingUserNickname", "");
+        }
+      });
+    } else {
+      form.setValue("reportingUserNickname", "");
+    }
+  }, [debouncedReportingUserId, form]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -128,7 +186,6 @@ export default function AddIncidentReportDialog() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* 기본 정보 필드들 */}
             <FormField
               control={form.control}
               name="reason"
@@ -136,7 +193,10 @@ export default function AddIncidentReportDialog() {
                 <FormItem>
                   <FormLabel>사유</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="사유를 입력하세요" />
+                    <IncidentReasonCombobox
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -153,10 +213,35 @@ export default function AddIncidentReportDialog() {
                     <Textarea
                       {...field}
                       placeholder="상세 내용을 입력하세요"
-                      className="min-h-[100px]"
+                      className="min-h-[200px]"
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="incidentTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>사건 발생 시간</FormLabel>
+                  <FormControl>
+                    <Input
+                      className="w-2/5 max-md:w-full"
+                      type="datetime-local"
+                      value={
+                        field.value
+                          ? new Date(field.value).toISOString().slice(0, 16)
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const date = new Date(e.target.value);
+                        field.onChange(date);
+                      }}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />
@@ -191,6 +276,78 @@ export default function AddIncidentReportDialog() {
               )}
             />
 
+            <FormField
+              control={form.control}
+              name="targetUserId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>대상자 고유번호</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={999999}
+                      {...field}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        field.onChange(value === "" ? 0 : parseInt(value));
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="targetUserNickname"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>대상자 닉네임</FormLabel>
+                  <FormControl>
+                    <Input disabled={true} {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="reportingUserId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>신고자 고유번호</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={999999}
+                      {...field}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        field.onChange(value === "" ? 0 : parseInt(value));
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="reportingUserNickname"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>신고자 닉네임</FormLabel>
+                  <FormControl>
+                    <Input disabled={true} {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
             {/* 조건부 필드들 */}
             {(watchPenaltyType === "구두경고" ||
               watchPenaltyType === "경고") && (
@@ -202,11 +359,9 @@ export default function AddIncidentReportDialog() {
                     <FormLabel>경고 횟수</FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
+                        type="text"
                         {...field}
-                        onChange={(e) =>
-                          field.onChange(parseInt(e.target.value))
-                        }
+                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -232,7 +387,7 @@ export default function AddIncidentReportDialog() {
                               field.onChange(parseInt(e.target.value))
                             }
                             disabled={isPermanentBan}
-                            min={1}
+                            min={-1}
                             max={72}
                           />
                         </FormControl>
@@ -242,10 +397,7 @@ export default function AddIncidentReportDialog() {
                             onCheckedChange={(checked) => {
                               setIsPermanentBan(!!checked);
                               if (checked) {
-                                form.setValue(
-                                  "banDurationHours",
-                                  isStaff ? 72 : -1
-                                );
+                                form.setValue("banDurationHours", -1);
                               } else {
                                 form.setValue("banDurationHours", 1);
                               }

@@ -9,6 +9,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function generateCouponCode() {
+  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let couponCode = "";
+  for (let i = 0; i < 8; i++) {
+    const randomIndex = Math.floor(Math.random() * characters.length);
+    couponCode += characters[randomIndex];
+  }
+  return couponCode;
+}
+
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
   STAFF: 0,
   INGAME_ADMIN: 1,
@@ -90,4 +100,33 @@ export function handleDownloadJson2CSV({
   a.href = URL.createObjectURL(blob);
   a.download = `${formatKoreanDateTime(new Date())}_${fileName}.csv`;
   a.click();
+}
+
+export function formatKoreanNumber(num: number) {
+  const units = ["", "만", "억", "조", "경", "해"];
+  const digits = String(num).split("").reverse();
+  const chunks: number[] = [];
+
+  // 4자리씩 나누기
+  for (let i = 0; i < digits.length; i += 4) {
+    chunks.push(
+      Number(
+        digits
+          .slice(i, i + 4)
+          .reverse()
+          .join("")
+      )
+    );
+  }
+
+  const result = chunks
+    .map((chunk, i) => {
+      if (chunk === 0) return "";
+      return `${chunk}${units[i]}`;
+    })
+    .reverse()
+    .filter(Boolean)
+    .join(" ");
+
+  return result || "0";
 }

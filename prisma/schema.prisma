@@ -63,7 +63,7 @@ enum PenaltyType {
 
 enum CreditType {
   MONEY
-  BANKMONEY
+  BANK
   CREDIT
   CREDIT2
   CURRENT_COIN
@@ -73,7 +73,7 @@ enum CreditType {
 
 enum RewardRevokeCreditType {
   MONEY
-  BANKMONEY
+  BANK
   CREDIT
   CREDIT2
   ITEM
@@ -164,13 +164,13 @@ model GroupMail {
   id        String   @id @default(uuid())
   reason    String
   content   String
-  reward    Json     @default("{}")
+  rewards    Json[]    
   startDate DateTime @map("start_date")
   endDate   DateTime @map("end_date")
-  userId    String?  @map("user_id")
+  registrantId String?  @map("registrant_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  registrant   User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
 
   @@map("group_mail")
 }
@@ -180,10 +180,9 @@ model PersonalMail {
   userId    Int   @map("user_id")
   reason    String
   content   String
-  reward    Json     @default("{}")
-  startDate DateTime @map("start_date")
-  endDate   DateTime @map("end_date")
+  rewards    Json[]    
   registrantId String? @map("registrant_id")
+  needItems  Json[]
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   registrant   User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
@@ -206,7 +205,7 @@ model CouponGroup {
   endDate     DateTime          @map("end_date")
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
-  coupons     Coupon[]
+  coupons     Coupon[] 
 
   @@map("coupon_group")
 }
@@ -219,7 +218,7 @@ model Coupon {
   couponGroupId String?     @map("coupon_group_id")
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")
-  couponGroup   CouponGroup? @relation(fields: [couponGroupId], references: [id])
+  couponGroup   CouponGroup? @relation(fields: [couponGroupId], references: [id], onDelete: Cascade)
   couponLogs    CouponLog[]
 
   @@map("coupon")
@@ -243,7 +242,8 @@ model ItemQuantity {
   userId       Int            @map("user_id")
   itemId       String            @map("item_id")
   itemName     String            @map("item_name")
-  amount       Int               @map("quantity")
+  reason       String            @map("reason")
+  amount       String               @map("quantity")
   type         ActionType        @default(ADD)
   status       Status            @default(PENDING)
   registrantId String?           @map("registrant_id")
@@ -261,7 +261,8 @@ model ItemQuantity {
 model RewardRevoke {
   id           String               @id @default(uuid())
   userId       Int               @map("user_id")
-  amount       Int
+  reason       String            @map("reason")
+  amount       String
   status       Status               @default(PENDING)
   type         ActionType
   creditType   RewardRevokeCreditType
@@ -303,7 +304,7 @@ model CreditManagement {
   userId       Int        @map("user_id")
   type         ActionType
   creditType   CreditType    @map("credit_type")
-  amount       Int
+  amount       String
   status       Status        @default(PENDING)
   registrantId String?        @map("registrant_id")
   approverId   String?        @map("approver_id")
@@ -337,12 +338,14 @@ model Board {
   id        String        @id @default(uuid())
   title     String
   content   String
+  categoryId String? @map("category_id")
   views     Int          @default(0)
   registrantId    String?       @map("registrant_id")
   isNotice  Boolean      @default(false) @map("is_notice")
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
   registrant    User?        @relation(fields: [registrantId], references: [id], onDelete: SetNull)
+  category   BoardCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   comments  BoardComment[]
 
   @@map("board")
@@ -370,4 +373,13 @@ model AccountUsingQuerylog {
   registrant    User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
 
   @@map("account_using_querylog")
+}
+
+model BoardCategory {
+  id        String   @id @default(uuid())
+  name      String    @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  boards   Board[]
+  @@map("board_category")
 }

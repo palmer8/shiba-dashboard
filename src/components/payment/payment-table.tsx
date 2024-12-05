@@ -32,7 +32,6 @@ interface PaymentTableProps {
 export default function PaymentTable({ data }: PaymentTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [expanded, setExpanded] = useState<string | null>(null);
 
   const [columnVisibility, setColumnVisibility] = useState({});
 
@@ -189,24 +188,22 @@ function PackageList({ packageString }: { packageString: string }) {
   try {
     const items = JSON.parse(packageString);
     return (
-      <div className="p-4">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>No.</TableHead>
-              <TableHead>구매 아이템</TableHead>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>No.</TableHead>
+            <TableHead>구매 아이템</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((item: string, index: number) => (
+            <TableRow key={index}>
+              <TableCell className="w-[100px]">{index + 1}</TableCell>
+              <TableCell>{item}</TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item: string, index: number) => (
-              <TableRow key={index}>
-                <TableCell className="w-[100px]">{index + 1}</TableCell>
-                <TableCell>{item}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+          ))}
+        </TableBody>
+      </Table>
     );
   } catch (error) {
     return (

@@ -4,22 +4,39 @@ import { boardService } from "./board-service";
 import prisma from "@/db/prisma";
 import { ROLE_HIERARCHY } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
-import { userService } from "./user-service";
 
 class RealtimeService {
   private async getRealtimeUser(): Promise<GlobalReturn<number>> {
+    const session = await auth();
+
+    if (!session?.user) {
+      return {
+        success: false,
+        message: "세션 정보가 없습니다.",
+        data: 0,
+        error: null,
+      };
+    }
+
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+
       const realtimeUserCountResponse = await fetch(
         `${process.env.PRIVATE_API_URL}/DokkuApi/getPlayersCount`,
         {
           method: "POST",
-          body: JSON.stringify({}),
           headers: {
             "Content-Type": "application/json",
             key: process.env.PRIVATE_API_KEY || "",
           },
+          signal: controller.signal,
+          cache: "no-store",
+          keepalive: true,
         }
       );
+
+      clearTimeout(timeoutId);
 
       if (!realtimeUserCountResponse.ok) {
         throw new Error(
@@ -45,8 +62,6 @@ class RealtimeService {
       };
     }
   }
-
-  async getDashboardData() {}
 
   async getGameUserDataByUserId(userId: number) {
     const userDataResponse = await fetch(
@@ -162,11 +177,24 @@ class RealtimeService {
 
   async getAllDashboardData() {
     try {
-      const [userCount, adminData, recentBoards] = await Promise.all([
+      // 각 요청에 대해 개별적으로 처리하고 실패 시 기본값 사용
+      const results = await Promise.allSettled([
         this.getRealtimeUser(),
         this.getAdminData(),
         boardService.getRecentBoards(),
       ]);
+
+      const [userCount, adminData, recentBoards] = results.map((result) => {
+        if (result.status === "fulfilled") {
+          return result.value;
+        }
+        // 실패한 경우 기본값 반환
+        console.error("Dashboard data fetch failed:", result.reason);
+        return {
+          success: false,
+          data: null,
+        };
+      });
 
       return {
         success: true,

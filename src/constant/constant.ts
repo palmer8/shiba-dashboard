@@ -138,6 +138,11 @@ export const ADMIN_LINKS = {
         href: "/admin/report",
         role: ["MASTER", "SUPERMASTER"],
       },
+      {
+        name: "카테고리 관리",
+        href: "/admin/category",
+        role: ["MASTER", "SUPERMASTER"],
+      },
     ],
   },
 };

@@ -130,6 +130,77 @@ class ReportService {
       };
     }
 
+    const user = await prisma.user.findUnique({
+      where: {
+        id: session.user.id,
+      },
+      select: {
+        role: true,
+        id: true,
+        nickname: true,
+      },
+    });
+
+    if (!user) {
+      return {
+        success: false,
+        message: "등록되지 않은 계정입니다",
+        data: 0,
+        error: null,
+      };
+    }
+
+    if (user.role === "STAFF" && data.banDurationHours === -1) {
+      try {
+        const [result] = await pool.execute<ResultSetHeader>(
+          `INSERT INTO dokku_incident_report (
+            reason, incident_description, incident_time, 
+            target_user_id, target_user_nickname,
+            reporting_user_id, reporting_user_nickname,
+            penalty_type, warning_count, detention_time_minutes,
+            ban_duration_hours, admin
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            data.reason,
+            data.incidentDescription,
+            formatKoreanDateTime(data.incidentTime),
+            data.targetUserId,
+            data.targetUserNickname,
+            data.reportingUserId,
+            data.reportingUserNickname,
+            "게임정지",
+            data.warningCount,
+            data.detentionTimeMinutes,
+            72,
+            user.nickname,
+          ]
+        );
+
+        if (result.affectedRows > 0) {
+          await prisma.blockTicket.create({
+            data: {
+              registrantId: user.id,
+              reportId: result.insertId,
+            },
+          });
+          return {
+            success: true,
+            message: "사건 처리 보고서 생성 성공",
+            data: 1,
+            error: null,
+          };
+        }
+      } catch (error) {
+        console.error("Create incident report error:", error);
+        return {
+          success: false,
+          message: "사건 처리 보고서 생성 실패",
+          data: 0,
+          error,
+        };
+      }
+    }
+
     try {
       const [result] = await pool.execute<ResultSetHeader>(
         `INSERT INTO dokku_incident_report (

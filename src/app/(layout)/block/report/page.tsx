@@ -37,7 +37,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
   const reports = await reportService.getIncidentReports(filter);
 
   return (
-    <main className="space-y-4">
+    <main>
       <PageBreadcrumb />
       <div className="flex justify-between items-center">
         <GlobalTitle

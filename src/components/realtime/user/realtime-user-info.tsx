@@ -109,6 +109,7 @@ function BasicInfo({ data }: { data: RealtimeGameUserData }) {
         <Badge variant="secondary">오프라인</Badge>
       ),
     },
+    { label: "최종 IP", value: data.last_ip || "-" },
   ];
 
   return (
@@ -204,7 +205,6 @@ function AdminInfo({ data }: { data: RealtimeGameUserData }) {
       value: Number(data.cumulative_cash || 0).toLocaleString() + "원",
     },
     { label: "등급", value: data.tier_reward || "-" },
-    { label: "최종 IP", value: data.last_ip || "-" },
   ];
 
   return (

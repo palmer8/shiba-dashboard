@@ -83,3 +83,24 @@ export type RecentBoards = {
 export type BoardInclude = Prisma.BoardInclude;
 export type BoardWhereInput = Prisma.BoardWhereInput;
 export type BoardCommentInclude = Prisma.BoardCommentInclude;
+
+export interface BoardFilter {
+  startDate?: string;
+  endDate?: string;
+  registrantId?: string;
+  title?: string;
+  page?: number;
+}
+
+export interface BoardData {
+  id: string;
+  title: string;
+  createdAt: Date;
+  views: number;
+  regis: {
+    id: string;
+    nickname: string;
+  };
+  commentCount: number;
+  isNotice?: boolean;
+}

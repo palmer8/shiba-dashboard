@@ -3,18 +3,7 @@ import { Prisma, UserRole } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
 import { GlobalReturn } from "@/types/global-return";
 import { hasAccess } from "@/lib/utils";
-
-interface BoardWithAuthor {
-  id: string;
-  title: string;
-  createdAt: Date;
-  registrant: {
-    id: string;
-    nickname: true;
-  };
-  commentCount: number;
-  views: number;
-}
+import { BoardFilter } from "@/types/board";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -141,26 +130,20 @@ class BoardService {
 
   async getBoards({
     page = 1,
-    search,
+    registrantId,
+    title,
     startDate,
     endDate,
-    searchType,
-  }: {
-    page: number;
-    search?: string;
-    startDate?: string;
-    endDate?: string;
-    searchType?: string;
-  }) {
+  }: BoardFilter) {
     try {
       const where: Prisma.BoardWhereInput = { isNotice: false };
 
-      if (search) {
-        if (searchType === "regis   ") {
-          where.registrant = { nickname: { contains: search } };
-        } else {
-          where.title = { contains: search };
-        }
+      if (title) {
+        where.title = { contains: title };
+      }
+
+      if (registrantId) {
+        where.registrant = { id: registrantId };
       }
 
       if (startDate) {

@@ -76,7 +76,7 @@ class UserService {
 
       const result = (rows as { last_login: string }[])[0];
 
-      if (!result) {
+      if (!result || !result.last_login) {
         return {
           success: false,
           message: "닉네임을 찾을 수 없습니다.",

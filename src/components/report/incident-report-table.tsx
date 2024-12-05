@@ -29,6 +29,8 @@ import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Pencil, Trash } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PENALTY_TYPE } from "@/constant/constant";
+import { deleteIncidentReportAction } from "@/actions/report-action";
+import { toast } from "@/hooks/use-toast";
 
 interface IncidentReportTableProps {
   data: {
@@ -58,7 +60,7 @@ export default function IncidentReportTable({
         accessorKey: "penalty_type",
         cell: ({ row }) => (
           <span
-            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+            className={`inline-flex items-center rounded-full px-2 py-1 text-xs whitespace-nowrap font-medium ${
               row.original.penalty_type === "게임정지"
                 ? "bg-background text-yellow-700 ring-1 ring-inset ring-yellow-600/20"
                 : row.original.penalty_type === "경고"
@@ -100,6 +102,28 @@ export default function IncidentReportTable({
         ),
       },
       {
+        header: "경고 횟수",
+        accessorKey: "warning_count",
+        cell: ({ row }) =>
+          row.original.warning_count ? (
+            row.original.warning_count + "회"
+          ) : (
+            <span className="text-muted-foreground">정보없음</span>
+          ),
+      },
+      {
+        header: "정지 시간",
+        accessorKey: "ban_duration_hours",
+        cell: ({ row }) =>
+          row.original.ban_duration_hours === -1 ? (
+            "영구 정지"
+          ) : row.original.ban_duration_hours ? (
+            `${row.original.ban_duration_hours}시간`
+          ) : (
+            <span className="text-muted-foreground">정보없음</span>
+          ),
+      },
+      {
         header: "처리자",
         accessorKey: "admin",
       },
@@ -133,7 +157,20 @@ export default function IncidentReportTable({
                       <DropdownMenuItem
                         onClick={async () => {
                           if (confirm("정말로 이 보고서를 삭제하시겠습니까?")) {
-                            // TODO: 삭제 API 연동
+                            const result = await deleteIncidentReportAction(
+                              row.original.report_id
+                            );
+                            if (result.success) {
+                              toast({
+                                title:
+                                  "해당 사건 처리 보고서가 삭제되었습니다.",
+                              });
+                            } else {
+                              toast({
+                                title: "사건 처리 보고서 삭제에 실패했습니다.",
+                                description: "잠시 후에 다시 시도해주세요",
+                              });
+                            }
                           }
                         }}
                         className="text-red-600"

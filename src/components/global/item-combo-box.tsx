@@ -22,7 +22,7 @@ import { getItemsByItemNameAction } from "@/actions/realtime/realtime-user-item-
 
 interface ItemComboBoxProps {
   value?: string;
-  onChange?: (value: string) => void;
+  onChange?: (value: { id: string; name: string }) => void;
   placeholder?: string;
 }
 
@@ -72,10 +72,12 @@ export function ItemComboBox({
           aria-expanded={open}
           className="w-full justify-between"
         >
-          {value
-            ? items.find((item) => item.itemId.toString() === value)
-                ?.itemName || value
-            : placeholder || "아이템 선택..."}
+          <span className="text-ellipsis overflow-hidden whitespace-nowrap">
+            {value
+              ? items.find((item) => item.itemId.toString() === value)
+                  ?.itemName || value
+              : placeholder || "아이템 선택..."}
+          </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -95,8 +97,11 @@ export function ItemComboBox({
                 <CommandItem
                   key={item.itemId}
                   value={item.itemId.toString()}
-                  onSelect={(currentValue) => {
-                    onChange?.(currentValue === value ? "" : currentValue);
+                  onSelect={() => {
+                    onChange?.({
+                      id: item.itemId.toString(),
+                      name: item.itemName,
+                    });
                     setOpen(false);
                   }}
                 >
