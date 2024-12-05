@@ -16,15 +16,27 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
+  Row,
 } from "@tanstack/react-table";
 import { useState, useMemo, useCallback, Fragment } from "react";
 import { GroupMailTableData, GroupMail } from "@/types/mail";
 import { useSession } from "next-auth/react";
 import { handleDownloadJson2CSV } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getGroupMailsByIdsOrigin } from "@/actions/mail-action";
+import {
+  deleteGroupMailAction,
+  getGroupMailsByIdsOrigin,
+} from "@/actions/mail-action";
 import { AddGroupMailDialog } from "@/components/dialog/add-group-mail-dialog";
 import { ExpandedGroupMailRow } from "@/components/mail/expanded-group-mail-row";
+import { toast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@radix-ui/react-dropdown-menu";
+import { MoreHorizontal, Trash } from "lucide-react";
 
 interface GroupMailTableProps {
   data: GroupMailTableData;
@@ -115,8 +127,45 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
           <div>{formatKoreanDateTime(row.getValue("createdAt"))}</div>
         ),
       },
+      ...(session?.user?.role === "SUPERMASTER"
+        ? [
+            {
+              id: "actions",
+              header: "관리",
+              cell: ({ row }: { row: Row<GroupMail> }) => {
+                return (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost">
+                        <MoreHorizontal />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[160px]">
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
+                            const result = await deleteGroupMailAction(
+                              row.original.id
+                            );
+                            if (result && result.success) {
+                              toast({ title: result.message });
+                            }
+                          }
+                        }}
+                        className="text-red-600"
+                      >
+                        <Trash className="mr-2 h-4 w-4" />
+                        <span>삭제</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              },
+            },
+          ]
+        : []),
     ],
-    []
+    [session]
   );
 
   const memorizedData = useMemo(() => data.records, [data.records]);

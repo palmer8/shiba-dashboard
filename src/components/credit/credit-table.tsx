@@ -14,6 +14,7 @@ import {
   formatKoreanDateTime,
   formatKoreanNumber,
   handleDownloadJson2CSV,
+  hasAccess,
 } from "@/lib/utils";
 import {
   ColumnDef,
@@ -397,7 +398,7 @@ export function CreditTable({ data }: CreditTableProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {isPending && (
+        {isPending && hasAccess(session?.user?.role, "MASTER") && (
           <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={handleApprove}

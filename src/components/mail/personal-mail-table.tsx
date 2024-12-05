@@ -15,6 +15,7 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
+  Row,
   useReactTable,
 } from "@tanstack/react-table";
 import { useState, useMemo, useCallback, Fragment } from "react";
@@ -115,58 +116,45 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
           <div>{formatKoreanDateTime(row.getValue("createdAt"))}</div>
         ),
       },
-      {
-        id: "actions",
-        header: "관리",
-        cell: ({ row }) => {
-          if (!isSuperMaster) return null;
-
-          const mail = row.original;
-
-          const handleDelete = async () => {
-            try {
-              const confirm = window.confirm(
-                "정말로 개인 우편을 삭제하시겠습니까?"
-              );
-              if (!confirm) return;
-              const result = await deletePersonalMailAction(mail.id);
-              if (result.success) {
-                toast({ title: "개인 우편이 삭제되었습니다." });
-              } else {
-                throw new Error(result.message);
-              }
-            } catch (error) {
-              toast({
-                title: "개인 우편을 삭제하지 못했습니다.",
-                description: "개인 우편을 삭제하는 도중 오류가 발생했습니다.",
-                variant: "destructive",
-              });
-            }
-          };
-
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">메뉴 열기</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={handleDelete}
-                  className="text-red-500"
-                >
-                  <Trash className="mr-2 h-4 w-4" />
-                  삭제
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        },
-      },
+      ...(session?.user?.role === "SUPERMASTER"
+        ? [
+            {
+              id: "actions",
+              header: "관리",
+              cell: ({ row }: { row: Row<PersonalMail> }) => {
+                return (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost">
+                        <MoreHorizontal />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[160px]">
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
+                            const result = await deletePersonalMailAction(
+                              row.original.id
+                            );
+                            if (result && result.success) {
+                              toast({ title: result.message });
+                            }
+                          }
+                        }}
+                        className="text-red-600"
+                      >
+                        <Trash className="mr-2 h-4 w-4" />
+                        <span>삭제</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              },
+            },
+          ]
+        : []),
     ],
-    [isSuperMaster]
+    [session]
   );
 
   const memorizedData = useMemo(() => data.records, [data.records]);
