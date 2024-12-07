@@ -98,14 +98,7 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
     defaultValues: {
       reason: "",
       content: "",
-      rewards: [
-        {
-          type: "ITEM",
-          itemId: "",
-          itemName: "",
-          amount: "1",
-        },
-      ],
+      rewards: [],
       startDate: new Date(),
       endDate: new Date(),
     },
@@ -179,6 +172,15 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
       form.reset();
     }
     setOpen(newOpen);
+  };
+
+  const handleRemoveReward = (index: number) => {
+    const currentRewards = form.getValues("rewards");
+    form.setValue(
+      "rewards",
+      currentRewards.filter((_, i) => i !== index),
+      { shouldValidate: true }
+    );
   };
 
   return (
@@ -287,7 +289,7 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
                       {field.value.map((reward, index) => (
                         <div
                           key={index}
-                          className="grid grid-cols-[180px,1fr,auto] gap-2"
+                          className="grid grid-cols-[100px,1fr,auto] gap-2 items-start"
                         >
                           <Select
                             value={reward.type}

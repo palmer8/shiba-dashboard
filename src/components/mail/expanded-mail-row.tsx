@@ -71,7 +71,7 @@ export function ExpandedMailRow({ row }: ExpandedMailRowProps) {
 
       {row.needItems && row.needItems.length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-bold text-lg">��요 아이템 목록</h4>
+          <h4 className="font-bold text-lg">필요 아이템 목록</h4>
           <Table>
             <TableHeader>
               <TableRow>

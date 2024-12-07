@@ -21,7 +21,7 @@ import {
 import { useState, useMemo, useCallback, Fragment } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getPersonalMailsByIdsOrigin } from "@/actions/mail-action";
-import { AddPersonalMailDialog } from "../dialog/add-personal-mail-dialog";
+import { AddPersonalMailDialog } from "@/components/dialog/add-personal-mail-dialog";
 import { PersonalMail, PersonalMailTableData } from "@/types/mail";
 import { deletePersonalMailAction } from "@/actions/mail-action";
 import {
@@ -33,6 +33,7 @@ import {
 import { MoreHorizontal, Trash } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSession } from "next-auth/react";
+import { ExpandedMailRow } from "@/components/mail/expanded-mail-row";
 
 interface PersonalMailTableProps {
   data: PersonalMailTableData;
@@ -235,6 +236,13 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
                     </TableCell>
                   ))}
                 </TableRow>
+                {row.getIsExpanded() && (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="p-0">
+                      <ExpandedMailRow row={row.original} />
+                    </TableCell>
+                  </TableRow>
+                )}
               </Fragment>
             ))
           ) : (

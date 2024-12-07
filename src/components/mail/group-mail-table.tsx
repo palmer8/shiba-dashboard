@@ -35,7 +35,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@radix-ui/react-dropdown-menu";
+} from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Trash } from "lucide-react";
 
 interface GroupMailTableProps {
@@ -127,7 +127,7 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
           <div>{formatKoreanDateTime(row.getValue("createdAt"))}</div>
         ),
       },
-      ...(session?.user?.role === "SUPERMASTER"
+      ...(isSuperMaster
         ? [
             {
               id: "actions",

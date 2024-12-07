@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { createPersonalMailAction } from "@/actions/mail-action";
 import { formatKoreanNumber } from "@/lib/utils";
+import { X } from "lucide-react";
 
 const RewardSchema = z
   .object({
@@ -74,7 +75,7 @@ const NeedItemSchema = z.discriminatedUnion("type", [
 const PersonalMailSchema = z.object({
   reason: z.string().min(1, "사유를 입력해주세요"),
   content: z.string().min(10, "내용은 최소 10자 이상이어야 합니다"),
-  rewards: z.array(RewardSchema).min(1, "최소 1개 이상의 보상을 설정해주세요"),
+  rewards: z.array(RewardSchema),
   needItems: z.array(NeedItemSchema).optional(),
   userId: z
     .string({
@@ -105,15 +106,7 @@ export function AddPersonalMailDialog({
       reason: "",
       content: "",
       nickname: "",
-      rewards: [
-        {
-          type: "ITEM",
-          itemId: "",
-          itemName: "",
-          amount: "1",
-        },
-      ],
-      needItems: [],
+      rewards: [],
     },
   });
 
@@ -152,65 +145,62 @@ export function AddPersonalMailDialog({
     const updatedRewards = currentRewards.map((reward, i) => {
       if (i === index) {
         if (field === "type") {
-          return value === "ITEM"
-            ? { type: "ITEM", itemId: "", itemName: "", amount: "1" }
-            : {
-                type: value as "MONEY" | "BANK" | "CREDIT" | "CREDIT2",
-                amount: "0",
-              };
+          return {
+            ...reward,
+            type: value,
+            itemId: value === "ITEM" ? "" : undefined,
+            itemName: value === "ITEM" ? "" : undefined,
+          };
         }
         if (field === "item") {
-          console.log("Selected item:", value); // 디버깅용
           return {
             ...reward,
             itemId: value.id,
-            itemName: value.name || "", // name이 undefined일 경우 빈 문자열로 설정
-          };
-        }
-        if (field === "amount") {
-          return {
-            ...reward,
-            amount: value.toString(),
+            itemName: value.name || "",
           };
         }
         return { ...reward, [field]: value };
       }
       return reward;
     });
-    form.setValue("rewards", updatedRewards as PersonalMailValues["rewards"], {
-      shouldValidate: true, // 값이 변경될 때마다 유효성 검사 실행
+    form.setValue("rewards", updatedRewards, {
+      shouldValidate: true,
     });
   };
 
   const handleNeedItemUpdate = (index: number, field: string, value: any) => {
-    const currentNeedItems = form.getValues("needItems");
-    const updatedNeedItems = currentNeedItems?.map((reward, i) => {
+    const currentNeedItems = form.getValues("needItems") || [];
+    const updatedNeedItems = currentNeedItems.map((item, i) => {
       if (i === index) {
         if (field === "type") {
-          return value === "ITEM"
-            ? { type: "ITEM", itemId: "", itemName: "", amount: "1" }
-            : {
-                type: value as "MONEY" | "BANK" | "CREDIT" | "CREDIT2",
-                amount: "0",
-              };
+          const baseItem =
+            value === "ITEM"
+              ? {
+                  type: "ITEM",
+                  itemId: "",
+                  itemName: "",
+                  amount: item.amount || "1",
+                }
+              : { type: value as "MONEY" | "BANK", amount: item.amount || "0" };
+          return baseItem;
         }
         if (field === "item") {
-          console.log("Selected item:", value); // 디버깅용
           return {
-            ...reward,
+            ...item,
             itemId: value.id,
-            itemName: value.name || "", // name이 undefined일 경우 빈 문자열로 설정
+            itemName: value.name || "",
+            amount: item.amount || "1",
           };
         }
         if (field === "amount") {
           return {
-            ...reward,
+            ...item,
             amount: value.toString(),
           };
         }
-        return { ...reward, [field]: value };
+        return { ...item, [field]: value };
       }
-      return reward;
+      return item;
     });
     form.setValue(
       "needItems",
@@ -254,6 +244,15 @@ export function AddPersonalMailDialog({
       form.reset();
     }
     setOpen(newOpen);
+  };
+
+  const handleRemoveReward = (index: number) => {
+    const currentRewards = form.getValues("rewards");
+    form.setValue(
+      "rewards",
+      currentRewards.filter((_, i) => i !== index),
+      { shouldValidate: true }
+    );
   };
 
   return (
@@ -342,11 +341,11 @@ export function AddPersonalMailDialog({
                       {field.value.map((reward, index) => (
                         <div
                           key={index}
-                          className="grid grid-cols-[180px,1fr,auto] gap-2"
+                          className="grid grid-cols-[100px,1fr,auto] gap-2 items-start"
                         >
                           <Select
                             value={reward.type}
-                            onValueChange={(value: any) =>
+                            onValueChange={(value) =>
                               handleRewardUpdate(index, "type", value)
                             }
                           >
@@ -370,20 +369,30 @@ export function AddPersonalMailDialog({
                                   }
                                 />
                               </div>
-                              <Input
-                                type="number"
-                                min={1}
-                                value={reward.amount}
-                                onChange={(e) =>
-                                  handleRewardUpdate(
-                                    index,
-                                    "amount",
-                                    e.target.value
-                                  )
-                                }
-                                placeholder="수량"
-                                className="w-24"
-                              />
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={reward.amount}
+                                  onChange={(e) =>
+                                    handleRewardUpdate(
+                                      index,
+                                      "amount",
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="수량"
+                                  className="w-24"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleRemoveReward(index)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </>
                           ) : (
                             <>
@@ -408,7 +417,14 @@ export function AddPersonalMailDialog({
                                   원
                                 </div>
                               </div>
-                              <div className="w-24" />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveReward(index)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
                             </>
                           )}
                         </div>
