@@ -17,18 +17,9 @@ import { uploadFn } from "../../lib/image-upload";
 
 export const suggestionItems = createSuggestionItems([
   {
-    title: "Send Feedback",
-    description: "Let us know how we can improve.",
-    icon: <MessageSquarePlus size={18} />,
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).run();
-      window.open("/feedback", "_blank");
-    },
-  },
-  {
-    title: "Text",
-    description: "Just start typing with plain text.",
-    searchTerms: ["p", "paragraph"],
+    title: "텍스트",
+    description: "일반 텍스트를 입력합니다.",
+    searchTerms: ["p", "paragraph", "텍스트", "문단"],
     icon: <Text size={18} />,
     command: ({ editor, range }) => {
       editor
@@ -40,18 +31,18 @@ export const suggestionItems = createSuggestionItems([
     },
   },
   {
-    title: "To-do List",
-    description: "Track tasks with a to-do list.",
-    searchTerms: ["todo", "task", "list", "check", "checkbox"],
+    title: "할 일 목록",
+    description: "체크박스가 있는 할 일 목록을 만듭니다.",
+    searchTerms: ["todo", "task", "list", "check", "checkbox", "할일", "체크"],
     icon: <CheckSquare size={18} />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleTaskList().run();
     },
   },
   {
-    title: "Heading 1",
-    description: "Big section heading.",
-    searchTerms: ["title", "big", "large"],
+    title: "제목 1",
+    description: "큰 제목을 추가합니다.",
+    searchTerms: ["title", "big", "large", "제목", "큰제목"],
     icon: <Heading1 size={18} />,
     command: ({ editor, range }) => {
       editor
@@ -63,9 +54,9 @@ export const suggestionItems = createSuggestionItems([
     },
   },
   {
-    title: "Heading 2",
-    description: "Medium section heading.",
-    searchTerms: ["subtitle", "medium"],
+    title: "제목 2",
+    description: "중간 크기의 제목을 추가합니다.",
+    searchTerms: ["subtitle", "medium", "제목", "중간제목"],
     icon: <Heading2 size={18} />,
     command: ({ editor, range }) => {
       editor
@@ -77,9 +68,9 @@ export const suggestionItems = createSuggestionItems([
     },
   },
   {
-    title: "Heading 3",
-    description: "Small section heading.",
-    searchTerms: ["subtitle", "small"],
+    title: "제목 3",
+    description: "작은 제목을 추가합니다.",
+    searchTerms: ["subtitle", "small", "제목", "작은제목"],
     icon: <Heading3 size={18} />,
     command: ({ editor, range }) => {
       editor
@@ -91,27 +82,27 @@ export const suggestionItems = createSuggestionItems([
     },
   },
   {
-    title: "Bullet List",
-    description: "Create a simple bullet list.",
-    searchTerms: ["unordered", "point"],
+    title: "글머리 기호",
+    description: "글머리 기호가 있는 목록을 만듭니다.",
+    searchTerms: ["unordered", "point", "bullet", "목록", "기호"],
     icon: <List size={18} />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleBulletList().run();
     },
   },
   {
-    title: "Numbered List",
-    description: "Create a list with numbering.",
-    searchTerms: ["ordered"],
+    title: "번호 목록",
+    description: "번호가 매겨진 목록을 만듭니다.",
+    searchTerms: ["ordered", "number", "번호", "목록"],
     icon: <ListOrdered size={18} />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).toggleOrderedList().run();
     },
   },
   {
-    title: "Quote",
-    description: "Capture a quote.",
-    searchTerms: ["blockquote"],
+    title: "인용구",
+    description: "인용문을 추가합니다.",
+    searchTerms: ["blockquote", "quote", "인용", "인용구"],
     icon: <TextQuote size={18} />,
     command: ({ editor, range }) =>
       editor
@@ -123,17 +114,17 @@ export const suggestionItems = createSuggestionItems([
         .run(),
   },
   {
-    title: "Code",
-    description: "Capture a code snippet.",
-    searchTerms: ["codeblock"],
+    title: "코드",
+    description: "코드 블록을 추가합니다.",
+    searchTerms: ["codeblock", "code", "코드"],
     icon: <Code size={18} />,
     command: ({ editor, range }) =>
       editor.chain().focus().deleteRange(range).toggleCodeBlock().run(),
   },
   {
-    title: "Image",
-    description: "Upload an image from your computer.",
-    searchTerms: ["photo", "picture", "media"],
+    title: "이미지",
+    description: "컴퓨터에서 이미지를 업로드합니다.",
+    searchTerms: ["photo", "picture", "media", "이미지", "사진"],
     icon: <ImageIcon size={18} />,
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).run();

@@ -76,6 +76,7 @@ export function CreditTable({ data }: CreditTableProps) {
   const [open, setOpen] = useState(false);
   const [columnVisibility, setColumnVisibility] = useState({
     id: false,
+    status: false,
   });
   const { data: session } = useSession();
 

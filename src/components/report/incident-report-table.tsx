@@ -28,9 +28,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Pencil, Trash } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PENALTY_TYPE } from "@/constant/constant";
 import { deleteIncidentReportAction } from "@/actions/report-action";
 import { toast } from "@/hooks/use-toast";
+import EditIncidentReportDialog from "@/components/dialog/edit-incident-report-dialog";
 
 interface IncidentReportTableProps {
   data: {
@@ -145,15 +145,21 @@ export default function IncidentReportTable({
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          // TODO: 수정 다이얼로그 열기
-                        }}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        <span>수정</span>
-                      </DropdownMenuItem>
+                    <DropdownMenuContent
+                      align="end"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <EditIncidentReportDialog
+                        initialData={row.original}
+                        trigger={
+                          <DropdownMenuItem
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            <span>수정</span>
+                          </DropdownMenuItem>
+                        }
+                      />
                       <DropdownMenuItem
                         onClick={async () => {
                           if (confirm("정말로 이 보고서를 삭제하시겠습니까?")) {

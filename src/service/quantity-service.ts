@@ -9,6 +9,7 @@ import {
 import { Prisma, ItemQuantity as ItemQuantityOrigin } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
+import { creditService } from "./credit-service";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -184,6 +185,12 @@ class ItemQuantityService {
           })),
         });
       });
+
+      // if (itemQuantities.length > 0) {
+      //   for (const item of itemQuantities) {
+      //     await creditService.addRewardRevokeByGame(item);
+      //   }
+      // }
 
       return {
         success: true,

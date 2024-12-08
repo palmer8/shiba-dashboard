@@ -19,23 +19,40 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { formatKoreanDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { BoardData } from "@/types/board";
+import { useMemo } from "react";
+
+interface BoardData {
+  id: string;
+  title: string;
+  createdAt: Date;
+  updatedAt: Date;
+  views: number;
+  isNotice: boolean;
+  registrant: {
+    id: string;
+    nickname: string;
+  };
+  category: {
+    id: string;
+    name: string;
+  };
+  commentCount: number;
+}
+
+interface BoardMetadata {
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+}
 
 interface BoardTableProps {
-  // data: {
-  //   data: BoardData[];
-  //   notices: BoardData[];
-  //   metadata: {
-  //     currentPage: number;
-  //     totalPages: number;
-  //     totalCount: number;
-  //   };
-  // };
-  data: any;
+  data: BoardData[];
+  notices: BoardData[];
+  metadata: BoardMetadata;
   page: number;
 }
 
-export function BoardTable({ data, page }: BoardTableProps) {
+export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -44,29 +61,31 @@ export function BoardTable({ data, page }: BoardTableProps) {
       accessorKey: "title",
       header: "제목",
       cell: ({ row }) => (
-        <Link
-          href={`/boards/${row.original.id}`}
-          className="hover:underline flex items-center gap-2"
-        >
+        <div className="flex items-center gap-2">
           {row.original.isNotice && <Badge variant="secondary">공지</Badge>}
-          {row.original.title}
-          {row.original.commentCount > 0 && (
-            <span className="text-sm text-muted-foreground">
-              [{row.original.commentCount}]
-            </span>
-          )}
-        </Link>
+          <Link href={`/board/${row.original.id}`} className="hover:underline">
+            {row.original.title}
+            {row.original.commentCount > 0 && (
+              <span className="text-sm text-muted-foreground ml-1">
+                [{row.original.commentCount}]
+              </span>
+            )}
+          </Link>
+        </div>
       ),
     },
     {
-      accessorKey: "regis.nickname",
+      accessorKey: "category.name",
+      header: "카테고리",
+    },
+    {
+      accessorKey: "registrant.nickname",
       header: "작성자",
-      cell: ({ row }) => row.original.regis.nickname,
     },
     {
       accessorKey: "views",
       header: "조회수",
-      cell: ({ row }) => row.original.views.toLocaleString(),
+      cell: ({ row }) => row.original.views.toLocaleString() + "회",
     },
     {
       accessorKey: "createdAt",
@@ -75,8 +94,30 @@ export function BoardTable({ data, page }: BoardTableProps) {
     },
   ];
 
+  const memorizedData = useMemo(
+    () => [...(notices || []), ...(data || [])],
+    [notices, data]
+  );
+
+  if (!data || (!data?.length && !notices?.length)) {
+    return (
+      <div className="rounded-md border border-dashed p-8">
+        <div className="flex flex-col items-center justify-center text-center">
+          <p className="text-sm text-muted-foreground">게시글이 없습니다.</p>
+          <Button
+            variant="link"
+            onClick={() => router.push("/boards/write")}
+            className="mt-2"
+          >
+            첫 게시글을 작성해보세요
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const table = useReactTable({
-    data: [...data.notices, ...data.data],
+    data: memorizedData,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -105,61 +146,69 @@ export function BoardTable({ data, page }: BoardTableProps) {
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
+          {table.getRowModel().rows.length ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                검색 결과가 없습니다.
+              </TableCell>
             </TableRow>
-          ))}
+          )}
         </TableBody>
       </Table>
-
-      <div className="flex items-center justify-between py-2">
-        <div className="text-sm text-muted-foreground">
-          총 {data.metadata.totalCount.toLocaleString()}개 중{" "}
-          {(page - 1) * 50 + 1}-{Math.min(page * 50, data.metadata.totalCount)}
-          개 표시
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(page - 1)}
-            disabled={page === 1}
-          >
-            이전
-          </Button>
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              value={page}
-              onChange={(e) => {
-                const newPage = parseInt(e.target.value);
-                if (newPage >= 1 && newPage <= data.metadata.totalPages) {
-                  handlePageChange(newPage);
-                }
-              }}
-              className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              min={1}
-              max={data.metadata.totalPages}
-            />
-            <span className="text-sm text-muted-foreground">
-              / {data.metadata.totalPages}
-            </span>
+      {memorizedData.length > 0 && (
+        <div className="flex items-center justify-between py-2">
+          <div className="text-sm text-muted-foreground">
+            총 {metadata.totalCount.toLocaleString()}개 중 {(page - 1) * 50 + 1}
+            -{Math.min(page * 50, metadata.totalCount)}개 표시
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(page + 1)}
-            disabled={page >= data.metadata.totalPages}
-          >
-            다음
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page === 1}
+            >
+              이전
+            </Button>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                value={page}
+                onChange={(e) => {
+                  const newPage = parseInt(e.target.value);
+                  if (newPage >= 1 && newPage <= metadata.totalPages) {
+                    handlePageChange(newPage);
+                  }
+                }}
+                className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                min={1}
+                max={metadata.totalPages}
+              />
+              <span className="text-sm text-muted-foreground">
+                / {metadata.totalPages}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= metadata.totalPages}
+            >
+              다음
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

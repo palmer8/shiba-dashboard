@@ -1,3 +1,5 @@
+import { JSONContent } from "novel";
+
 const ROLE_LINKS = {
   dashboard: {
     name: "홈",
@@ -178,5 +180,15 @@ const reasonOptions = [
   "이유 없는 살인",
   "현금 거래",
 ];
+
+export const DEFAULT_EDITOR_CONTENT: JSONContent = {
+  type: "doc",
+  content: [
+    {
+      type: "paragraph",
+      content: [],
+    },
+  ],
+};
 
 export { ROLE_LINKS, PENALTY_TYPE, reasonOptions, WHITELIST_STATUS };

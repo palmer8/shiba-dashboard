@@ -44,12 +44,14 @@ export type EditIncidentReportData = {
   reason: string;
   incidentDescription: string;
   incidentTime: Date;
+  targetUserId: number;
+  targetUserNickname: string;
+  reportingUserId?: number;
+  reportingUserNickname?: string;
   penaltyType: PenaltyType;
   warningCount?: number | null;
   detentionTimeMinutes?: number | null;
   banDurationHours?: number | null;
-  admin: string;
-  userId: string;
 };
 
 export type EditWhitelistData = {

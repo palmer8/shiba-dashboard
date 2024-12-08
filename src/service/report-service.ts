@@ -436,6 +436,17 @@ class ReportService {
   async updateIncidentReport(
     data: EditIncidentReportData
   ): Promise<GlobalReturn<boolean>> {
+    const session = await auth();
+
+    if (!session?.user?.nickname) {
+      return {
+        success: false,
+        message: "세션이 없습니다",
+        data: false,
+        error: null,
+      };
+    }
+
     try {
       const [result] = await pool.execute<ResultSetHeader>(
         `UPDATE dokku_incident_report 
@@ -444,19 +455,23 @@ class ReportService {
              incident_time = ?,
              penalty_type = ?,
              warning_count = ?,
-             detention_time_minutes = ?,
              ban_duration_hours = ?,
-             admin = ?
+             target_user_id = ?,
+             target_user_nickname = ?,
+             reporting_user_id = ?,
+             reporting_user_nickname = ?
          WHERE report_id = ?`,
         [
           data.reason,
           data.incidentDescription,
           formatKoreanDateTime(data.incidentTime),
           data.penaltyType,
-          data.warningCount ?? null,
-          data.detentionTimeMinutes ?? null,
-          data.banDurationHours ?? null,
-          data.admin,
+          data.warningCount || null,
+          data.banDurationHours || null,
+          data.targetUserId,
+          data.targetUserNickname,
+          data.reportingUserId || null,
+          data.reportingUserNickname || null,
           data.reportId,
         ]
       );

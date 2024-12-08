@@ -31,6 +31,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { deleteWhitelistAction } from "@/actions/report-action";
 import { toast } from "@/hooks/use-toast";
 import { WHITELIST_STATUS } from "@/constant/constant";
+import EditWhitelistDialog from "@/components/dialog/edit-whitelist-dialog";
 
 interface WhitelistTableProps {
   data: {
@@ -97,17 +98,17 @@ export default function WhitelistTable({ data }: WhitelistTableProps) {
               header: "관리",
               cell: ({ row }: { row: Row<WhitelistIP> }) => {
                 const handleDelete = async () => {
-                  if (confirm("정말로 이 화이트리스트를 삭제하시겠습니까?")) {
+                  if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
                     const result = await deleteWhitelistAction(row.original.id);
                     if (result.success) {
                       toast({
-                        title: "화이트리스트 삭제 성공",
-                        description: "화이트리스트가 삭제되었습니다.",
+                        title: "IP 관리 항목 삭제 성공",
+                        description: "IP 관리 항목이 삭제되었습니다.",
                       });
                     } else {
                       toast({
-                        title: "화이트리스트 삭제 실패",
-                        description: "화이트리스트 삭제에 실패했습니다.",
+                        title: "IP 관리 항목 삭제 실패",
+                        description: "IP 관리 항목 삭제에 실패했습니다.",
                       });
                     }
                   }
@@ -121,14 +122,17 @@ export default function WhitelistTable({ data }: WhitelistTableProps) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          // TODO: 수정 다이얼로그 열기
-                        }}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        <span>수정</span>
-                      </DropdownMenuItem>
+                      <EditWhitelistDialog
+                        initialData={row.original}
+                        trigger={
+                          <DropdownMenuItem
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            <span>수정</span>
+                          </DropdownMenuItem>
+                        }
+                      />
                       <DropdownMenuItem
                         onClick={handleDelete}
                         className="text-red-600"

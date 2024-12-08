@@ -227,6 +227,39 @@ export class CouponService {
     });
     return result;
   }
+
+  async updateCouponGroup(id: string, data: Partial<CouponGroupValues>) {
+    try {
+      const result = await prisma.couponGroup.update({
+        where: { id },
+        data: {
+          groupName: data.groupName,
+          groupReason: data.groupReason,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          usageLimit: data.usageLimit,
+          rewards: data.rewards,
+        },
+      });
+      if (result) {
+        return {
+          success: true,
+          message: "쿠폰 그룹 수정이 완료되었습니다.",
+          data: result,
+          error: null,
+        };
+      }
+      return {
+        success: false,
+        message: "쿠폰 그룹 수정에 실패하였습니다.",
+        data: null,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Update coupon group error:", error);
+      throw error;
+    }
+  }
 }
 
 export const couponService = new CouponService();

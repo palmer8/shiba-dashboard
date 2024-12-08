@@ -46,7 +46,6 @@ export function GroupComboBox({
         setGroups([]);
         return;
       }
-
       setLoading(true);
       try {
         const result = await getGroupsByGroupIdAction(debouncedSearch);
@@ -106,14 +105,6 @@ export function GroupComboBox({
                     )}
                   />
                   <span>{group.groupId}</span>
-                  <span
-                    className={cn(
-                      "ml-2 text-xs",
-                      group.groupBoolean ? "text-green-500" : "text-red-500"
-                    )}
-                  >
-                    {group.groupBoolean ? "활성" : "비활성"}
-                  </span>
                 </CommandItem>
               ))}
             </CommandGroup>

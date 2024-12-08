@@ -114,6 +114,7 @@ model User {
   approvedRewardRevokes  RewardRevoke[] @relation("RewardRevokeApprover")
   
   boards        Board[]
+  boardCategories BoardCategory[]
   boardComments BoardComment[]
 
   @@map("user")
@@ -337,7 +338,7 @@ model BlockTicket {
 model Board {
   id        String        @id @default(uuid())
   title     String
-  content   String
+  content   Json
   categoryId String? @map("category_id")
   views     Int          @default(0)
   registrantId    String?       @map("registrant_id")
@@ -378,8 +379,12 @@ model AccountUsingQuerylog {
 model BoardCategory {
   id        String   @id @default(uuid())
   name      String    @unique
+  registrantId String? @map("registrant_id")
+  template Json? @map("template")
+  isUsed Boolean @default(false) @map("is_used")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   boards   Board[]
+  registrant   User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
   @@map("board_category")
 }

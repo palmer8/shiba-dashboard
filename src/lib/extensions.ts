@@ -1,7 +1,6 @@
 import {
   TiptapImage,
   TiptapLink,
-  UpdatedImage,
   TaskList,
   TaskItem,
   HorizontalRule,
@@ -14,11 +13,13 @@ import { UploadImagesPlugin } from "novel/plugins";
 import { cx } from "class-variance-authority";
 
 const aiHighlight = AIHighlight;
-const placeholder = Placeholder;
+const placeholder = Placeholder.configure({
+  placeholder: "'/'를 눌러 다양한 형태의 텍스트를 작성하세요",
+});
 const tiptapLink = TiptapLink.configure({
   HTMLAttributes: {
     class: cx(
-      "text-muted-foreground underline underline-offset-[3px] hover:text-primary transition-colors cursor-pointer",
+      "text-muted-foreground underline underline-offset-[3px] hover:text-primary transition-colors cursor-pointer"
     ),
   },
 });
@@ -33,12 +34,6 @@ const tiptapImage = TiptapImage.extend({
   },
 }).configure({
   allowBase64: true,
-  HTMLAttributes: {
-    class: cx("rounded-lg border border-muted"),
-  },
-});
-
-const updatedImage = UpdatedImage.configure({
   HTMLAttributes: {
     class: cx("rounded-lg border border-muted"),
   },
@@ -86,7 +81,7 @@ const starterKit = StarterKit.configure({
   codeBlock: {
     HTMLAttributes: {
       class: cx(
-        "rounded-md bg-muted text-muted-foreground border p-5 font-mono font-medium",
+        "rounded-md bg-muted text-muted-foreground border p-5 font-mono font-medium"
       ),
     },
   },
@@ -109,7 +104,6 @@ export const defaultExtensions = [
   placeholder,
   tiptapLink,
   tiptapImage,
-  updatedImage,
   taskList,
   taskItem,
   horizontalRule,

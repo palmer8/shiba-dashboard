@@ -31,7 +31,7 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSession } from "next-auth/react";
-import { MoreHorizontal, Trash } from "lucide-react";
+import { MoreHorizontal, Trash, Pencil } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Prisma } from "@prisma/client";
+import EditCouponDialog from "@/components/dialog/edit-coupon-dialog";
 
 interface CouponTableProps {
   data: {
@@ -162,6 +163,15 @@ export function CouponTable({ data, page }: CouponTableProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <EditCouponDialog
+                      initialData={row.original}
+                      trigger={
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          <span>수정</span>
+                        </DropdownMenuItem>
+                      }
+                    />
                     <DropdownMenuItem
                       onClick={async (e) => {
                         e.stopPropagation();

@@ -4,65 +4,12 @@ import { boardService } from "./board-service";
 import prisma from "@/db/prisma";
 import { ROLE_HIERARCHY } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
+import { DailyUserStats, DashboardData, RealtimeAdmin } from "@/types/user";
+import pool from "@/db/mysql";
+import { RowDataPacket } from "mysql2/promise";
+import { cookies } from "next/headers";
 
 class RealtimeService {
-  private async getRealtimeUser(): Promise<GlobalReturn<number>> {
-    const session = await auth();
-
-    if (!session?.user) {
-      return {
-        success: false,
-        message: "세션 정보가 없습니다.",
-        data: 0,
-        error: null,
-      };
-    }
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
-
-      const realtimeUserCountResponse = await fetch(
-        `${process.env.PRIVATE_API_URL}/DokkuApi/getPlayersCount`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            key: process.env.PRIVATE_API_KEY || "",
-          },
-          signal: controller.signal,
-          cache: "no-store",
-          keepalive: true,
-        }
-      );
-
-      clearTimeout(timeoutId);
-
-      if (!realtimeUserCountResponse.ok) {
-        throw new Error(
-          `HTTP error! status: ${realtimeUserCountResponse.status}`
-        );
-      }
-
-      const realtimeUserCountData = await realtimeUserCountResponse.json();
-
-      return {
-        success: true,
-        message: "실시간 유저 수 조회 성공",
-        data: realtimeUserCountData.playerNum || 0,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Realtime user count error:", error);
-      return {
-        success: false,
-        message: "실시간 유저 수 조회 실패",
-        data: 0,
-        error,
-      };
-    }
-  }
-
   async getGameUserDataByUserId(userId: number) {
     const userDataResponse = await fetch(
       `${process.env.PRIVATE_API_URL}/DokkuApi/getPlayerData`,
@@ -151,77 +98,6 @@ class RealtimeService {
       data: userGroups,
       error: null,
     };
-  }
-
-  async getAdminData() {
-    const adminDataResponse = await fetch(
-      `${process.env.PRIVATE_API_URL}/DokkuApi/getAdmin`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          key: process.env.PRIVATE_API_KEY || "",
-        },
-      }
-    );
-
-    const adminData = await adminDataResponse.json();
-
-    return {
-      success: true,
-      message: "관리자 데이터 조회 성공",
-      data: adminData,
-      error: null,
-    };
-  }
-
-  async getAllDashboardData() {
-    try {
-      // 각 요청에 대해 개별적으로 처리하고 실패 시 기본값 사용
-      const results = await Promise.allSettled([
-        this.getRealtimeUser(),
-        this.getAdminData(),
-        boardService.getRecentBoards(),
-      ]);
-
-      const [userCount, adminData, recentBoards] = results.map((result) => {
-        if (result.status === "fulfilled") {
-          return result.value;
-        }
-        // 실패한 경우 기본값 반환
-        console.error("Dashboard data fetch failed:", result.reason);
-        return {
-          success: false,
-          data: null,
-        };
-      });
-
-      return {
-        success: true,
-        message: "대시보드 데이터 조회 성공",
-        data: {
-          userCount: userCount.data || 0,
-          adminData: adminData.data || { count: 0, users: [] },
-          recentBoards: recentBoards.data || {
-            recentBoards: [],
-            recentNotices: [],
-          },
-        },
-        error: null,
-      };
-    } catch (error) {
-      console.error("Dashboard data error:", error);
-      return {
-        success: false,
-        message: "대시보드 데이터 조회 실패",
-        data: {
-          userCount: 0,
-          adminData: { count: 0, users: [] },
-          recentBoards: { recentBoards: [], recentNotices: [] },
-        },
-        error,
-      };
-    }
   }
 
   async getGroupsByGroupId(groupId: string) {

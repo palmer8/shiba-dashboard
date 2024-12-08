@@ -34,3 +34,12 @@ export async function deleteCouponGroupWithCouponsAction(
   revalidatePath("/coupon");
   return result;
 }
+
+export async function updateCouponGroupAction(
+  id: string,
+  data: Partial<CouponGroupValues>
+) {
+  const result = await couponService.updateCouponGroup(id, data);
+  revalidatePath("/coupon");
+  return result;
+}

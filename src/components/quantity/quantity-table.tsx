@@ -70,7 +70,9 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
   const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const [columnVisibility, setColumnVisibility] = useState({});
+  const [columnVisibility, setColumnVisibility] = useState({
+    status: false,
+  });
 
   const columns = useMemo<ColumnDef<ItemQuantity>[]>(
     () => [
@@ -106,7 +108,7 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
       {
         accessorKey: "amount",
         header: "수량",
-        cell: ({ row }) => formatKoreanNumber(row.getValue("amount")),
+        cell: ({ row }) => formatKoreanNumber(row.getValue("amount")) + "개",
       },
       {
         accessorKey: "type",
@@ -200,7 +202,6 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
     state: {
       columnVisibility,
     },
-    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
   });
 

@@ -24,82 +24,89 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { createWhitelistAction } from "@/actions/report-action";
+import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Select,
 } from "@/components/ui/select";
+import { updateWhitelistAction } from "@/actions/report-action";
+import { WhitelistIP } from "@/types/report";
 import { WHITELIST_STATUS } from "@/constant/constant";
 
-const whitelistSchema = z.object({
-  user_ip: z.string().refine(
-    (value) => {
-      const ips = value.split("\n").filter((ip) => ip.trim() !== "");
-      return ips.every((ip) =>
+interface EditWhitelistDialogProps {
+  initialData: WhitelistIP;
+  trigger: React.ReactNode;
+}
+
+const schema = z.object({
+  id: z.number(),
+  user_ip: z
+    .string()
+    .refine(
+      (value) =>
         /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|\*)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|\*)$/.test(
-          ip.trim()
-        )
-      );
-    },
-    {
-      message:
-        "올바른 IP 형식이 아닙니다. (예: 111.111.111.111 또는 111.111.*.*)",
-    }
-  ),
+          value
+        ),
+      {
+        message:
+          "올바른 IP 형식이 아닙니다. (예: 111.111.111.111 또는 111.111.*.*)",
+      }
+    ),
   comment: z.string().optional(),
   status: z.enum(Object.keys(WHITELIST_STATUS) as [string, ...string[]]),
 });
 
-export default function AddWhitelistDialog() {
+export default function EditWhitelistDialog({
+  initialData,
+  trigger,
+}: EditWhitelistDialogProps) {
   const [open, setOpen] = useState(false);
 
-  const form = useForm<z.infer<typeof whitelistSchema>>({
-    resolver: zodResolver(whitelistSchema),
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
     defaultValues: {
-      user_ip: "",
-      comment: "",
-      status: "0",
+      id: initialData.id,
+      user_ip: initialData.user_ip,
+      comment: initialData.comment || "",
+      status: initialData.status.toString(),
     },
   });
 
-  const onSubmit = async (data: z.infer<typeof whitelistSchema>) => {
-    const ips = data.user_ip.split("\n").filter((ip) => ip.trim() !== "");
-
-    const result = await createWhitelistAction({
-      user_ip: ips,
+  const onSubmit = async (data: z.infer<typeof schema>) => {
+    const result = await updateWhitelistAction({
+      id: data.id,
+      user_ip: data.user_ip,
       comment: data.comment,
       status: parseInt(data.status),
     });
 
     if (result.success) {
       toast({
-        title: "IP 관리 티켓 등록 성공",
-        description: "IP가 성공적으로 등록되었습니다.",
+        title: "해당 IP 관리 항목 수정 성공",
+        description: "해당 IP 관리 항목이 성공적으로 수정되었습니다.",
       });
       setOpen(false);
-      form.reset();
     } else {
       toast({
-        title: "IP 관리 티켓 등록 실패",
-        description: "IP 관리 티켓 등록에 실패했습니다.",
+        title: "해당 IP 관리 항목 수정 실패",
+        description: "해당 IP 관리 항목 수정에 실패했습니다.",
       });
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>IP 추가</Button>
+      <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
+        {trigger}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl" onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
-          <DialogTitle>IP 관리 항목 추가</DialogTitle>
-          <DialogDescription>관리 할 IP를 추가합니다.</DialogDescription>
+          <DialogTitle>화이트리스트 수정</DialogTitle>
+          <DialogDescription>화이트리스트 정보를 수정합니다.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -111,12 +118,12 @@ export default function AddWhitelistDialog() {
                 <FormItem>
                   <FormLabel>IP 주소</FormLabel>
                   <FormDescription>
-                    여러 IP를 등록하려면 줄바꿈으로 구분해주세요.
+                    와일드카드(*)를 사용하여 IP 대역을 지정할 수 있습니다.
                   </FormDescription>
                   <FormControl>
                     <Textarea
-                      placeholder={`예시: 111.111.111.111\n222.222.222.*`}
-                      className="h-32"
+                      placeholder="예시: 111.111.111.111 또는 111.111.*.*"
+                      className="h-20"
                       {...field}
                     />
                   </FormControl>
@@ -131,6 +138,9 @@ export default function AddWhitelistDialog() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>상태</FormLabel>
+                  <FormDescription>
+                    해당 IP 관리 항목의 상태를 선택해주세요.
+                  </FormDescription>
                   <FormControl>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger>
@@ -162,7 +172,11 @@ export default function AddWhitelistDialog() {
                     해당 IP 관리 항목의 설명을 입력해주세요.
                   </FormDescription>
                   <FormControl>
-                    <Input placeholder="설명을 입력해주세요" {...field} />
+                    <Textarea
+                      placeholder="예시: 내부 네트워크 IP 대역 추가"
+                      className="h-20"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -183,7 +197,7 @@ export default function AddWhitelistDialog() {
                   !form.formState.isValid || form.formState.isSubmitting
                 }
               >
-                등록
+                수정
               </Button>
             </DialogFooter>
           </form>

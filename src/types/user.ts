@@ -59,6 +59,42 @@ type RealtimeAdmin = {
   name: string;
 };
 
+type DailyUserStats = {
+  date: string;
+  count: number;
+  changePercentage: number;
+};
+
+type DashboardData = {
+  userCount: number;
+  adminData: {
+    count: number;
+    users: RealtimeAdmin[];
+  };
+  recentBoards: {
+    recentBoards: Array<{
+      id: string;
+      title: string;
+      createdAt: Date;
+      commentCount: number;
+      registrant: {
+        id: string;
+        nickname: string;
+      };
+    }>;
+    recentNotices: Array<{
+      id: string;
+      title: string;
+      createdAt: Date;
+      registrant: {
+        id: string;
+        nickname: string;
+      };
+    }>;
+  };
+  weeklyStats: DailyUserStats[];
+};
+
 export type {
   SignUpUser,
   RealtimeGameUserData,
@@ -67,4 +103,6 @@ export type {
   RealtimeGroupData,
   RealtimeAdminData,
   RealtimeAdmin,
+  DailyUserStats,
+  DashboardData,
 };
