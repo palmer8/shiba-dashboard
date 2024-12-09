@@ -13,6 +13,7 @@ import {
   PersonalMailTableData,
 } from "@/types/mail";
 import { Prisma, GroupMail, PersonalMail } from "@prisma/client";
+import { redirect } from "next/navigation";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -22,6 +23,9 @@ class MailService {
     filter: GroupMailFilter
   ): Promise<GlobalReturn<GroupMailTableData>> {
     try {
+      const session = await auth();
+      if (!session?.user) return redirect("/login");
+
       const where: Prisma.GroupMailWhereInput = {};
 
       if (filter.reason) {
@@ -98,15 +102,7 @@ class MailService {
 
   async createGroupMail(data: GroupMailValues) {
     const session = await auth();
-
-    if (!session?.user) {
-      return {
-        success: false,
-        message: "로그인 상태가 아닙니다",
-        data: null,
-        error: null,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     try {
       const newGroupMail = await prisma.groupMail.create({
@@ -139,6 +135,9 @@ class MailService {
 
   async updateGroupMail(id: string, data: Partial<GroupMailValues>) {
     try {
+      const session = await auth();
+      if (!session?.user) return redirect("/login");
+
       const updatedMail = await prisma.groupMail.update({
         where: { id },
         data: {
@@ -168,6 +167,9 @@ class MailService {
   }
 
   async deleteGroupMail(id: string) {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
     try {
       await prisma.groupMail.delete({
         where: { id },
@@ -195,6 +197,9 @@ class MailService {
     filter: PersonalMailFilter
   ): Promise<GlobalReturn<PersonalMailTableData>> {
     try {
+      const session = await auth();
+      if (!session?.user) return redirect("/login");
+
       const where: Prisma.PersonalMailWhereInput = {};
 
       if (filter.reason) {
@@ -268,15 +273,7 @@ class MailService {
 
   async createPersonalMail(data: PersonalMailValues) {
     const session = await auth();
-
-    if (!session?.user) {
-      return {
-        success: false,
-        message: "로그인 상태가 아닙니다",
-        data: null,
-        error: null,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     try {
       const newPersonalMail = await prisma.personalMail.create({
@@ -309,6 +306,9 @@ class MailService {
 
   async updatePersonalMail(id: string, data: Partial<PersonalMailValues>) {
     try {
+      const session = await auth();
+      if (!session?.user) return redirect("/login");
+
       const updatedMail = await prisma.personalMail.update({
         where: { id },
         data: {
@@ -339,6 +339,9 @@ class MailService {
 
   async deletePersonalMail(id: string) {
     try {
+      const session = await auth();
+      if (!session?.user) return redirect("/login");
+
       await prisma.personalMail.delete({
         where: { id },
       });
@@ -361,6 +364,9 @@ class MailService {
   }
 
   async getGroupMailsByIds(ids: string[]) {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
     const records = await prisma.groupMail.findMany({
       where: { id: { in: ids } },
     });
@@ -383,6 +389,9 @@ class MailService {
   async getGroupMailsByIdsOrigin(
     ids: string[]
   ): Promise<GlobalReturn<GroupMail[]>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
     try {
       const records = await prisma.groupMail.findMany({
         where: {
@@ -410,6 +419,9 @@ class MailService {
   async getPersonalMailsByIdsOrigin(
     ids: string[]
   ): Promise<GlobalReturn<PersonalMail[]>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
     try {
       const records = await prisma.personalMail.findMany({
         where: {

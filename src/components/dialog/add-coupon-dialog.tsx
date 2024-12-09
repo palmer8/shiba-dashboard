@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { ItemComboBox } from "@/components/global/item-combo-box";
 import { generateCouponCode } from "@/lib/utils";
+import { X } from "lucide-react";
 
 const CouponGroupSchema = z
   .object({
@@ -193,6 +194,14 @@ export default function AddCouponDialog({
     form.setValue("rewards", updatedRewards);
   };
 
+  const handleRemoveReward = (index: number) => {
+    const currentRewards = form.getValues("rewards");
+    form.setValue(
+      "rewards",
+      currentRewards.filter((_, i) => i !== index)
+    );
+  };
+
   const handleDateChange = (field: "startDate" | "endDate", value: string) => {
     const date = value ? new Date(value) : null;
     form.setValue(field, date as Date);
@@ -203,7 +212,7 @@ export default function AddCouponDialog({
       <DialogTrigger asChild>
         <Button>그룹 추가</Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[70vh] overflow-y-auto">
+      <DialogContent className="max-h-[70vh] overflow-x-hidden overflow-y-auto">
         <DialogHeader>
           <DialogTitle>쿠폰 그룹 추가</DialogTitle>
           <DialogDescription>
@@ -421,6 +430,14 @@ export default function AddCouponDialog({
                             placeholder="수량"
                             className="w-24"
                           />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveReward(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
                       ))}
                       <Button

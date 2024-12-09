@@ -33,8 +33,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createGroupMailAction } from "@/actions/mail-action";
+import {
+  createGroupMailAction,
+  updateGroupMailAction,
+} from "@/actions/mail-action";
 import { formatKoreanNumber } from "@/lib/utils";
+import { GroupMail } from "@/types/mail";
+import { ReactNode, useState } from "react";
 import { X } from "lucide-react";
 
 const RewardSchema = z
@@ -88,20 +93,24 @@ const GroupMailSchema = z
 
 export type GroupMailValues = z.infer<typeof GroupMailSchema>;
 
-interface AddGroupMailDialogProps {
-  open: boolean;
-  setOpen: (open: boolean) => void;
+interface EditGroupMailDialogProps {
+  initialData: GroupMail;
+  trigger: ReactNode;
 }
 
-export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
+export default function EditGroupMailDialog({
+  initialData,
+  trigger,
+}: EditGroupMailDialogProps) {
+  const [open, setOpen] = useState(false);
   const form = useForm<GroupMailValues>({
     resolver: zodResolver(GroupMailSchema),
     defaultValues: {
-      reason: "",
-      content: "",
-      rewards: [],
-      startDate: new Date(),
-      endDate: new Date(),
+      reason: initialData.reason,
+      content: initialData.content,
+      rewards: initialData.rewards,
+      startDate: initialData.startDate,
+      endDate: initialData.endDate,
     },
   });
 
@@ -122,7 +131,7 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
           return {
             ...reward,
             itemId: value.id,
-            itemName: value.name || "", // name이 undefined일 경우 빈 문자열로
+            itemName: value.name || "", // name이 undefined일 경우 빈 문자열로 설정
           };
         }
         if (field === "amount") {
@@ -152,16 +161,16 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
         (reward) => reward.type === "ITEM" && reward.itemId !== ""
       );
       submitData.rewards = withOutNoneIdRewards;
-      const result = await createGroupMailAction(submitData);
+      const result = await updateGroupMailAction(initialData.id, submitData);
       if (result.success) {
-        toast({ title: "단체 우편이 생성되었습니다." });
+        toast({ title: "단체 우편이 수정되었습니다." });
         setOpen(false);
         form.reset();
       }
     } catch (error) {
       toast({
-        title: "단체 우편을 생성하지 못했습니다",
-        description: "단체 우편을 생성하는 도중 오���가 발생했습니다.",
+        title: "단체 우편을 수정하지 못했습니다",
+        description: "단체 우편을 수정하는 도중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }
@@ -186,13 +195,11 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button>단체 우편 추가</Button>
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-h-[700px] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>단체 우편 추가</DialogTitle>
-          <DialogDescription>단체 우편을 생성합니다.</DialogDescription>
+          <DialogTitle>단체 우편 수정</DialogTitle>
+          <DialogDescription>단체 우편을 수정합니다.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-4">

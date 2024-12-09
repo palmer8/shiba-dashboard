@@ -207,14 +207,14 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
 
   const handleSuccess = useCallback((message: string) => {
     toast({
-      title: "성공",
+      title: "정상적으로 처리되었습니다.",
       description: message,
     });
   }, []);
 
   const handleError = useCallback((error: any) => {
     toast({
-      title: "오류 발생",
+      title: "처리 중 오류가 발생하였습니다.",
       description: error.message,
       variant: "destructive",
     });

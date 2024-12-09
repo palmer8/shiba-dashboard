@@ -22,7 +22,7 @@ class CreditService {
     filter: CreditFilter
   ): Promise<GlobalReturn<CreditTableData>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
       const where: Prisma.RewardRevokeWhereInput = {
@@ -111,12 +111,17 @@ class CreditService {
     }
   }
 
-  async addRewardRevokeByGame(data: RewardRevoke): Promise<any> {
+  async addRewardRevokeByGame(data: {
+    userId: number;
+    amount: string;
+    type: ActionType;
+    creditType: RewardRevokeCreditType;
+  }): Promise<any> {
     let url: string;
-    const gameData: GameData = {
+    const gameData = {
       user_id: data.userId,
       amount: data.amount,
-      type: data.type,
+      type: data.type === "ADD" ? "add" : "subtract",
     };
 
     switch (data.creditType) {
@@ -136,27 +141,35 @@ class CreditService {
         return null;
     }
 
-    const result = await fetch(
+    const response = await fetch(
       `${process.env.PRIVATE_API_URL}/DokkuApi/${url}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          key: process.env.PRIVATE_API_KEY || "",
         },
-        body: JSON.stringify(gameData),
+        body: JSON.stringify({
+          user_id: gameData.user_id,
+          amount: Number(gameData.amount),
+          type: gameData.type,
+        }),
       }
     );
 
-    if (!result.ok) {
-      throw new Error(`Failed to update game data: ${result.statusText}`);
+    const result = await response.json();
+    console.log(result);
+
+    if (!result.success) {
+      throw new Error(`Failed to update game data: ${result.message}`);
     }
 
-    return result.json();
+    return result;
   }
 
   async approveRewardRevokes(ids: string[]): Promise<GlobalReturn<boolean>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     const rewardRevokes = await prisma.rewardRevoke.findMany({
       where: {
@@ -181,7 +194,27 @@ class CreditService {
         });
 
         for (const revoke of rewardRevokes) {
-          await this.addRewardRevokeByGame(revoke as RewardRevoke);
+          const result = await this.addRewardRevokeByGame({
+            userId: revoke.userId,
+            amount: revoke.amount,
+            type: revoke.type,
+            creditType: revoke.creditType,
+          });
+          if (!result) {
+            await prisma.rewardRevoke.updateMany({
+              where: {
+                id: { in: ids },
+                status: "APPROVED",
+              },
+              data: {
+                status: "PENDING",
+                isApproved: false,
+                approverId: null,
+                approvedAt: null,
+              },
+            });
+            throw new Error(`Failed to apply game changes: ${result.error}`);
+          }
         }
 
         await prisma.accountUsingQuerylog.createMany({
@@ -215,7 +248,7 @@ class CreditService {
 
   async rejectRewardRevokes(ids: string[]): Promise<GlobalReturn<boolean>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
       await prisma.$transaction(async (prisma) => {
@@ -226,7 +259,7 @@ class CreditService {
           },
           data: {
             status: "REJECTED",
-            approverId: session.user?.id,
+            approverId: session.user!.id,
             approvedAt: new Date(),
           },
         });
@@ -234,7 +267,7 @@ class CreditService {
         await prisma.accountUsingQuerylog.createMany({
           data: ids.map((id) => ({
             content: `재화 지급/회수 티켓 거절 - [${id}] 건 / 대상: ${session.user?.id}`,
-            registrantId: session.user?.id,
+            registrantId: session.user!.id,
           })),
         });
       });
@@ -258,7 +291,7 @@ class CreditService {
 
   async cancelRewardRevokes(ids: string[]): Promise<GlobalReturn<boolean>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
       await prisma.rewardRevoke.updateMany({
@@ -300,7 +333,7 @@ class CreditService {
     data: CreateRewardRevokeData
   ): Promise<GlobalReturn<RewardRevoke>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
       const record = await prisma.rewardRevoke.create({
@@ -345,7 +378,7 @@ class CreditService {
 
   async deleteRewardRevoke(id: string): Promise<GlobalReturn<boolean>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
       const user = await prisma.user.findUnique({
@@ -403,7 +436,7 @@ class CreditService {
     data: UpdateRewardRevokeData
   ): Promise<GlobalReturn<RewardRevoke>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
       const user = await prisma.user.findUnique({
@@ -466,28 +499,53 @@ class CreditService {
 
   async approveAllRewardRevokes(): Promise<GlobalReturn<boolean>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
       const rewardRevokes = await prisma.rewardRevoke.findMany({
         where: { status: "PENDING" },
       });
 
-      await prisma.rewardRevoke.updateMany({
-        where: { status: "PENDING" },
-        data: {
-          status: "APPROVED",
-          isApproved: true,
-          approvedAt: new Date(),
-          approverId: session.user.id,
-        },
-      });
+      await prisma.$transaction(async (prisma) => {
+        await prisma.rewardRevoke.updateMany({
+          where: { status: "PENDING" },
+          data: {
+            status: "APPROVED",
+            isApproved: true,
+            approvedAt: new Date(),
+            approverId: session.user!.id,
+          },
+        });
 
-      await prisma.accountUsingQuerylog.create({
-        data: {
-          content: `재화 지급/회수 티켓 전체 승인 처리 (${rewardRevokes.length}건)`,
-          registrantId: session.user.id,
-        },
+        for (const revoke of rewardRevokes) {
+          const result = await this.addRewardRevokeByGame({
+            userId: revoke.userId,
+            amount: revoke.amount,
+            type: revoke.type,
+            creditType: revoke.creditType,
+          });
+          if (!result) {
+            await prisma.rewardRevoke.updateMany({
+              where: {
+                status: "APPROVED",
+              },
+              data: {
+                status: "PENDING",
+                isApproved: false,
+                approverId: null,
+                approvedAt: null,
+              },
+            });
+            throw new Error(`Failed to apply game changes: ${result.error}`);
+          }
+        }
+
+        await prisma.accountUsingQuerylog.create({
+          data: {
+            content: `재화 지급/회수 티켓 전체 승인 처리 (${rewardRevokes.length}건)`,
+            registrantId: session.user!.id,
+          },
+        });
       });
 
       return {
@@ -509,7 +567,7 @@ class CreditService {
 
   async rejectAllRewardRevokes(): Promise<GlobalReturn<boolean>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
       const rewardRevokes = await prisma.rewardRevoke.findMany({
@@ -552,6 +610,9 @@ class CreditService {
   async getRewardRevokeByIdsOrigin(
     ids: string[]
   ): Promise<GlobalReturn<RewardRevokeOrigin[]>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
     try {
       const records = await prisma.rewardRevoke.findMany({
         where: {

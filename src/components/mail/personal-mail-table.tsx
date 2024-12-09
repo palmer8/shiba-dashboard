@@ -30,10 +30,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash } from "lucide-react";
+import { MoreHorizontal, Trash, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSession } from "next-auth/react";
 import { ExpandedMailRow } from "@/components/mail/expanded-mail-row";
+import EditPersonalMailDialog from "@/components/dialog/edit-personal-mail-dialog";
 
 interface PersonalMailTableProps {
   data: PersonalMailTableData;
@@ -130,7 +131,21 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
                         <MoreHorizontal />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[160px]">
+                    <DropdownMenuContent
+                      align="end"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <EditPersonalMailDialog
+                        initialData={row.original}
+                        trigger={
+                          <DropdownMenuItem
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            <span>수정</span>
+                          </DropdownMenuItem>
+                        }
+                      />
                       <DropdownMenuItem
                         onClick={async () => {
                           if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {

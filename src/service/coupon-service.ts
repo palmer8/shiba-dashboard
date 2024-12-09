@@ -4,10 +4,14 @@ import { CouponGroupType, Prisma } from "@prisma/client";
 import { CouponFilter, CouponGroup } from "@/types/coupon";
 import { CouponGroupValues } from "@/components/dialog/add-coupon-dialog";
 import { auth } from "@/lib/auth-config";
+import { redirect } from "next/navigation";
 
 export class CouponService {
   async getCouponGroupList(page: number, filter: CouponFilter) {
     try {
+      const session = await auth();
+      if (!session?.user) return redirect("/login");
+
       const pageSize = 50;
       const skip = page * pageSize;
       const where: Prisma.CouponGroupWhereInput = {};
@@ -76,6 +80,9 @@ export class CouponService {
 
   async getCouponsByGroupId(groupId: string, page: number = 0) {
     try {
+      const session = await auth();
+      if (!session?.user) return redirect("/login");
+
       const pageSize = 100;
       const skip = page * pageSize;
 
@@ -117,6 +124,9 @@ export class CouponService {
 
   async createCouponGroup(values: CouponGroupValues) {
     try {
+      const session = await auth();
+      if (!session?.user) return redirect("/login");
+
       const isPublic = values.groupType === "PUBLIC";
 
       const result = await prisma.couponGroup.create({
@@ -136,15 +146,7 @@ export class CouponService {
 
   async createCoupons(selectedGroups: CouponGroup[]) {
     const session = await auth();
-
-    if (!session || !session.user) {
-      return {
-        error: null,
-        message: "로그인 상태가 아닙니다.",
-        data: null,
-        success: false,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     const hasInvalidGroup = selectedGroups.some(
       (group) =>
@@ -222,6 +224,9 @@ export class CouponService {
   }
 
   async deleteCouponGroupWithCoupons(couponGroupId: string) {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
     const result = await prisma.couponGroup.delete({
       where: { id: couponGroupId },
     });
@@ -229,6 +234,9 @@ export class CouponService {
   }
 
   async updateCouponGroup(id: string, data: Partial<CouponGroupValues>) {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
     try {
       const result = await prisma.couponGroup.update({
         where: { id },

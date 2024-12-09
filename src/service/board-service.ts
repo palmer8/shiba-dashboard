@@ -11,6 +11,7 @@ import { GlobalReturn } from "@/types/global-return";
 import { hasAccess } from "@/lib/utils";
 import { CategoryForm } from "@/components/dialog/add-category-dialog";
 import { JSONContent } from "novel";
+import { redirect } from "next/navigation";
 
 interface BoardFilter {
   page?: number;
@@ -81,14 +82,7 @@ class BoardService {
     categoryId: string;
   }): Promise<GlobalReturn<Board>> {
     const session = await auth();
-    if (!session?.user) {
-      return {
-        success: false,
-        error: null,
-        message: "로그인이 필요합니다.",
-        data: null,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     try {
       if (data.title.length < 5 || data.title.length > 30) {
@@ -140,14 +134,7 @@ class BoardService {
     categoryId: string;
   }): Promise<GlobalReturn<Board>> {
     const session = await auth();
-    if (!session?.user) {
-      return {
-        success: false,
-        message: "로그인이 필요합니다.",
-        data: null,
-        error: null,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     try {
       const board = await prisma.board.findUnique({
@@ -213,14 +200,7 @@ class BoardService {
     content: string;
   }): Promise<GlobalReturn<BoardComment>> {
     const session = await auth();
-    if (!session?.user) {
-      return {
-        success: false,
-        message: "로그인이 필요합니다.",
-        data: null,
-        error: null,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     try {
       const comment = await prisma.boardComment.create({
@@ -258,14 +238,7 @@ class BoardService {
     >
   > {
     const session = await auth();
-    if (!session?.user) {
-      return {
-        success: false,
-        message: "로그인이 필요합니다.",
-        data: null,
-        error: null,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     try {
       const comment = await prisma.boardComment.update({
@@ -301,14 +274,7 @@ class BoardService {
   // 댓글 삭제
   async deleteComment(commentId: string): Promise<GlobalReturn<boolean>> {
     const session = await auth();
-    if (!session?.user) {
-      return {
-        success: false,
-        message: "로그인이 필요합니다.",
-        data: null,
-        error: null,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     try {
       const comment = await prisma.boardComment.findUnique({
@@ -358,14 +324,7 @@ class BoardService {
   // 게시글 삭제
   async deleteBoard(id: string): Promise<GlobalReturn<boolean>> {
     const session = await auth();
-    if (!session?.user) {
-      return {
-        success: false,
-        message: "로그인이 필요합니다.",
-        data: null,
-        error: null,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     try {
       const board = await prisma.board.findUnique({
@@ -594,14 +553,7 @@ class BoardService {
     data: CategoryForm
   ): Promise<GlobalReturn<BoardCategory>> {
     const session = await auth();
-    if (!session?.user) {
-      return {
-        success: false,
-        message: "로그인이 필요합니다.",
-        data: null,
-        error: null,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) {
       return {
@@ -643,14 +595,7 @@ class BoardService {
     data: CategoryForm
   ): Promise<GlobalReturn<BoardCategory>> {
     const session = await auth();
-    if (!session?.user) {
-      return {
-        success: false,
-        message: "로그인이 필요합니다.",
-        data: null,
-        error: null,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) {
       return {
@@ -690,14 +635,7 @@ class BoardService {
   // 카테고리 삭제
   async deleteCategory(id: string): Promise<GlobalReturn<BoardCategory>> {
     const session = await auth();
-    if (!session?.user) {
-      return {
-        success: false,
-        message: "로그인이 필요합니다.",
-        data: null,
-        error: null,
-      };
-    }
+    if (!session?.user) return redirect("/login");
 
     if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) {
       return {

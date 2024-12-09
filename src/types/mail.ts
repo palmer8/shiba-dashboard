@@ -1,5 +1,5 @@
 export type GroupMailReward = {
-  type: "ITEM" | "MONEY" | "BANK" | "CREDIT" | "CREDIT2";
+  type: "ITEM" | "MONEY" | "BANK";
   itemId?: string;
   itemName?: string;
   amount: string;

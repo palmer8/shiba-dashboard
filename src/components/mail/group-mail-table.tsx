@@ -36,7 +36,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash } from "lucide-react";
+import { MoreHorizontal, Trash, Pencil } from "lucide-react";
+import EditGroupMailDialog from "@/components/dialog/edit-group-mail-dialog";
 
 interface GroupMailTableProps {
   data: GroupMailTableData;
@@ -140,7 +141,22 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
                         <MoreHorizontal />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[160px]">
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-[160px]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <EditGroupMailDialog
+                        initialData={row.original}
+                        trigger={
+                          <DropdownMenuItem
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            <span>수정</span>
+                          </DropdownMenuItem>
+                        }
+                      />
                       <DropdownMenuItem
                         onClick={async () => {
                           if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {

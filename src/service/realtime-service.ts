@@ -1,13 +1,7 @@
 import { auth } from "@/lib/auth-config";
-import { GlobalReturn } from "@/types/global-return";
-import { boardService } from "./board-service";
 import prisma from "@/db/prisma";
 import { ROLE_HIERARCHY } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
-import { DailyUserStats, DashboardData, RealtimeAdmin } from "@/types/user";
-import pool from "@/db/mysql";
-import { RowDataPacket } from "mysql2/promise";
-import { cookies } from "next/headers";
 
 class RealtimeService {
   async getGameUserDataByUserId(userId: number) {

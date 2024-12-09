@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { getGameNicknameByUserIdAction } from "@/actions/user-action";
 import { z } from "zod";
@@ -36,9 +36,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createPersonalMailAction } from "@/actions/mail-action";
+import { updatePersonalMailAction } from "@/actions/mail-action";
 import { formatKoreanNumber } from "@/lib/utils";
 import { X } from "lucide-react";
+import { PersonalMail } from "@/types/mail";
 
 const RewardSchema = z
   .object({
@@ -87,35 +88,60 @@ const PersonalMailSchema = z.object({
 
 export type PersonalMailValues = z.infer<typeof PersonalMailSchema>;
 
-interface AddPersonalMailDialogProps {
-  open: boolean;
-  setOpen: (open: boolean) => void;
+interface EditPersonalMailDialogProps {
+  initialData: PersonalMail;
+  trigger: ReactNode;
 }
 
-export function AddPersonalMailDialog({
-  open,
-  setOpen,
-}: AddPersonalMailDialogProps) {
+export default function EditPersonalMailDialog({
+  initialData,
+  trigger,
+}: EditPersonalMailDialogProps) {
+  const [open, setOpen] = useState(false);
   const [nickname, setNickname] = useState<string>("");
   const [isLoadingNickname, setIsLoadingNickname] = useState(false);
 
   const form = useForm<PersonalMailValues>({
     resolver: zodResolver(PersonalMailSchema),
     defaultValues: {
-      userId: "",
-      reason: "",
-      content: "",
+      userId: initialData.userId.toString(),
+      reason: initialData.reason,
+      content: initialData.content,
       nickname: "",
-      rewards: [],
+      rewards: initialData.rewards.map((reward) => ({
+        type: reward.type as "ITEM" | "MONEY" | "BANK",
+        itemId: reward.itemId || "",
+        itemName: reward.itemName || "",
+        amount: reward.amount,
+      })),
+      needItems: initialData.needItems?.map((item) => ({
+        type: item.type as "MONEY" | "BANK" | "ITEM",
+        itemId: item.itemId || "",
+        itemName: item.itemName || "",
+        amount: item.amount,
+      })),
     },
   });
 
   const debouncedUserId = useDebounce(form.watch("userId"), 500);
 
+  // 초기 로딩 시 닉네임 가져오기
+  useEffect(() => {
+    fetchNickname(initialData.userId.toString());
+  }, [initialData.userId]);
+
+  // userId가 변경될 때마다 닉네임 조회
+  useEffect(() => {
+    if (debouncedUserId !== initialData.userId.toString()) {
+      fetchNickname(debouncedUserId);
+    }
+  }, [debouncedUserId]);
+
   // 닉네임 가져오기
   const fetchNickname = async (userId: string) => {
     if (!userId || !/^\d+$/.test(userId)) {
       setNickname("");
+      form.setValue("nickname", "");
       return;
     }
     setIsLoadingNickname(true);
@@ -134,11 +160,6 @@ export function AddPersonalMailDialog({
     }
     setIsLoadingNickname(false);
   };
-
-  // userId가 변경될 때마다 닉네임 조회
-  useEffect(() => {
-    fetchNickname(debouncedUserId);
-  }, [debouncedUserId]);
 
   const handleRewardUpdate = (index: number, field: string, value: any) => {
     const currentRewards = form.getValues("rewards");
@@ -224,16 +245,15 @@ export function AddPersonalMailDialog({
       );
       submitData.rewards = withOutNoneIdRewards;
 
-      const result = await createPersonalMailAction(submitData);
+      const result = await updatePersonalMailAction(initialData.id, submitData);
       if (result.success) {
-        toast({ title: "개인 우편이 생성되었습니다." });
-        setOpen(false);
-        form.reset();
+        toast({ title: "개인 우편이 수정되었습니다." });
+        handleOpenChange(false);
       }
     } catch (error) {
       toast({
-        title: "개인 우편을 생성하지 못했습니다",
-        description: "개인 우편을 생성하는 도중 오류가 발생했습니다.",
+        title: "개인 우편을 수정하지 못했습니다",
+        description: "개인 우편을 수정하는 도중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }
@@ -256,14 +276,12 @@ export function AddPersonalMailDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button>개인 우편 추가</Button>
-      </DialogTrigger>
+    <Dialog>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-h-[700px] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>개인 우편 추가</DialogTitle>
-          <DialogDescription>개인 우편을 생성합니다.</DialogDescription>
+          <DialogTitle>개인 우편 수정</DialogTitle>
+          <DialogDescription>개인 우편을 수정합니다.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-4">

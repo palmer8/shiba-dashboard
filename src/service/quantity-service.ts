@@ -10,6 +10,8 @@ import { Prisma, ItemQuantity as ItemQuantityOrigin } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
 import { creditService } from "./credit-service";
+import { ItemQuantityValues } from "@/components/dialog/add-item-quantity-dialog";
+import { UpdateUserData } from "@/types/user";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -148,9 +150,31 @@ class ItemQuantityService {
     }
   }
 
+  async updateItemQuantityByGame(data: UpdateUserData) {
+    const response = await fetch(
+      `${process.env.PRIVATE_API_URL}/DokkuApi/updatePlayerItem`,
+      {
+        method: "POST",
+        headers: {
+          key: process.env.PRIVATE_API_KEY || "",
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    const result = await response.json();
+    console.log(result);
+
+    if (!result.success) {
+      throw new Error(`Failed to update game data: ${result.message}`);
+    }
+
+    return result;
+  }
+
   async approveItemQuantities(ids: string[]): Promise<GlobalReturn<boolean>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     const itemQuantities = await prisma.itemQuantity.findMany({
       where: {
@@ -174,6 +198,30 @@ class ItemQuantityService {
           },
         });
 
+        for (const item of itemQuantities) {
+          const result = await this.updateItemQuantityByGame({
+            user_id: String(item.userId),
+            itemcode: item.itemId,
+            amount: Number(item.amount),
+            type: item.type.toLowerCase() as "add" | "remove",
+          });
+
+          if (!result) {
+            await prisma.itemQuantity.update({
+              where: { id: item.id },
+              data: { status: "PENDING" },
+            });
+            return {
+              success: false,
+              message: "아이템 지급/회수 티켓 승인 실패",
+              data: null,
+              error: new Error(
+                `Failed to apply game changes: ${result.message}`
+              ),
+            };
+          }
+        }
+
         await prisma.accountUsingQuerylog.createMany({
           data: itemQuantities.map((item) => ({
             content: `아이템 ${
@@ -186,12 +234,6 @@ class ItemQuantityService {
         });
       });
 
-      // if (itemQuantities.length > 0) {
-      //   for (const item of itemQuantities) {
-      //     await creditService.addRewardRevokeByGame(item);
-      //   }
-      // }
-
       return {
         success: true,
         message: "아이템 지급/회수 승인 성공",
@@ -200,6 +242,79 @@ class ItemQuantityService {
       };
     } catch (error) {
       console.error("Approve item quantities error:", error);
+      return {
+        success: false,
+        message: "아이템 지급/회수 승인 실패",
+        data: null,
+        error,
+      };
+    }
+  }
+
+  async approveAllItemQuantities(): Promise<GlobalReturn<boolean>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
+    try {
+      const itemQuantities = await prisma.itemQuantity.findMany({
+        where: { status: "PENDING" },
+      });
+
+      if (itemQuantities.length === 0) {
+        return {
+          success: false,
+          message: "승인할 티켓이 없습니다.",
+          data: null,
+          error: new Error("No tickets to approve"),
+        };
+      }
+
+      await prisma.$transaction(async (prisma) => {
+        await prisma.itemQuantity.updateMany({
+          where: { status: "PENDING" },
+          data: {
+            status: "APPROVED",
+            isApproved: true,
+            approvedAt: new Date(),
+            approverId: session.user!.id,
+          },
+        });
+
+        for (const item of itemQuantities) {
+          const result = await this.updateItemQuantityByGame({
+            user_id: String(item.userId),
+            itemcode: item.itemId,
+            amount: Number(item.amount),
+            type: item.type.toLowerCase() as "add" | "remove",
+          });
+
+          console.log(result);
+
+          if (result.error) {
+            await prisma.itemQuantity.update({
+              where: { id: item.id },
+              data: { status: "PENDING" },
+            });
+            throw new Error(`Failed to apply game changes: ${result.error}`);
+          }
+        }
+
+        await prisma.accountUsingQuerylog.create({
+          data: {
+            content: `아이템 지급/회수 티켓 전체 승인 처리 (${itemQuantities.length}건)`,
+            registrantId: session.user!.id,
+          },
+        });
+      });
+
+      return {
+        success: true,
+        message: "아이템 지급/회수 승인 성공",
+        data: true,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Approve all item quantities error:", error);
       return {
         success: false,
         message: "아이템 지급/회수 승인 실패",
@@ -415,58 +530,6 @@ class ItemQuantityService {
       return {
         success: false,
         message: "아이템 지급/회수 정보 수정에 실패했습니다.",
-        data: null,
-        error,
-      };
-    }
-  }
-
-  async approveAllItemQuantities(): Promise<GlobalReturn<boolean>> {
-    const session = await auth();
-    if (!session?.user) redirect("/login");
-
-    try {
-      const itemQuantities = await prisma.itemQuantity.findMany({
-        where: { status: "PENDING" },
-      });
-
-      if (itemQuantities.length === 0) {
-        return {
-          success: false,
-          message: "승인할 티켓이 없습니다.",
-          data: null,
-          error: new Error("No tickets to approve"),
-        };
-      }
-
-      await prisma.itemQuantity.updateMany({
-        where: { status: "PENDING" },
-        data: {
-          status: "APPROVED",
-          isApproved: true,
-          approvedAt: new Date(),
-          approverId: session.user.id,
-        },
-      });
-
-      await prisma.accountUsingQuerylog.create({
-        data: {
-          content: `아이템 지급/회수 티켓 전체 승인 처리 (${itemQuantities.length}건)`,
-          registrantId: session.user.id,
-        },
-      });
-
-      return {
-        success: true,
-        message: "아이템 지급/회수 승인 성공",
-        data: true,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Approve all item quantities error:", error);
-      return {
-        success: false,
-        message: "아이템 지급/회수 승인 실패",
         data: null,
         error,
       };
