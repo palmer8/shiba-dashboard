@@ -191,4 +191,16 @@ export const DEFAULT_EDITOR_CONTENT: JSONContent = {
   ],
 };
 
+export const GAME_DATA_TYPE = {
+  ITEM: "아이템",
+  CREDIT: "크레딧",
+  CREDIT2: "크레딧2",
+  WALLET: "현금",
+  BANK: "계좌",
+  MILEAGE: "마일리지",
+  REGISTRATION: "차량번호",
+  CURRENT_CASH: "보유 캐시",
+  ACCUMULATED_CASH: "누적 캐시",
+};
+
 export { ROLE_LINKS, PENALTY_TYPE, reasonOptions, WHITELIST_STATUS };

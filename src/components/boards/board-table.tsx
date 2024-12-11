@@ -12,6 +12,7 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
+  Row,
   useReactTable,
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,16 @@ import { formatKoreanDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useMemo } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Pencil, Trash, Eye, Heart } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { deleteBoardAction } from "@/actions/board-action";
+import { toast } from "@/hooks/use-toast";
 
 interface BoardData {
   id: string;
@@ -37,6 +48,9 @@ interface BoardData {
     name: string;
   };
   commentCount: number;
+  _count: {
+    likes: number;
+  };
 }
 
 interface BoardMetadata {
@@ -55,6 +69,7 @@ interface BoardTableProps {
 export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
 
   const columns: ColumnDef<BoardData>[] = [
     {
@@ -63,35 +78,121 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           {row.original.isNotice && <Badge variant="secondary">공지</Badge>}
-          <Link href={`/board/${row.original.id}`} className="hover:underline">
-            {row.original.title}
-            {row.original.commentCount > 0 && (
-              <span className="text-sm text-muted-foreground ml-1">
-                [{row.original.commentCount}]
-              </span>
-            )}
-          </Link>
+          {row.original.title}
+          {row.original.commentCount > 0 && (
+            <span className="text-sm text-muted-foreground">
+              [{row.original.commentCount}]
+            </span>
+          )}
         </div>
       ),
     },
     {
       accessorKey: "category.name",
       header: "카테고리",
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {row.original.category.name}
+        </span>
+      ),
     },
     {
       accessorKey: "registrant.nickname",
       header: "작성자",
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.registrant.nickname}</span>
+      ),
     },
     {
       accessorKey: "views",
-      header: "조회수",
-      cell: ({ row }) => row.original.views.toLocaleString() + "회",
+      header: () => (
+        <div className="flex items-center gap-1">
+          <Eye className="h-3 w-3" />
+          <span>조회</span>
+        </div>
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {row.original.views.toLocaleString()}회
+        </span>
+      ),
+    },
+    {
+      accessorKey: "_count.likes",
+      header: () => (
+        <div className="flex items-center gap-1">
+          <Heart className="h-3 w-3" />
+          <span>좋아요</span>
+        </div>
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {row.original._count.likes.toLocaleString()}명
+        </span>
+      ),
     },
     {
       accessorKey: "createdAt",
       header: "작성일",
-      cell: ({ row }) => formatKoreanDateTime(row.original.createdAt),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {formatKoreanDateTime(row.original.createdAt)}
+        </span>
+      ),
     },
+    ...(session?.user?.role === "SUPERMASTER"
+      ? [
+          {
+            id: "actions",
+            header: "관리",
+            cell: ({ row }: { row: Row<BoardData> }) => {
+              return (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() =>
+                        router.push(`/board/${row.original.id}/edit`)
+                      }
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      <span>수정</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        if (confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
+                          const result = await deleteBoardAction(
+                            row.original.id
+                          );
+                          if (result.success) {
+                            toast({
+                              title: "게시글이 삭제되었습니다.",
+                            });
+                          } else {
+                            toast({
+                              title: "게시글 삭제에 실패했습니다.",
+                              description: "잠시 후에 다시 시도해주세요",
+                              variant: "destructive",
+                            });
+                          }
+                        }
+                      }}
+                      className="text-red-600"
+                    >
+                      <Trash className="mr-2 h-4 w-4" />
+                      <span>삭제</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            },
+          },
+        ]
+      : []),
   ];
 
   const memorizedData = useMemo(
@@ -106,7 +207,7 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
           <p className="text-sm text-muted-foreground">게시글이 없습니다.</p>
           <Button
             variant="link"
-            onClick={() => router.push("/boards/write")}
+            onClick={() => router.push("/board/write")}
             className="mt-2"
           >
             첫 게시글을 작성해보세요
@@ -148,7 +249,11 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow
+                className="cursor-pointer"
+                key={row.id}
+                onClick={() => router.push(`/board/${row.original.id}`)}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

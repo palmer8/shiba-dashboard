@@ -14,13 +14,16 @@ import {
   EditorBubble,
 } from "novel";
 import { ImageResizer, handleCommandNavigation } from "novel/extensions";
-import { defaultExtensions } from "../../lib/extensions";
+import { defaultExtensions } from "@/lib/extensions";
 import { NodeSelector } from "./selectors/node-selector";
 import { LinkSelector } from "./selectors/link-selector";
 import { ColorSelector } from "./selectors/color-selector";
 
 import { TextButtons } from "./selectors/text-buttons";
-import { slashCommand, suggestionItems } from "./slash-command";
+import {
+  slashCommand,
+  suggestionItems,
+} from "@/components/editor/slash-command";
 import { handleImageDrop, handleImagePaste } from "novel/plugins";
 import { uploadFn } from "@/lib/image-upload";
 import { Separator } from "@/components/ui/separator";
@@ -64,7 +67,7 @@ const Editor = ({
         onUpdate={({ editor }) => {
           onChange?.(editor.getJSON());
         }}
-        slotAfter={<ImageResizer />}
+        slotAfter={editable && <ImageResizer />}
       >
         {editable && (
           <>

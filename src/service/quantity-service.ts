@@ -163,7 +163,6 @@ class ItemQuantityService {
     );
 
     const result = await response.json();
-    console.log(result);
 
     if (!result.success) {
       throw new Error(`Failed to update game data: ${result.message}`);
@@ -287,8 +286,6 @@ class ItemQuantityService {
             amount: Number(item.amount),
             type: item.type.toLowerCase() as "add" | "remove",
           });
-
-          console.log(result);
 
           if (result.error) {
             await prisma.itemQuantity.update({

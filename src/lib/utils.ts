@@ -4,6 +4,8 @@ import { UserRole } from "@prisma/client";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Parser } from "json2csv";
+import { GameDataType } from "@/types/game";
+import { JSONContent } from "novel";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -129,4 +131,73 @@ export function formatKoreanNumber(num: number) {
     .join(" ");
 
   return result || "0";
+}
+
+export function formatGameDataType(type: string): string {
+  const types: Record<string, string> = {
+    item: "아이템",
+    CREDIT: "골드 박스",
+    CREDIT2: "프리미엄 박스",
+    WALLET: "현금",
+    BANK: "계좌",
+    mileage: "마일리지",
+    registration: "차량번호",
+    CURRENT_CASH: "보유 캐시",
+    ACCUMULATED_CASH: "누적 캐시",
+  };
+  return types[type] || type;
+}
+
+export function formatAmount(amount: number, type: GameDataType): string {
+  if (type === "REGISTRATION") return amount.toString();
+  if (
+    ["BANK", "WALLET", "MILEAGE", "CURRENT_CASH", "ACCUMULATED_CASH"].includes(
+      type
+    )
+  ) {
+    return `${amount.toLocaleString()}원`;
+  }
+  return `${amount.toLocaleString()}개`;
+}
+
+export function downloadCSV(data: any[], filename: string) {
+  const headers = ["ID", "닉네임", "가입일", "조회 유형", "조회 결과"];
+  const csvContent = [
+    headers.join(","),
+    ...data.map((row) =>
+      [
+        row.id,
+        row.nickname,
+        row.first_join,
+        formatGameDataType(row.type),
+        row.amount,
+      ].join(",")
+    ),
+  ].join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${filename}.csv`;
+  link.click();
+}
+
+export function sanitizeContent(content: JSONContent) {
+  return JSON.parse(
+    JSON.stringify(content, (key, value) => {
+      if (value && typeof value === "object" && value.type === "image") {
+        return {
+          type: "image",
+          attrs: {
+            src: value.attrs?.src || "",
+            alt: value.attrs?.alt || "",
+            title: value.attrs?.title || "",
+            width: value.attrs?.width,
+            height: value.attrs?.height,
+          },
+        };
+      }
+      return value;
+    })
+  );
 }

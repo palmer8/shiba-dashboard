@@ -116,7 +116,7 @@ model User {
   boards        Board[]
   boardCategories BoardCategory[]
   boardComments BoardComment[]
-
+  boardLikes BoardLike[]
   @@map("user")
 }
 
@@ -348,6 +348,7 @@ model Board {
   registrant    User?        @relation(fields: [registrantId], references: [id], onDelete: SetNull)
   category   BoardCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   comments  BoardComment[]
+  likes     BoardLike[]
 
   @@map("board")
 }
@@ -387,4 +388,18 @@ model BoardCategory {
   boards   Board[]
   registrant   User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
   @@map("board_category")
+}
+
+model BoardLike {
+  id        String   @id @default(uuid())
+  boardId   String   @map("board_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, userId])
+  @@map("board_like")
 }

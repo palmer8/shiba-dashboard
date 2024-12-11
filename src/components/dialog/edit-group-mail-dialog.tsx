@@ -127,7 +127,6 @@ export default function EditGroupMailDialog({
               };
         }
         if (field === "item") {
-          console.log("Selected item:", value); // 디버깅용
           return {
             ...reward,
             itemId: value.id,

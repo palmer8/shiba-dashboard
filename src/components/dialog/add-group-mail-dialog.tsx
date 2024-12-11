@@ -118,7 +118,6 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
               };
         }
         if (field === "item") {
-          console.log("Selected item:", value); // 디버깅용
           return {
             ...reward,
             itemId: value.id,
@@ -161,7 +160,7 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
     } catch (error) {
       toast({
         title: "단체 우편을 생성하지 못했습니다",
-        description: "단체 우편을 생성하는 도중 오���가 발생했습니다.",
+        description: "단체 우편을 생성하는 도중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }

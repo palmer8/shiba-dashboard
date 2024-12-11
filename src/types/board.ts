@@ -54,7 +54,7 @@ export interface CategoryData {
   template: JSONContent | null;
 }
 
-// 게시글 상세 조회 응답 타입 추가
+// 게시글 상세 조회 응답 타입 수정
 export interface BoardDetail extends Omit<Board, "content"> {
   content: JSONContent;
   registrant: {
@@ -77,4 +77,28 @@ export interface BoardDetail extends Omit<Board, "content"> {
       nickname: string;
     };
   }>;
+  likes: {
+    user: {
+      id: string;
+      nickname: string;
+    };
+  }[];
+  _count: {
+    likes: number;
+    comments: number;
+  };
+}
+
+// 좋아요 정보 타입 추가
+export interface LikeInfo {
+  id: string;
+  nickname: string;
+  userId: string;
+  createdAt: Date;
+}
+
+// 클라이언트 컴포넌트용 타입 추가
+export interface BoardDetailView extends Omit<BoardDetail, "likes"> {
+  isLiked: boolean;
+  likes: LikeInfo[];
 }

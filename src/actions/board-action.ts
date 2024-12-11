@@ -6,13 +6,14 @@ import { revalidatePath } from "next/cache";
 import { JSONContent } from "novel";
 import { GlobalReturn } from "@/types/global-return";
 import { Board, BoardComment, BoardCategory } from "@prisma/client";
-import { BoardDetail } from "@/types/board";
+import { LikeInfo } from "@/types/board";
 
 // 게시글 생성
 export async function createBoardAction(data: {
   title: string;
   content: JSONContent;
   categoryId: string;
+  isNotice: boolean;
 }): Promise<GlobalReturn<Board>> {
   const result = await boardService.createBoard(data);
   if (result.success) {
@@ -27,10 +28,11 @@ export async function updateBoardAction(data: {
   title: string;
   content: JSONContent;
   categoryId: string;
+  isNotice: boolean;
 }): Promise<GlobalReturn<Board>> {
   const result = await boardService.updateBoard(data);
   if (result.success) {
-    revalidatePath(`/boards/${data.id}`);
+    revalidatePath(`/board/${data.id}`);
   }
   return result;
 }
@@ -123,4 +125,22 @@ export async function getCategoriesAction(): Promise<
   GlobalReturn<BoardCategory[]>
 > {
   return await boardService.getCategoryList();
+}
+
+// 좋아요 토글
+export async function toggleBoardLikeAction(
+  boardId: string
+): Promise<GlobalReturn<boolean>> {
+  const result = await boardService.toggleBoardLike(boardId);
+  if (result.success) {
+    revalidatePath(`/board/${boardId}`);
+  }
+  return result;
+}
+
+// 좋아요 목록 조회
+export async function getBoardLikesAction(
+  boardId: string
+): Promise<GlobalReturn<LikeInfo[]>> {
+  return await boardService.getBoardLikes(boardId);
 }

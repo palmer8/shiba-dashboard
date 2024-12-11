@@ -68,8 +68,6 @@ export default function AddGroupDialog({
         });
         setOpen(false);
         form.reset();
-        console.log(data);
-
         onSuccess?.();
         return;
       } else {

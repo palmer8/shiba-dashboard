@@ -12,6 +12,7 @@ import { hasAccess } from "@/lib/utils";
 import { CategoryForm } from "@/components/dialog/add-category-dialog";
 import { JSONContent } from "novel";
 import { redirect } from "next/navigation";
+import { BoardDetailView, LikeInfo } from "@/types/board";
 
 interface BoardFilter {
   page?: number;
@@ -42,6 +43,9 @@ interface BoardData extends Omit<Board, "content"> {
     name: string;
   };
   commentCount: number;
+  _count: {
+    likes: number;
+  };
 }
 
 interface BoardDetail extends Board {
@@ -58,6 +62,7 @@ interface RecentBoards {
     title: string;
     createdAt: Date;
     commentCount: number;
+    likeCount: number;
     registrant: {
       id: string;
       nickname: string;
@@ -67,6 +72,8 @@ interface RecentBoards {
     id: string;
     title: string;
     createdAt: Date;
+    commentCount: number; // 추가
+    likeCount: number; // 추가
     registrant: {
       id: string;
       nickname: string;
@@ -80,11 +87,22 @@ class BoardService {
     title: string;
     content: JSONContent;
     categoryId: string;
+    isNotice: boolean;
   }): Promise<GlobalReturn<Board>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
     try {
+      // 공지사항 권한 체크
+      if (data.isNotice && session.user.role !== "SUPERMASTER") {
+        return {
+          success: false,
+          error: null,
+          message: "공지사항 작성 권한이 없습니다.",
+          data: null,
+        };
+      }
+
       if (data.title.length < 5 || data.title.length > 30) {
         return {
           success: false,
@@ -96,8 +114,11 @@ class BoardService {
 
       const board = await prisma.board.create({
         data: {
-          ...data,
+          title: data.title,
+          content: data.content,
+          categoryId: data.categoryId,
           registrantId: session.user.id,
+          isNotice: data.isNotice,
         },
         include: {
           registrant: {
@@ -112,7 +133,10 @@ class BoardService {
       return {
         success: true,
         message: "게시글이 작성되었습니다.",
-        data: board,
+        data: {
+          ...board,
+          content: data.content,
+        },
         error: null,
       };
     } catch (error) {
@@ -132,6 +156,7 @@ class BoardService {
     title: string;
     content: JSONContent;
     categoryId: string;
+    isNotice: boolean;
   }): Promise<GlobalReturn<Board>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
@@ -164,8 +189,9 @@ class BoardService {
         where: { id: data.id },
         data: {
           title: data.title,
-          content: data.content,
+          content: data.content as any,
           categoryId: data.categoryId,
+          isNotice: data.isNotice,
         },
         include: {
           registrant: {
@@ -181,7 +207,10 @@ class BoardService {
         success: true,
         error: null,
         message: "게시글이 수정되었습니다.",
-        data: updatedBoard,
+        data: {
+          ...updatedBoard,
+          content: updatedBoard.content as unknown as JSONContent,
+        },
       };
     } catch (error) {
       console.error("Update board error:", error);
@@ -372,8 +401,11 @@ class BoardService {
   }
 
   // 게시글 상세 조회
-  async getBoardById(id: string): Promise<GlobalReturn<BoardDetail>> {
+  async getBoardById(id: string): Promise<GlobalReturn<BoardDetailView>> {
+    const session = await auth();
+
     try {
+      // 한 번의 쿼리로 모든 관련 데이터를 가져옴
       const board = await prisma.board.findUnique({
         where: { id },
         include: {
@@ -391,6 +423,26 @@ class BoardService {
               },
             },
           },
+          likes: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  nickname: true,
+                  userId: true,
+                },
+              },
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+          _count: {
+            select: {
+              likes: true,
+              comments: true,
+            },
+          },
         },
       });
 
@@ -403,32 +455,28 @@ class BoardService {
         };
       }
 
-      // null 체크 및 기본값 처리
-      const processedBoard = {
-        ...board,
-        registrant: board.registrant || { id: "", nickname: "정보없음" },
-        category: board.category || { id: "", name: "정보없음" },
-        comments: board.comments.map((comment) => ({
-          ...comment,
-          registrant: comment.registrant || {
-            id: "",
-            nickname: "정보없음",
-          },
-        })),
-      };
-
-      // 조회수 증가
-      await prisma.board.update({
-        where: { id },
-        data: { views: { increment: 1 } },
-      });
+      // 현재 사용자의 좋아요 여부 확인
+      const isLiked = session?.user
+        ? board.likes.some(
+            (like) => like.user.id === (session.user!.id as string)
+          )
+        : false;
 
       return {
         success: true,
         message: "게시글을 조회했습니다.",
         data: {
-          ...processedBoard,
-          content: processedBoard.content as JSONContent,
+          ...board,
+          content: board.content as unknown as JSONContent,
+          isLiked,
+          registrant: board.registrant || { id: "", nickname: "정보없음" },
+          category: board.category || { id: "", name: "정보없음" },
+          likes: board.likes.map((like) => ({
+            id: like.id,
+            nickname: like.user.nickname,
+            userId: like.user.userId.toString(),
+            createdAt: like.createdAt,
+          })),
         },
         error: null,
       };
@@ -470,6 +518,7 @@ class BoardService {
         }),
       };
 
+      // 한 번의 쿼리로 모든 데이터를 가져오도록 수정
       const [totalCount, boards, notices] = await Promise.all([
         prisma.board.count({ where }),
         prisma.board.findMany({
@@ -485,7 +534,10 @@ class BoardService {
               select: { id: true, name: true },
             },
             _count: {
-              select: { comments: true },
+              select: {
+                comments: true,
+                likes: true, // 좋아요 수 추가
+              },
             },
           },
         }),
@@ -500,7 +552,10 @@ class BoardService {
               select: { id: true, name: true },
             },
             _count: {
-              select: { comments: true },
+              select: {
+                comments: true,
+                likes: true, // 좋아요 수 추가
+              },
             },
           },
         }),
@@ -508,12 +563,14 @@ class BoardService {
 
       const totalPages = Math.ceil(totalCount / itemsPerPage);
 
-      // null 체크 및 타입 변환을 수행
       const processedBoards = boards.map((board) => ({
         ...board,
         registrant: board.registrant || { id: "", nickname: "정보없음" },
         category: board.category || { id: "", name: "정보없음" },
         commentCount: board._count.comments,
+        _count: {
+          likes: board._count.likes,
+        },
       }));
 
       const processedNotices = notices.map((notice) => ({
@@ -521,6 +578,9 @@ class BoardService {
         registrant: notice.registrant || { id: "", nickname: "정보없음" },
         category: notice.category || { id: "", name: "정보없음" },
         commentCount: notice._count.comments,
+        _count: {
+          likes: notice._count.likes,
+        },
       }));
 
       return {
@@ -706,7 +766,6 @@ class BoardService {
     }
   }
 
-  // 최근 게시글 및 공지사항 조회
   async getRecentBoards(): Promise<GlobalReturn<RecentBoards>> {
     try {
       const [recentBoards, recentNotices] = await Promise.all([
@@ -723,7 +782,10 @@ class BoardService {
               },
             },
             _count: {
-              select: { comments: true },
+              select: {
+                comments: true,
+                likes: true,
+              },
             },
           },
         }),
@@ -739,6 +801,12 @@ class BoardService {
                 nickname: true,
               },
             },
+            _count: {
+              select: {
+                comments: true,
+                likes: true,
+              },
+            },
           },
         }),
       ]);
@@ -752,6 +820,7 @@ class BoardService {
             title: board.title,
             createdAt: board.createdAt,
             commentCount: board._count.comments,
+            likeCount: board._count.likes,
             registrant: board.registrant || {
               id: "",
               nickname: "정보없음",
@@ -761,6 +830,8 @@ class BoardService {
             id: notice.id,
             title: notice.title,
             createdAt: notice.createdAt,
+            commentCount: notice._count.comments,
+            likeCount: notice._count.likes,
             registrant: notice.registrant || {
               id: "",
               nickname: "정보없음",
@@ -774,6 +845,99 @@ class BoardService {
       return {
         success: false,
         message: "최근 게시글 조회에 실패했습니다.",
+        data: null,
+        error,
+      };
+    }
+  }
+
+  // 좋아요 토글
+  async toggleBoardLike(boardId: string): Promise<GlobalReturn<boolean>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
+    try {
+      const existingLike = await prisma.boardLike.findUnique({
+        where: {
+          boardId_userId: {
+            boardId,
+            userId: session.user.id as string,
+          },
+        },
+      });
+
+      if (existingLike) {
+        await prisma.boardLike.delete({
+          where: {
+            boardId_userId: {
+              boardId,
+              userId: session.user.id as string,
+            },
+          },
+        });
+      } else {
+        await prisma.boardLike.create({
+          data: {
+            boardId,
+            userId: session.user.id as string,
+          },
+        });
+      }
+
+      return {
+        success: true,
+        message: existingLike
+          ? "좋아요가 취소되었습니다."
+          : "좋아요를 눌렀습니다.",
+        data: !existingLike,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Toggle board like error:", error);
+      return {
+        success: false,
+        message: "좋아요 처리에 실패했습니다.",
+        data: null,
+        error,
+      };
+    }
+  }
+
+  // 좋아요 목록 조회
+  async getBoardLikes(boardId: string): Promise<GlobalReturn<LikeInfo[]>> {
+    try {
+      const likes = await prisma.boardLike.findMany({
+        where: { boardId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              nickname: true,
+              userId: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc", // 최신순 정렬
+        },
+      });
+
+      return {
+        success: true,
+        message: "좋아요 목록을 조회했습니다.",
+        data: likes.map((like) => ({
+          id: like.id,
+          nickname: like.user.nickname,
+          userId: like.user.userId.toString(),
+          createdAt: like.createdAt,
+        })),
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get board likes error:", error);
+      return {
+        success: false,
+        message: "좋아요 목록 조회에 실패했습니다.",
         data: null,
         error,
       };

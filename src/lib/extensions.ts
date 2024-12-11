@@ -7,15 +7,14 @@ import {
   StarterKit,
   Placeholder,
   AIHighlight,
+  UpdatedImage,
 } from "novel/extensions";
 import { UploadImagesPlugin } from "novel/plugins";
 
 import { cx } from "class-variance-authority";
 
 const aiHighlight = AIHighlight;
-const placeholder = Placeholder.configure({
-  placeholder: "'/'를 눌러 다양한 형태의 텍스트를 작성하세요",
-});
+const placeholder = Placeholder;
 const tiptapLink = TiptapLink.configure({
   HTMLAttributes: {
     class: cx(
@@ -34,6 +33,12 @@ const tiptapImage = TiptapImage.extend({
   },
 }).configure({
   allowBase64: true,
+  HTMLAttributes: {
+    class: cx("rounded-lg border border-muted"),
+  },
+});
+
+const updatedImage = UpdatedImage.configure({
   HTMLAttributes: {
     class: cx("rounded-lg border border-muted"),
   },
@@ -104,6 +109,7 @@ export const defaultExtensions = [
   placeholder,
   tiptapLink,
   tiptapImage,
+  updatedImage,
   taskList,
   taskItem,
   horizontalRule,

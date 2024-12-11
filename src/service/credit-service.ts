@@ -158,8 +158,6 @@ class CreditService {
     );
 
     const result = await response.json();
-    console.log(result);
-
     if (!result.success) {
       throw new Error(`Failed to update game data: ${result.message}`);
     }

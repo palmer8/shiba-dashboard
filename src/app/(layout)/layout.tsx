@@ -1,5 +1,7 @@
+import { LoadingOverlay } from "@/components/global/loading";
 import MobileSheet from "@/components/global/mobile-sheet";
 import { ShibaSidebar } from "@/components/global/shiba-sidebar";
+import { Suspense } from "react";
 
 export default function RootLayout({
   children,
@@ -10,7 +12,9 @@ export default function RootLayout({
     <>
       <ShibaSidebar />
       <MobileSheet />
-      {children}
+      <Suspense fallback={<LoadingOverlay />}>
+        <div className="flex-1">{children}</div>
+      </Suspense>
     </>
   );
 }

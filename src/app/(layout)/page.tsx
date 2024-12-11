@@ -1,6 +1,7 @@
 import { GlobalTitle } from "@/components/global/global-title";
 import { auth } from "@/lib/auth-config";
 import { realtimeService } from "@/service/realtime-service";
+import { boardService } from "@/service/board-service";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -9,52 +10,34 @@ import {
   FileText,
   MessageSquare,
   TrendingUp,
+  Heart,
 } from "lucide-react";
 import Link from "next/link";
 import { formatKoreanDateTime } from "@/lib/utils";
-import { DashboardData } from "@/types/user";
-
-const defaultDashboardData: DashboardData = {
-  userCount: 0,
-  adminData: {
-    count: 0,
-    users: [],
-  },
-  recentBoards: {
-    recentBoards: [],
-    recentNotices: [],
-  },
-  weeklyStats: [],
-};
 
 export default async function Home() {
   const session = await auth();
   if (!session?.user) return redirect("/login");
 
-  const dashboardResponse = await fetch(
-    `${process.env.NEXTAUTH_URL}/api/dashboard`,
-    {
-      method: "GET",
-    }
-  );
+  const [userCount, adminData, recentBoards, weeklyStats] = await Promise.all([
+    realtimeService.getRealtimeUser(),
+    realtimeService.getAdminData(),
+    boardService.getRecentBoards(),
+    realtimeService.getWeeklyNewUsersStats(),
+  ]);
 
-  let dashboardData: DashboardData;
-
-  if (dashboardResponse.ok) {
-    const result = await dashboardResponse.json();
-    if (result.status === 200 && result.data) {
-      dashboardData = result.data;
-    } else {
-      console.error("Dashboard data error:", result.message);
-      dashboardData = defaultDashboardData;
-    }
-  } else {
-    console.error("Dashboard API error:", dashboardResponse.statusText);
-    dashboardData = defaultDashboardData;
-  }
+  const dashboardData = {
+    userCount,
+    adminData,
+    recentBoards: recentBoards.data || {
+      recentBoards: [],
+      recentNotices: [],
+    },
+    weeklyStats,
+  };
 
   return (
-    <main className="space-y-8">
+    <main>
       <GlobalTitle
         title="대시보드"
         description="SHIBA의 실시간 정보를 한 눈에 확인하세요."
@@ -87,7 +70,7 @@ export default async function Home() {
             </div>
             <div className="mt-2">
               <div className="grid grid-rows-7 grid-flow-col gap-1">
-                {dashboardData.adminData.users.map((admin) => (
+                {dashboardData.adminData.users.map((admin: any) => (
                   <div
                     key={admin.user_id}
                     className="text-xs text-muted-foreground flex items-center gap-1"
@@ -153,15 +136,28 @@ export default async function Home() {
                 {dashboardData.recentBoards.recentNotices.map((notice) => (
                   <div
                     key={notice.id}
-                    className="flex items-center justify-between"
+                    className="flex items-center justify-between group"
                   >
                     <Link
                       href={`/board/${notice.id}`}
-                      className="text-sm hover:underline line-clamp-1"
+                      className="flex items-center gap-2 text-sm hover:underline line-clamp-1 flex-1"
                     >
-                      {notice.title}
+                      <span className="flex-1">{notice.title}</span>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {notice.commentCount > 0 && (
+                          <span className="text-blue-500">
+                            [{notice.commentCount}]
+                          </span>
+                        )}
+                        {notice.likeCount > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Heart className="h-3 w-3" />
+                            {notice.likeCount}
+                          </span>
+                        )}
+                      </div>
                     </Link>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 ml-4">
                       <span className="text-xs text-muted-foreground">
                         {notice.registrant.nickname}
                       </span>
@@ -191,20 +187,28 @@ export default async function Home() {
                 {dashboardData.recentBoards.recentBoards.map((board) => (
                   <div
                     key={board.id}
-                    className="flex items-center justify-between"
+                    className="flex items-center justify-between group"
                   >
                     <Link
                       href={`/board/${board.id}`}
-                      className="text-sm hover:underline line-clamp-1 flex items-center gap-2"
+                      className="flex items-center gap-2 text-sm hover:underline line-clamp-1 flex-1"
                     >
-                      {board.title}
-                      {board.commentCount > 0 && (
-                        <span className="text-xs text-blue-500">
-                          [{board.commentCount}]
-                        </span>
-                      )}
+                      <span className="flex-1">{board.title}</span>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {board.commentCount > 0 && (
+                          <span className="text-blue-500">
+                            [{board.commentCount}]
+                          </span>
+                        )}
+                        {board.likeCount > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Heart className="h-3 w-3" />
+                            {board.likeCount}
+                          </span>
+                        )}
+                      </div>
                     </Link>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 ml-4">
                       <span className="text-xs text-muted-foreground">
                         {board.registrant.nickname}
                       </span>
