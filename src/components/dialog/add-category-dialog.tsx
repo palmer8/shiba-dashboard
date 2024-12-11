@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { createCategoryAction } from "@/actions/board-action";
 import Editor from "../editor/advanced-editor";
 import { Switch } from "../ui/switch";
+import { sanitizeContent } from "@/lib/utils";
 
 const categorySchema = z.object({
   name: z.string().min(1, {
@@ -52,9 +53,10 @@ export default function AddCategoryDialog() {
   });
 
   const onSubmit = async (data: CategoryForm) => {
+    const template = sanitizeContent(data.template);
     const formData = {
       ...data,
-      template: JSON.stringify(data.template),
+      template,
     };
 
     const result = await createCategoryAction(formData);

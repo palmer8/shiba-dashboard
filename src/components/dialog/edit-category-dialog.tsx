@@ -29,6 +29,7 @@ import { updateCategoryAction } from "@/actions/board-action";
 import Editor from "../editor/advanced-editor";
 import { Switch } from "../ui/switch";
 import { Pencil } from "lucide-react";
+import { sanitizeContent } from "@/lib/utils";
 
 const categorySchema = z.object({
   name: z.string().min(1, {
@@ -64,10 +65,11 @@ export default function EditCategoryDialog({
   });
 
   const onSubmit = async (data: CategoryForm) => {
+    const template = sanitizeContent(data.template);
     const formData = {
       id: initialData.id,
       ...data,
-      template: JSON.stringify(data.template),
+      template,
     };
 
     const result = await updateCategoryAction(initialData.id, formData);
