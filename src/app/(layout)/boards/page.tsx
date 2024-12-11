@@ -60,7 +60,7 @@ export default async function BoardsPage({ searchParams }: PageProps) {
           description="게시글을 작성하여 SHIBA 대시보드 이용자들과 소통하세요."
         />
         <Button asChild>
-          <Link href="/boards/write">글쓰기</Link>
+          <Link href="/board/write">글쓰기</Link>
         </Button>
       </div>
       <BoardFilters filters={filters} />
