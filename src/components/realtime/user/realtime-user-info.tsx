@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   formatKoreanDateTime,
+  formatKoreanNumber,
   hasAccess,
   parseCustomDateString,
 } from "@/lib/utils";
@@ -146,23 +147,23 @@ function GameInfo({ data }: { data: RealtimeGameUserData }) {
   const items = [
     {
       label: "현금",
-      value: Number(data.wallet || 0).toLocaleString() + "원",
+      value: formatKoreanNumber(Number(data.wallet || 0)) + "원",
     },
     {
       label: "계좌",
-      value: Number(data.bank || 0).toLocaleString() + "원",
+      value: formatKoreanNumber(Number(data.bank || 0)) + "원",
     },
     {
       label: "마일리지",
-      value: Number(data.current_coin || 0).toLocaleString() + "P",
+      value: formatKoreanNumber(Number(data.current_coin || 0)) + "P",
     },
     {
       label: "골드 박스",
-      value: Number(data.credit || 0).toLocaleString() + "개",
+      value: formatKoreanNumber(Number(data.credit || 0)) + "개",
     },
     {
       label: "프리미엄 박스",
-      value: Number(data.credit2 || 0).toLocaleString() + "개",
+      value: formatKoreanNumber(Number(data.credit2 || 0)) + "개",
     },
   ];
 
@@ -198,11 +199,11 @@ function AdminInfo({ data }: { data: RealtimeGameUserData }) {
   const items = [
     {
       label: "보유 캐시",
-      value: Number(data.current_cash || 0).toLocaleString() + "원",
+      value: formatKoreanNumber(Number(data.current_cash || 0)) + "원",
     },
     {
       label: "누적 캐시",
-      value: Number(data.cumulative_cash || 0).toLocaleString() + "원",
+      value: formatKoreanNumber(Number(data.cumulative_cash || 0)) + "원",
     },
     { label: "등급", value: data.tier_reward || "-" },
   ];

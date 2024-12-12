@@ -1,6 +1,32 @@
 import { prisma } from "@/db/prisma";
+import db from "@/db/pg";
 import { AdminLogFilters, AdminLogListResponse } from "@/types/log";
 import { GlobalReturn } from "@/types/global-return";
+
+interface GameLogFilters {
+  type?: string;
+  level?: string;
+  resource?: string;
+  startDate?: Date;
+  endDate?: Date;
+  page?: number;
+  limit?: number;
+}
+
+interface GameLogResponse {
+  records: Array<{
+    id: number;
+    timestamp: Date;
+    level: string;
+    type: string;
+    message: string;
+    resource?: string;
+    metadata?: any;
+  }>;
+  total: number;
+  page: number;
+  totalPages: number;
+}
 
 export class LogService {
   async getAdminLogs(
@@ -73,6 +99,52 @@ export class LogService {
       return {
         success: false,
         message: "어드민 로그 조회 실패",
+        data: {
+          records: [],
+          total: 0,
+          page: 1,
+          totalPages: 1,
+        },
+        error,
+      };
+    }
+  }
+
+  async getGameLogs(
+    filters: GameLogFilters
+  ): Promise<GlobalReturn<GameLogResponse>> {
+    try {
+      const limit = filters.limit || 50;
+      const offset = ((filters.page || 1) - 1) * limit;
+
+      const result = await db.queryLogs({
+        ...filters,
+        limit,
+        offset,
+      });
+
+      const totalCount = parseInt(result[0]?.total_count?.toString() || "0");
+      const totalPages = Math.ceil(totalCount / limit);
+
+      return {
+        success: true,
+        message: "게임 로그 조회 성공",
+        data: {
+          records: result.map((row: any) => ({
+            ...row,
+            total_count: undefined,
+          })),
+          total: totalCount,
+          page: filters.page || 1,
+          totalPages,
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("게임 로그 조회 실패:", error);
+      return {
+        success: false,
+        message: "게임 로그 조회 실패",
         data: {
           records: [],
           total: 0,
