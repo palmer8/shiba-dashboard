@@ -10,21 +10,31 @@ import {
   AddWhitelistData,
   EditWhitelistData,
   AddBlockTicketData,
+  ReportActionResponse,
+  ReportListResponse,
+  BlockTicketActionResponse,
+  WhitelistActionResponse,
+  BlockTicketListResponse,
+  WhitelistListResponse,
 } from "@/types/report";
 import { GlobalReturn } from "@/types/global-return";
-import { formatKoreanDateTime } from "@/lib/utils";
+import { formatKoreanDateTime, hasAccess } from "@/lib/utils";
 import { auth } from "@/lib/auth-config";
 import prisma from "@/db/prisma";
+import { redirect } from "next/navigation";
+import { ADMIN_LINKS } from "@/constant/constant";
+import { Status, UserRole } from "@prisma/client";
 
 class ReportService {
-  async getIncidentReports(filters: ReportFilters): Promise<
-    GlobalReturn<{
-      records: IncidentReport[];
-      total: number;
-      page: number;
-      totalPages: number;
-    }>
-  > {
+  async getIncidentReports(
+    filters: ReportFilters
+  ): Promise<ReportListResponse> {
+    const session = await auth();
+
+    if (!session?.user) {
+      return redirect("/login");
+    }
+
     try {
       const pageSize = 50;
       const page = filters.page || 1;
@@ -57,11 +67,9 @@ class ReportService {
       if (filters.incident_time && Array.isArray(filters.incident_time)) {
         const [fromDate, toDate] = filters.incident_time;
         if (fromDate instanceof Date && toDate instanceof Date) {
-          // 시작일은 해당일 00:00:00 (KST)
           const startDate = new Date(fromDate);
           startDate.setHours(0, 0, 0, 0);
 
-          // 종료일은 다음날 00:00:00 (KST) 직전
           const endDate = new Date(toDate);
           endDate.setHours(23, 59, 59, 999);
 
@@ -73,7 +81,6 @@ class ReportService {
       const whereString =
         whereClause.length > 0 ? `WHERE ${whereClause.join(" AND ")}` : "";
 
-      // 전체 개수를 먼저 조회
       const [countResult] = await pool.execute<RowDataPacket[]>(
         `SELECT COUNT(*) as total FROM dokku_incident_report ${whereString}`,
         queryParams
@@ -82,7 +89,6 @@ class ReportService {
       const total = countResult[0].total;
       const totalPages = Math.ceil(total / pageSize);
 
-      // 페이지네이션된 데이터 조회 - queryParams 포함하여 전달
       const [records] = await pool.execute<RowDataPacket[]>(
         `SELECT * FROM dokku_incident_report ${whereString} 
          ORDER BY incident_time DESC LIMIT ? OFFSET ?`,
@@ -91,7 +97,6 @@ class ReportService {
 
       return {
         success: true,
-        message: "사건 처리 보고서 조회 성공",
         data: {
           records: records as IncidentReport[],
           total,
@@ -104,54 +109,23 @@ class ReportService {
       console.error("Get incident reports error:", error);
       return {
         success: false,
-        message: "사건 처리 보고서 조회 실패",
-        data: {
-          records: [],
-          total: 0,
-          page: filters.page || 1,
-          totalPages: 1,
-        },
-        error,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
   async createIncidentReport(
     data: AddIncidentReportData
-  ): Promise<GlobalReturn<number>> {
+  ): Promise<ReportActionResponse> {
     const session = await auth();
 
-    if (!session || !session.user) {
-      return {
-        success: false,
-        message: "세션이 없습니다",
-        data: 0,
-        error: null,
-      };
+    if (!session?.user) {
+      return redirect("/login");
     }
 
-    const user = await prisma.user.findUnique({
-      where: {
-        id: session.user.id,
-      },
-      select: {
-        role: true,
-        id: true,
-        nickname: true,
-      },
-    });
-
-    if (!user) {
-      return {
-        success: false,
-        message: "등록되지 않은 계정입니다",
-        data: 0,
-        error: null,
-      };
-    }
-
-    if (user.role === "STAFF" && data.banDurationHours === -1) {
-      try {
+    try {
+      if (session.user.role === "STAFF" && data.banDurationHours === -1) {
         const [result] = await pool.execute<ResultSetHeader>(
           `INSERT INTO dokku_incident_report (
             reason, incident_description, incident_time, 
@@ -172,36 +146,25 @@ class ReportService {
             data.warningCount,
             data.detentionTimeMinutes,
             72,
-            user.nickname,
+            session.user.nickname,
           ]
         );
 
         if (result.affectedRows > 0) {
           await prisma.blockTicket.create({
             data: {
-              registrantId: user.id,
+              registrantId: session.user.id,
               reportId: result.insertId,
             },
           });
           return {
             success: true,
-            message: "사건 처리 보고서 생성 성공",
-            data: 1,
+            data: result.insertId,
             error: null,
           };
         }
-      } catch (error) {
-        console.error("Create incident report error:", error);
-        return {
-          success: false,
-          message: "사건 처리 보고서 생성 실패",
-          data: 0,
-          error,
-        };
       }
-    }
 
-    try {
       const [result] = await pool.execute<ResultSetHeader>(
         `INSERT INTO dokku_incident_report (
           reason, incident_description, incident_time, 
@@ -222,13 +185,12 @@ class ReportService {
           data.warningCount,
           data.detentionTimeMinutes,
           data.banDurationHours,
-          session?.user?.nickname,
+          session.user.nickname,
         ]
       );
 
       return {
         success: true,
-        message: "사건 처리 보고서 생성 성공",
         data: result.insertId,
         error: null,
       };
@@ -236,14 +198,27 @@ class ReportService {
       console.error("Create incident report error:", error);
       return {
         success: false,
-        message: "사건 처리 보고서 생성 실패",
-        data: 0,
-        error,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  async deleteIncidentReport(reportId: number): Promise<GlobalReturn<boolean>> {
+  async deleteIncidentReport(reportId: number): Promise<ReportActionResponse> {
+    const session = await auth();
+
+    if (!session?.user) {
+      return redirect("/login");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        data: null,
+        error: "권한이 없습니다",
+      };
+    }
+
     try {
       const [result] = await pool.execute<ResultSetHeader>(
         "DELETE FROM dokku_incident_report WHERE report_id = ?",
@@ -252,32 +227,99 @@ class ReportService {
 
       return {
         success: result.affectedRows > 0,
-        message:
-          result.affectedRows > 0
-            ? "사건 처리 보고서 삭제 성공"
-            : "해당 보고서를 찾을 수 없습니다",
-        data: result.affectedRows > 0,
-        error: null,
+        data: result.affectedRows > 0 ? reportId : null,
+        error:
+          result.affectedRows > 0 ? null : "해당 보고서를 찾을 수 없습니다",
       };
     } catch (error) {
       console.error("Delete incident report error:", error);
       return {
         success: false,
-        message: "사건 처리 보고서 삭제 실패",
-        data: false,
-        error,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  async getWhitelists(filters: WhitelistFilters): Promise<
-    GlobalReturn<{
-      records: WhitelistIP[];
-      total: number;
-      page: number;
-      totalPages: number;
-    }>
-  > {
+  async updateIncidentReport(
+    data: EditIncidentReportData
+  ): Promise<ReportActionResponse> {
+    const session = await auth();
+
+    if (!session?.user) {
+      return redirect("/login");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        data: null,
+        error: "권한이 없습니다",
+      };
+    }
+
+    try {
+      const [result] = await pool.execute<ResultSetHeader>(
+        `UPDATE dokku_incident_report 
+         SET reason = ?, 
+             incident_description = ?,
+             incident_time = ?,
+             penalty_type = ?,
+             warning_count = ?,
+             ban_duration_hours = ?,
+             target_user_id = ?,
+             target_user_nickname = ?,
+             reporting_user_id = ?,
+             reporting_user_nickname = ?
+         WHERE report_id = ?`,
+        [
+          data.reason,
+          data.incidentDescription,
+          formatKoreanDateTime(data.incidentTime),
+          data.penaltyType,
+          data.warningCount || null,
+          data.banDurationHours || null,
+          data.targetUserId,
+          data.targetUserNickname,
+          data.reportingUserId || null,
+          data.reportingUserNickname || null,
+          data.reportId,
+        ]
+      );
+
+      return {
+        success: result.affectedRows > 0,
+        data: result.affectedRows > 0 ? data.reportId : null,
+        error:
+          result.affectedRows > 0 ? null : "해당 보고서를 찾을 수 없습니다",
+      };
+    } catch (error) {
+      console.error("Update incident report error:", error);
+      return {
+        success: false,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  async getWhitelists(
+    filters: WhitelistFilters
+  ): Promise<WhitelistListResponse> {
+    const session = await auth();
+
+    if (!session?.user) {
+      return redirect("/login");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        data: null,
+        error: "권한이 없습니다",
+      };
+    }
+
     try {
       const pageSize = 50;
       const page = filters.page || 1;
@@ -326,12 +368,13 @@ class ReportService {
 
       return {
         success: true,
-        message: "화이트리스트 조회 성공",
         data: {
           records: records as WhitelistIP[],
-          total,
-          page,
-          totalPages,
+          metadata: {
+            total,
+            page,
+            totalPages,
+          },
         },
         error: null,
       };
@@ -339,28 +382,27 @@ class ReportService {
       console.error("Get whitelists error:", error);
       return {
         success: false,
-        message: "화이트리스트 조회 실패",
-        data: {
-          records: [],
-          total: 0,
-          page: filters.page || 1,
-          totalPages: 1,
-        },
-        error,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  async createWhitelist(data: AddWhitelistData): Promise<GlobalReturn<number>> {
+  async createWhitelist(
+    data: AddWhitelistData
+  ): Promise<WhitelistActionResponse> {
     try {
       const session = await auth();
 
-      if (!session || !session.user) {
+      if (!session?.user) {
+        return redirect("/login");
+      }
+
+      if (!hasAccess(session.user.role, UserRole.MASTER)) {
         return {
           success: false,
-          message: "세션이 없습니다",
           data: null,
-          error: null,
+          error: "권한이 없습니다",
         };
       }
 
@@ -368,7 +410,7 @@ class ReportService {
         ip,
         data.status ?? 0,
         data.comment || null,
-        session.user?.nickname,
+        session.user!.nickname,
         new Date(),
       ]);
 
@@ -391,7 +433,6 @@ class ReportService {
 
       return {
         success: true,
-        message: "IP 관리 티켓 생성 성공",
         data: result.insertId,
         error: null,
       };
@@ -399,109 +440,32 @@ class ReportService {
       console.error("Create whitelist error:", error);
       return {
         success: false,
-        message: "IP 관리 티켓 생성 실패",
         data: null,
-        error,
-      };
-    }
-  }
-
-  async deleteWhitelist(id: number): Promise<GlobalReturn<boolean>> {
-    try {
-      const [result] = await pool.execute<ResultSetHeader>(
-        "DELETE FROM dokku_whitelist_ip WHERE id = ?",
-        [id]
-      );
-
-      return {
-        success: result.affectedRows > 0,
-        message:
-          result.affectedRows > 0
-            ? "화이트리스트 삭제 성공"
-            : "해당 화이트리스트를 찾을 수 없습니다",
-        data: result.affectedRows > 0,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Delete whitelist error:", error);
-      return {
-        success: false,
-        message: "화이트리스트 삭제 실패",
-        data: false,
-        error,
-      };
-    }
-  }
-
-  async updateIncidentReport(
-    data: EditIncidentReportData
-  ): Promise<GlobalReturn<boolean>> {
-    const session = await auth();
-
-    if (!session?.user?.nickname) {
-      return {
-        success: false,
-        message: "세션이 없습니다",
-        data: false,
-        error: null,
-      };
-    }
-
-    try {
-      const [result] = await pool.execute<ResultSetHeader>(
-        `UPDATE dokku_incident_report 
-         SET reason = ?, 
-             incident_description = ?,
-             incident_time = ?,
-             penalty_type = ?,
-             warning_count = ?,
-             ban_duration_hours = ?,
-             target_user_id = ?,
-             target_user_nickname = ?,
-             reporting_user_id = ?,
-             reporting_user_nickname = ?
-         WHERE report_id = ?`,
-        [
-          data.reason,
-          data.incidentDescription,
-          formatKoreanDateTime(data.incidentTime),
-          data.penaltyType,
-          data.warningCount || null,
-          data.banDurationHours || null,
-          data.targetUserId,
-          data.targetUserNickname,
-          data.reportingUserId || null,
-          data.reportingUserNickname || null,
-          data.reportId,
-        ]
-      );
-
-      return {
-        success: result.affectedRows > 0,
-        message:
-          result.affectedRows > 0
-            ? "사건 처리 보고서 수정 성공"
-            : "해당 보고서를 찾을 수 없습니다",
-        data: result.affectedRows > 0,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Update incident report error:", error);
-      return {
-        success: false,
-        message: "사건 처리 보고서 수정 실패",
-        data: false,
-        error,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
   async updateWhitelist(
     data: EditWhitelistData
-  ): Promise<GlobalReturn<boolean>> {
+  ): Promise<WhitelistActionResponse> {
     try {
+      const session = await auth();
+
+      if (!session?.user) {
+        return redirect("/login");
+      }
+
+      if (!hasAccess(session.user.role, UserRole.MASTER)) {
+        return {
+          success: false,
+          data: null,
+          error: "권한이 없습니다",
+        };
+      }
+
       const setClauses: string[] = [];
-      const queryParams: (string | number)[] = [];
+      const queryParams: (string | number | null)[] = [];
 
       if (data.user_ip !== undefined) {
         setClauses.push("user_ip = ?");
@@ -519,9 +483,8 @@ class ReportService {
       if (setClauses.length === 0) {
         return {
           success: false,
-          message: "수정할 내용이 없습니다",
-          data: false,
-          error: null,
+          data: null,
+          error: "수정할 내용이 없습니다",
         };
       }
 
@@ -536,170 +499,374 @@ class ReportService {
 
       return {
         success: result.affectedRows > 0,
-        message:
+        data: result.affectedRows > 0 ? data.id : null,
+        error:
           result.affectedRows > 0
-            ? "화이트리스트 수정 성공"
+            ? null
             : "해당 화이트리스트를 찾을 수 없습니다",
-        data: result.affectedRows > 0,
-        error: null,
       };
     } catch (error) {
       console.error("Update whitelist error:", error);
       return {
         success: false,
-        message: "화이트리스트 수정 실패",
-        data: false,
-        error,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  async deleteWhitelist(id: number): Promise<WhitelistActionResponse> {
+    try {
+      const session = await auth();
+
+      if (!session?.user) {
+        return redirect("/login");
+      }
+
+      if (!hasAccess(session.user.role, UserRole.MASTER)) {
+        return {
+          success: false,
+          data: null,
+          error: "권한이 없습니다",
+        };
+      }
+
+      const [result] = await pool.execute<ResultSetHeader>(
+        "DELETE FROM dokku_whitelist_ip WHERE id = ?",
+        [id]
+      );
+
+      return {
+        success: result.affectedRows > 0,
+        data: result.affectedRows > 0 ? id : null,
+        error:
+          result.affectedRows > 0
+            ? null
+            : "해당 화이트리스트를 찾을 수 없습니다",
+      };
+    } catch (error) {
+      console.error("Delete whitelist error:", error);
+      return {
+        success: false,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
   async createBlockTicket(
     data: AddBlockTicketData
-  ): Promise<GlobalReturn<string>> {
+  ): Promise<BlockTicketActionResponse> {
     try {
+      const session = await auth();
+
+      if (!session?.user) {
+        return redirect("/login");
+      }
+
       const result = await prisma.blockTicket.create({
         data: {
-          registrantId: data.userId,
+          registrantId: session.user.id,
           reportId: data.reportId,
         },
       });
 
       return {
         success: true,
-        message: "사건처리 보고 승인 생성 성공",
-        data: result.id,
+        data: Number(result.id),
         error: null,
       };
     } catch (error) {
       console.error("Create block ticket error:", error);
       return {
         success: false,
-        message: "사건처리 보고 승인 생성 실패",
         data: null,
-        error,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  async approveBlockTicketByIds(ids: string[]): Promise<GlobalReturn<number>> {
+  async deleteBlockTicket(
+    ticketId: string
+  ): Promise<BlockTicketActionResponse> {
+    try {
+      const session = await auth();
+
+      if (!session?.user) {
+        return redirect("/login");
+      }
+
+      if (!hasAccess(session.user.role, UserRole.MASTER)) {
+        return {
+          success: false,
+          data: null,
+          error: "권한이 없습니다",
+        };
+      }
+
+      const result = await prisma.blockTicket.delete({
+        where: { id: ticketId },
+      });
+
+      return {
+        success: true,
+        data: Number(result.id),
+        error: null,
+      };
+    } catch (error) {
+      console.error("Delete block ticket error:", error);
+      return {
+        success: false,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  async getBlockTickets(
+    page: number,
+    filters: {
+      status: Status;
+      startDate?: string;
+      endDate?: string;
+      approveStartDate?: string;
+      approveEndDate?: string;
+      userId?: number;
+    }
+  ): Promise<BlockTicketListResponse> {
     const session = await auth();
 
+    if (!session?.user) {
+      return redirect("/login");
+    }
+
     try {
+      const pageSize = 50;
+      const skip = (page - 1) * pageSize;
+
+      // 기본 where 조건
+      const where: any = {
+        status: filters.status,
+      };
+
+      // 등록일 필터
+      if (filters.startDate && filters.endDate) {
+        where.createdAt = {
+          gte: new Date(filters.startDate),
+          lte: new Date(filters.endDate),
+        };
+      }
+
+      // 승인일 필터
+      if (filters.approveStartDate && filters.approveEndDate) {
+        where.approvedAt = {
+          gte: new Date(filters.approveStartDate),
+          lte: new Date(filters.approveEndDate),
+        };
+      }
+
+      // 유저 ID 필터
+      if (filters.userId) {
+        where.userId = filters.userId;
+      }
+
+      // 전체 레코드 수 조회
+      const total = await prisma.blockTicket.count({ where });
+
+      // 페이지네이션된 데이터 조회
+      const records = await prisma.blockTicket.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      return {
+        success: true,
+        data: {
+          records,
+          metadata: {
+            total,
+            page,
+            totalPages: Math.ceil(total / pageSize),
+          },
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get block tickets error:", error);
+      return {
+        success: false,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  async approveBlockTicketByIds(
+    ids: string[]
+  ): Promise<BlockTicketActionResponse> {
+    try {
+      const session = await auth();
+
+      if (!session?.user) {
+        return redirect("/login");
+      }
+
+      if (!hasAccess(session.user.role, UserRole.MASTER)) {
+        return {
+          success: false,
+          data: null,
+          error: "권한이 없습니다",
+        };
+      }
+
       const result = await prisma.blockTicket.updateMany({
-        where: { id: { in: ids }, status: "PENDING" },
-        data: { status: "APPROVED", approverId: session?.user?.id },
+        where: {
+          id: { in: ids },
+          status: "PENDING",
+        },
+        data: {
+          status: "APPROVED",
+          approverId: session.user.id,
+        },
       });
 
       return {
         success: true,
-        message: `사건처리 보고 승인 ${ids.length}개 승인 성공`,
-        data: ids.length,
+        data: result.count,
         error: null,
       };
     } catch (error) {
-      console.error("Approve block ticket error:", error);
+      console.error("Approve block tickets error:", error);
       return {
         success: false,
-        message: "사건처리 보고 승인 승인 실패",
-        data: 0,
-        error,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  async approveAllBlockTicket(): Promise<GlobalReturn<boolean>> {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return {
-        success: false,
-        message: "세션이 없습니다",
-        data: false,
-        error: null,
-      };
-    }
-
+  async approveAllBlockTicket(): Promise<BlockTicketActionResponse> {
     try {
-      await prisma.blockTicket.updateMany({
+      const session = await auth();
+
+      if (!session?.user) {
+        return redirect("/login");
+      }
+
+      if (!hasAccess(session.user.role, UserRole.MASTER)) {
+        return {
+          success: false,
+          data: null,
+          error: "권한이 없습니다",
+        };
+      }
+
+      const result = await prisma.blockTicket.updateMany({
         where: { status: "PENDING" },
-        data: { status: "APPROVED", approverId: session?.user?.id },
+        data: {
+          status: "APPROVED",
+          approverId: session.user.id,
+        },
       });
 
       return {
         success: true,
-        message: "사건처리 보고 승인 전체 승인 성공",
-        data: true,
+        data: result.count,
         error: null,
       };
     } catch (error) {
-      console.error("Approve all block ticket error:", error);
+      console.error("Approve all block tickets error:", error);
       return {
         success: false,
-        message: "사건처리 보고 승인 전체 승인 실패",
-        data: false,
-        error,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  async rejectBlockTicketByIds(ids: string[]): Promise<GlobalReturn<number>> {
-    const session = await auth();
-
+  async rejectBlockTicketByIds(
+    ids: string[]
+  ): Promise<BlockTicketActionResponse> {
     try {
-      await prisma.blockTicket.updateMany({
-        where: { id: { in: ids }, status: "PENDING" },
-        data: { status: "REJECTED", approverId: session?.user?.id },
+      const session = await auth();
+
+      if (!session?.user) {
+        return redirect("/login");
+      }
+
+      if (!hasAccess(session.user.role, UserRole.MASTER)) {
+        return {
+          success: false,
+          data: null,
+          error: "권한이 없습니다",
+        };
+      }
+
+      const result = await prisma.blockTicket.updateMany({
+        where: {
+          id: { in: ids },
+          status: "PENDING",
+        },
+        data: {
+          status: "REJECTED",
+          approverId: session.user.id,
+        },
       });
 
       return {
         success: true,
-        message: `사건처리 보고 승인 ${ids.length}개 거절 성공`,
-        data: ids.length,
+        data: result.count,
         error: null,
       };
     } catch (error) {
-      console.error("Reject block ticket error:", error);
+      console.error("Reject block tickets error:", error);
       return {
         success: false,
-        message: "사건처리 보고 승인 거절 실패",
-        data: 0,
-        error,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
-  async rejectAllBlockTicket(): Promise<GlobalReturn<boolean>> {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return {
-        success: false,
-        message: "세션이 없습니다",
-        data: false,
-        error: null,
-      };
-    }
-
+  async rejectAllBlockTicket(): Promise<BlockTicketActionResponse> {
     try {
-      await prisma.blockTicket.updateMany({
+      const session = await auth();
+
+      if (!session?.user) {
+        return redirect("/login");
+      }
+
+      if (!hasAccess(session.user.role, UserRole.MASTER)) {
+        return {
+          success: false,
+          data: null,
+          error: "권한이 없습니다",
+        };
+      }
+
+      const result = await prisma.blockTicket.updateMany({
         where: { status: "PENDING" },
-        data: { status: "REJECTED", approverId: session?.user?.id },
+        data: {
+          status: "REJECTED",
+          approverId: session.user.id,
+        },
       });
 
       return {
         success: true,
-        message: "사건처리 보고 승인 전체 거절 성공",
-        data: true,
+        data: result.count,
         error: null,
       };
     } catch (error) {
-      console.error("Reject all block ticket error:", error);
+      console.error("Reject all block tickets error:", error);
       return {
         success: false,
-        message: "사건처리 보고 승인 전체 거절 실패",
-        data: false,
-        error,
+        data: null,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }

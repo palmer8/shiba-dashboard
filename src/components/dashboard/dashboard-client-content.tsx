@@ -16,9 +16,8 @@ import Link from "next/link";
 import { formatKoreanDateTime } from "@/lib/utils";
 import { useTransition } from "react";
 import { DashboardData } from "@/types/dashboard";
-import { ApiResponse } from "@/types/global.dto";
 
-function DashboardSkeleton() {
+export function DashboardSkeleton() {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {[...Array(3)].map((_, i) => (
@@ -71,19 +70,16 @@ function DashboardSkeleton() {
 
 export default function DashboardClientContent() {
   const [data, setData] = useState<DashboardData | null>(null);
-  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const [isPending, startTransition] = useTransition();
 
   const refreshData = async () => {
     const now = Date.now();
-    if (now - lastFetchTime < 30000 && data) return;
 
     startTransition(async () => {
       try {
         const result = await getDashboardData();
         if (result.success && result.data) {
           setData(result.data);
-          setLastFetchTime(now);
         } else {
           console.error("Failed to fetch dashboard data:", result.error);
         }
@@ -95,13 +91,9 @@ export default function DashboardClientContent() {
 
   useEffect(() => {
     refreshData();
-    // 30초마다 데이터 갱신
-    const interval = setInterval(refreshData, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   if (!data) {
-    console.log("No data available, showing skeleton");
     return <DashboardSkeleton />;
   }
 

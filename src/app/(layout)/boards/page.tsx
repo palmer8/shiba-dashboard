@@ -9,7 +9,7 @@ import { boardService } from "@/service/board-service";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Suspense } from "react";
-import { BoardTableSkeleton } from "@/components/boards/board-table-skeleton";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 interface PageProps {
   searchParams: Promise<{
@@ -50,7 +50,7 @@ export default async function BoardsPage({ searchParams }: PageProps) {
         </Button>
       </div>
       <BoardFilters filters={filters} />
-      <Suspense fallback={<BoardTableSkeleton />}>
+      <Suspense fallback={<TableSkeleton />}>
         <BoardContent filters={filters} page={page} />
       </Suspense>
     </main>

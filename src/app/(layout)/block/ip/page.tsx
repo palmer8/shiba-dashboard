@@ -48,9 +48,12 @@ export default async function WhitelistPage({
       </div>
       <WhitelistFilter filter={filter} />
       <WhitelistTable
-        data={
-          whitelists?.data || { records: [], total: 0, page: 1, totalPages: 1 }
-        }
+        data={{
+          records: whitelists?.data?.records || [],
+          total: whitelists?.data?.metadata.total || 0,
+          page: whitelists?.data?.metadata.page || 1,
+          totalPages: whitelists?.data?.metadata.totalPages || 1,
+        }}
       />
     </main>
   );

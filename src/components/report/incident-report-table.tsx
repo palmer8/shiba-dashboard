@@ -16,7 +16,7 @@ import {
   Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { useMemo, useState, useCallback, Fragment } from "react";
+import { useMemo, useCallback, Fragment } from "react";
 import { useSession } from "next-auth/react";
 import { formatKoreanDateTime } from "@/lib/utils";
 import {
@@ -42,7 +42,12 @@ interface IncidentReportTableProps {
 }
 
 export default function IncidentReportTable({
-  data,
+  data = {
+    records: [],
+    total: 0,
+    page: 1,
+    totalPages: 1,
+  },
 }: IncidentReportTableProps) {
   const { data: session } = useSession();
   const router = useRouter();
@@ -174,7 +179,7 @@ export default function IncidentReportTable({
                             } else {
                               toast({
                                 title: "사건 처리 보고서 삭제에 실패했습니다.",
-                                description: "잠시 후에 다시 시도해주세요",
+                                description: result.error,
                               });
                             }
                           }
@@ -196,7 +201,7 @@ export default function IncidentReportTable({
   );
 
   const table = useReactTable({
-    data: data.records || [],
+    data: data.records,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -229,78 +234,93 @@ export default function IncidentReportTable({
             </TableRow>
           ))}
         </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <Fragment key={row.id}>
-              <TableRow
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => row.toggleExpanded()}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-              {row.getIsExpanded() && (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="bg-muted/30">
-                    <div className="p-2 grid gap-2">
-                      <p className="text-lg font-bold">상세 내용</p>
-                      <p className="text-sm whitespace-pre-wrap">
-                        {row.original.incident_description}
-                      </p>
-                    </div>
-                  </TableCell>
+        {data.records.length > 0 ? (
+          <TableBody>
+            {table.getRowModel().rows.map((row) => (
+              <Fragment key={row.id}>
+                <TableRow
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => row.toggleExpanded()}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
                 </TableRow>
-              )}
-            </Fragment>
-          ))}
-        </TableBody>
+                {row.getIsExpanded() && (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="bg-muted/30">
+                      <div className="p-2 grid gap-2">
+                        <p className="text-lg font-bold">상세 내용</p>
+                        <p className="text-sm whitespace-pre-wrap">
+                          {row.original.incident_description}
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
+            ))}
+          </TableBody>
+        ) : (
+          <TableBody>
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                데이터가 없습니다.
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        )}
       </Table>
 
-      <div className="flex items-center justify-between py-2">
-        <div className="text-sm text-muted-foreground">
-          총 {data.total}개 중 {(data.page - 1) * 10 + 1}-
-          {Math.min(data.page * 10, data.total)}개 표시
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(data.page - 1)}
-            disabled={data.page <= 1}
-          >
-            이전
-          </Button>
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              value={data.page}
-              onChange={(e) => {
-                const page = parseInt(e.target.value);
-                if (page > 0 && page <= data.totalPages) {
-                  handlePageChange(page);
-                }
-              }}
-              className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              min={1}
-              max={data.totalPages}
-            />
-            <span className="text-sm text-muted-foreground">
-              / {data.totalPages}
-            </span>
+      {data.records.length > 0 && (
+        <div className="flex items-center justify-between py-2">
+          <div className="text-sm text-muted-foreground">
+            총 {data.total}개 중 {(data.page - 1) * 10 + 1}-
+            {Math.min(data.page * 10, data.total)}개 표시
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(data.page + 1)}
-            disabled={data.page >= data.totalPages}
-          >
-            다음
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(data.page - 1)}
+              disabled={data.page <= 1}
+            >
+              이전
+            </Button>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                value={data.page}
+                onChange={(e) => {
+                  const page = parseInt(e.target.value);
+                  if (page > 0 && page <= data.totalPages) {
+                    handlePageChange(page);
+                  }
+                }}
+                className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                min={1}
+                max={data.totalPages}
+              />
+              <span className="text-sm text-muted-foreground">
+                / {data.totalPages}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(data.page + 1)}
+              disabled={data.page >= data.totalPages}
+            >
+              다음
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

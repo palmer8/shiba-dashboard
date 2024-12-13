@@ -7,6 +7,8 @@ import AddIncidentReportDialog from "@/components/dialog/add-incident-report-dia
 import { PenaltyType, ReportFilters } from "@/types/report";
 import { reportService } from "@/service/report-service";
 import { GlobalTitle } from "@/components/global/global-title";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { Suspense } from "react";
 
 interface ReportPageProps {
   searchParams: Promise<{
@@ -16,7 +18,6 @@ interface ReportPageProps {
 
 export default async function ReportPage({ searchParams }: ReportPageProps) {
   const session = await auth();
-
   if (!session?.user) return redirect("/login");
 
   const params = await searchParams;
@@ -34,8 +35,6 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
         : undefined,
   };
 
-  const reports = await reportService.getIncidentReports(filter);
-
   return (
     <main>
       <PageBreadcrumb />
@@ -47,11 +46,25 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
         <AddIncidentReportDialog />
       </div>
       <IncidentReportFilter filter={filter} />
-      <IncidentReportTable
-        data={
-          reports?.data || { records: [], total: 0, page: 1, totalPages: 1 }
-        }
-      />
+      <Suspense fallback={<TableSkeleton />}>
+        <ReportContent filter={filter} />
+      </Suspense>
     </main>
   );
+}
+
+async function ReportContent({ filter }: { filter: ReportFilters }) {
+  const reports = await reportService.getIncidentReports(filter);
+
+  const initialData = {
+    records: [],
+    total: 0,
+    page: filter.page || 1,
+    totalPages: 1,
+  };
+
+  const tableData =
+    reports?.success && reports.data ? reports.data : initialData;
+
+  return <IncidentReportTable data={tableData} />;
 }
