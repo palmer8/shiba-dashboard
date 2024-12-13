@@ -31,38 +31,13 @@ import { MoreHorizontal, Pencil, Trash, Eye, Heart } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { deleteBoardAction } from "@/actions/board-action";
 import { toast } from "@/hooks/use-toast";
-
-interface BoardData {
-  id: string;
-  title: string;
-  createdAt: Date;
-  updatedAt: Date;
-  views: number;
-  isNotice: boolean;
-  registrant: {
-    id: string;
-    nickname: string;
-  };
-  category: {
-    id: string;
-    name: string;
-  };
-  commentCount: number;
-  _count: {
-    likes: number;
-  };
-}
-
-interface BoardMetadata {
-  currentPage: number;
-  totalPages: number;
-  totalCount: number;
-}
+import { BoardData, BoardList } from "@/types/board";
+import { checkPermission } from "@/lib/utils";
 
 interface BoardTableProps {
   data: BoardData[];
   notices: BoardData[];
-  metadata: BoardMetadata;
+  metadata: BoardList["metadata"];
   page: number;
 }
 
@@ -140,59 +115,43 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
         </span>
       ),
     },
-    ...(session?.user?.role === "SUPERMASTER"
-      ? [
-          {
-            id: "actions",
-            header: "관리",
-            cell: ({ row }: { row: Row<BoardData> }) => {
-              return (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() =>
-                        router.push(`/board/${row.original.id}/edit`)
-                      }
-                    >
-                      <Pencil className="mr-2 h-4 w-4" />
-                      <span>수정</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={async () => {
-                        if (confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
-                          const result = await deleteBoardAction(
-                            row.original.id
-                          );
-                          if (result.success) {
-                            toast({
-                              title: "게시글이 삭제되었습니다.",
-                            });
-                          } else {
-                            toast({
-                              title: "게시글 삭제에 실패했습니다.",
-                              description: "잠시 후에 다시 시도해주세요",
-                              variant: "destructive",
-                            });
-                          }
-                        }
-                      }}
-                      className="text-red-600"
-                    >
-                      <Trash className="mr-2 h-4 w-4" />
-                      <span>삭제</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              );
-            },
-          },
-        ]
-      : []),
+    {
+      id: "actions",
+      cell: ({ row }: { row: Row<BoardData> }) => {
+        const hasPermission = checkPermission(
+          session?.user?.id,
+          row.original.registrant.id,
+          session?.user?.role
+        );
+
+        if (!hasPermission) return null;
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => router.push(`/board/${row.original.id}/edit`)}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                <span>수정</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleDelete(row.original.id)}
+                className="text-red-600"
+              >
+                <Trash className="mr-2 h-4 w-4" />
+                <span>삭제</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
   ];
 
   const memorizedData = useMemo(
@@ -227,6 +186,23 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", newPage.toString());
     router.push(`/boards?${params.toString()}`);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
+      const result = await deleteBoardAction(id);
+      if (result.success) {
+        toast({
+          title: "게시글이 삭제��었습니다.",
+        });
+      } else {
+        toast({
+          title: "게시글 삭제에 실패했습니다.",
+          description: result.error || "잠시 후에 다시 시도해주세요",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   return (

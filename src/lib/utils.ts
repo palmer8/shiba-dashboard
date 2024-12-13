@@ -201,3 +201,21 @@ export function sanitizeContent(content: JSONContent) {
     })
   );
 }
+
+export function hasEditPermission(
+  userId: string,
+  authorId: string,
+  userRole: UserRole
+) {
+  return userId === authorId || userRole === "SUPERMASTER";
+}
+
+export function checkPermission(
+  userId: string | undefined,
+  authorId: string,
+  userRole?: UserRole
+) {
+  if (!userId) return false;
+  if (!userRole) return userId === authorId;
+  return userId === authorId || userRole === "SUPERMASTER";
+}

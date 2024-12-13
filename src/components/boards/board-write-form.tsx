@@ -290,18 +290,12 @@ export default function BoardWriteForm() {
 
   const handleSubmit = async () => {
     if (!session?.user?.id) {
-      toast({
-        title: "오류가 발생했습니다.",
-        description: "로그인이 필요합니다.",
-        variant: "destructive",
-      });
-      return;
+      return router.replace("/login");
     }
 
     if (!title.trim()) {
       toast({
-        title: "오류가 발생했습니다.",
-        description: "제목을 알맞게 입력해주세요.",
+        title: "제목을 알맞게 입력해주세요.",
         variant: "destructive",
       });
       return;
@@ -309,8 +303,7 @@ export default function BoardWriteForm() {
 
     if (!category) {
       toast({
-        title: "오류가 발생했습니다.",
-        description: "카테고리를 선택해주세요.",
+        title: "카테고리를 선택해주세요.",
         variant: "destructive",
       });
       return;
@@ -333,16 +326,17 @@ export default function BoardWriteForm() {
         router.push(`/board/${result.data?.id}`);
       } else {
         toast({
-          title: "게시글 작성에 실패했습니다.",
-          description: "게시글 작성 중 오류가 발생했습니다.",
+          title: "게시글 작성 실패",
+          description: result.error,
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error("Submit error:", error);
       toast({
-        title: "게시글 작성에 실패했습니다.",
-        description: "게시글 작성 중 오류가 발생했습니다.",
+        title: "게시글 작성 실패",
+        description:
+          (error as Error)?.message || "잠시 후에 다시 시도해주세요.",
         variant: "destructive",
       });
     }

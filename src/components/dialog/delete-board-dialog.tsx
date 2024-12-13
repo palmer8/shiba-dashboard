@@ -41,14 +41,15 @@ export function DeleteBoardDialog({ boardId }: DeleteBoardDialogProps) {
       } else {
         toast({
           title: "게시글 삭제 실패",
-          description: result.message,
+          description: result.error,
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
-        title: "오류 발생",
-        description: "게시글 삭제 중 오류가 발생했습니다.",
+        title: "게시글 삭제 실패",
+        description:
+          (error as Error)?.message || "잠시 후에 다시 시도해주세요.",
         variant: "destructive",
       });
     } finally {

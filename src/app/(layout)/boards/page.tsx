@@ -8,6 +8,8 @@ import { redirect } from "next/navigation";
 import { boardService } from "@/service/board-service";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Suspense } from "react";
+import { BoardTableSkeleton } from "@/components/boards/board-table-skeleton";
 
 interface PageProps {
   searchParams: Promise<{
@@ -25,30 +27,14 @@ export default async function BoardsPage({ searchParams }: PageProps) {
   if (!session?.user) return redirect("/login");
 
   const params = await searchParams;
-
+  const page = parseInt(params.page || "1");
   const filters: BoardFilter = {
+    page,
     startDate: params.startDate,
     endDate: params.endDate,
     registrantId: params.registrantId,
-    title: params.title,
     categoryId: params.categoryId,
-  };
-
-  const page = Number(params.page) || 1;
-  const result = await boardService.getBoardList({
-    page,
-    ...filters,
-  });
-
-  // 기본값 제공
-  const defaultBoardList = {
-    boards: [],
-    notices: [],
-    metadata: {
-      currentPage: page,
-      totalPages: 1,
-      totalCount: 0,
-    },
+    title: params.title,
   };
 
   return (
@@ -64,16 +50,42 @@ export default async function BoardsPage({ searchParams }: PageProps) {
         </Button>
       </div>
       <BoardFilters filters={filters} />
-      <BoardTable
-        data={result.success && result.data ? result.data.boards : []}
-        notices={result.success && result.data ? result.data.notices : []}
-        metadata={
-          result.success && result.data
-            ? result.data.metadata
-            : defaultBoardList.metadata
-        }
-        page={page}
-      />
+      <Suspense fallback={<BoardTableSkeleton />}>
+        <BoardContent filters={filters} page={page} />
+      </Suspense>
     </main>
+  );
+}
+
+async function BoardContent({
+  filters,
+  page,
+}: {
+  filters: BoardFilter;
+  page: number;
+}) {
+  const result = await boardService.getBoardList(filters);
+
+  if (!result.success) {
+    return (
+      <div className="text-center text-red-500">
+        {result.error || "게시글 목록을 불러오는데 실패했습니다."}
+      </div>
+    );
+  }
+
+  return (
+    <BoardTable
+      data={result.data?.boards || []}
+      notices={result.data?.notices || []}
+      metadata={
+        result.data?.metadata || {
+          currentPage: 1,
+          totalPages: 1,
+          totalCount: 0,
+        }
+      }
+      page={page}
+    />
   );
 }

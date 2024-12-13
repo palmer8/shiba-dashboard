@@ -62,13 +62,20 @@ export function BoardFilters({ filters }: BoardFiltersProps) {
     const params = new URLSearchParams();
     params.set("page", "1");
 
-    if (dateRange?.from) params.set("startDate", dateRange.from.toISOString());
-    if (dateRange?.to) params.set("endDate", dateRange.to.toISOString());
-    if (localFilter.registrantId)
-      params.set("registrantId", localFilter.registrantId);
-    if (localFilter.title) params.set("title", localFilter.title);
-    if (localFilter.categoryId)
+    if (dateRange?.from) {
+      params.set("startDate", dateRange.from.toISOString());
+    }
+    if (dateRange?.to) {
+      params.set("endDate", dateRange.to.toISOString());
+    }
+
+    if (localFilter.title && localFilter.title.trim()) {
+      params.set("title", localFilter.title.trim());
+    }
+
+    if (localFilter.categoryId && localFilter.categoryId !== "ALL") {
       params.set("categoryId", localFilter.categoryId);
+    }
 
     router.push(`/boards?${params.toString()}`);
   }, [localFilter, dateRange, router]);
@@ -117,15 +124,6 @@ export function BoardFilters({ filters }: BoardFiltersProps) {
             placeholder="제목 입력"
             value={localFilter.title || ""}
             onChange={(e) => handleFilterChange("title", e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>작성자 고유번호</Label>
-          <Input
-            placeholder="작성자 고유번호 입력"
-            value={localFilter.registrantId || ""}
-            onChange={(e) => handleFilterChange("registrantId", e.target.value)}
           />
         </div>
       </div>

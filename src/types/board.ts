@@ -21,6 +21,9 @@ export interface BoardData {
     name: string;
   };
   commentCount: number;
+  _count: {
+    likes: number;
+  };
 }
 
 // 게시글 목록 메타데이터
@@ -39,12 +42,12 @@ export interface BoardList {
 
 // 게시글 필터
 export interface BoardFilter {
+  page?: number;
   startDate?: string;
   endDate?: string;
   registrantId?: string;
-  title?: string;
   categoryId?: string;
-  page?: number;
+  title?: string;
 }
 
 // 카테고리 데이터
@@ -101,4 +104,21 @@ export interface LikeInfo {
 export interface BoardDetailView extends Omit<BoardDetail, "likes"> {
   isLiked: boolean;
   likes: LikeInfo[];
+}
+
+// 기존 타입들은 유지하면서 새로운 타입 추가
+export interface BoardListResponse {
+  boards: BoardData[];
+  notices: BoardData[];
+  metadata: {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+  };
+}
+
+// 스켈레톤 로딩을 위한 타입
+export interface BoardTableSkeleton {
+  rows: number;
+  columns: number;
 }

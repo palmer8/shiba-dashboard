@@ -155,16 +155,17 @@ export default function BoardEditForm({
         router.push(`/board/${result.data?.id}`);
       } else {
         toast({
-          title: "게시글 수정에 실패했습니다.",
-          description: result.message,
+          title: "게시글 수정 실패",
+          description: result.error,
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error("Update board error:", error);
       toast({
-        title: "게시글 수정에 실패했습니다.",
-        description: "잠시 후 다시 시도해주세요.",
+        title: "게시글 수정 실패",
+        description:
+          (error as Error)?.message || "잠시 후에 다시 시도해주세요.",
         variant: "destructive",
       });
     } finally {

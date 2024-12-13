@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { boardService } from "@/service/board-service";
 import BoardEditForm from "@/components/boards/board-edit-form";
 import { JSONContent } from "novel";
+import { checkPermission } from "@/lib/utils";
 
 interface PageProps {
   params: Promise<{
@@ -21,10 +22,13 @@ export default async function BoardEditPage({ params }: PageProps) {
     return redirect("/boards");
   }
 
-  if (
-    result.data.registrant.id !== session.user.id &&
-    session.user.role !== "SUPERMASTER"
-  ) {
+  const hasPermission = checkPermission(
+    session.user.id,
+    result.data.registrant.id,
+    session.user.role
+  );
+
+  if (!hasPermission) {
     return redirect("/boards");
   }
 

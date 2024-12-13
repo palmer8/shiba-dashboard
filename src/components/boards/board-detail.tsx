@@ -80,7 +80,7 @@ export function BoardDetail({ board, userId, userRole }: BoardDetailProps) {
     if (!result.success) {
       toast({
         title: "좋아요 처리 실패",
-        description: result.message,
+        description: result.error,
         variant: "destructive",
       });
     }
@@ -94,7 +94,7 @@ export function BoardDetail({ board, userId, userRole }: BoardDetailProps) {
     } else {
       toast({
         title: "게시글 삭제 실패",
-        description: result.message,
+        description: result.error,
         variant: "destructive",
       });
     }
