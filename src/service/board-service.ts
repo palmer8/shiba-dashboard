@@ -13,6 +13,8 @@ import { CategoryForm } from "@/components/dialog/add-category-dialog";
 import { JSONContent } from "novel";
 import { redirect } from "next/navigation";
 import { BoardDetailView, LikeInfo } from "@/types/board";
+import { BoardsData } from "@/types/dashboard";
+import { ApiResponse } from "@/types/global.dto";
 
 interface BoardFilter {
   page?: number;
@@ -518,7 +520,7 @@ class BoardService {
         }),
       };
 
-      // 한 번의 쿼리로 모든 데이터를 가져오도록 수정
+      // 1 번의 쿼리로 모든 데이터를 가져오도록 수정
       const [totalCount, boards, notices] = await Promise.all([
         prisma.board.count({ where }),
         prisma.board.findMany({
@@ -766,10 +768,9 @@ class BoardService {
     }
   }
 
-  async getRecentBoards(): Promise<GlobalReturn<RecentBoards>> {
+  async getRecentBoards(): Promise<ApiResponse<BoardsData>> {
     try {
       const [recentBoards, recentNotices] = await Promise.all([
-        // 일반 게시글 3개
         prisma.board.findMany({
           where: { isNotice: false },
           take: 3,
@@ -789,7 +790,6 @@ class BoardService {
             },
           },
         }),
-        // 공지사항 3개
         prisma.board.findMany({
           where: { isNotice: true },
           take: 3,
@@ -813,12 +813,12 @@ class BoardService {
 
       return {
         success: true,
-        message: "최근 게시글을 조회했습니다.",
+        error: null,
         data: {
           recentBoards: recentBoards.map((board) => ({
             id: board.id,
             title: board.title,
-            createdAt: board.createdAt,
+            createdAt: board.createdAt.toISOString(),
             commentCount: board._count.comments,
             likeCount: board._count.likes,
             registrant: board.registrant || {
@@ -829,7 +829,7 @@ class BoardService {
           recentNotices: recentNotices.map((notice) => ({
             id: notice.id,
             title: notice.title,
-            createdAt: notice.createdAt,
+            createdAt: notice.createdAt.toISOString(),
             commentCount: notice._count.comments,
             likeCount: notice._count.likes,
             registrant: notice.registrant || {
@@ -838,15 +838,15 @@ class BoardService {
             },
           })),
         },
-        error: null,
       };
     } catch (error) {
-      console.error("Get recent boards error:", error);
       return {
         success: false,
-        message: "최근 게시글 조회에 실패했습니다.",
         data: null,
-        error,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
       };
     }
   }

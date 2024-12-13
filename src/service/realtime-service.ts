@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth-config";
 import { ROLE_HIERARCHY } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { RowDataPacket } from "mysql2";
+import { ApiResponse } from "@/types/global.dto";
 
 type ComparisonOperator = "gt" | "gte" | "lt" | "lte" | "eq";
 type PaginationParams = { page: number };
@@ -42,6 +43,48 @@ function getComparisonOperator(operator: ComparisonOperator): string {
 }
 
 class RealtimeService {
+  private readonly BASE_URL = process.env.PRIVATE_API_URL;
+  private readonly API_KEY = process.env.PRIVATE_API_KEY || "";
+  private readonly DEFAULT_TIMEOUT = 5000;
+
+  private async fetchWithRetry<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    retries = 3
+  ): Promise<T> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      this.DEFAULT_TIMEOUT
+    );
+
+    try {
+      const response = await fetch(`${this.BASE_URL}${endpoint}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          key: this.API_KEY,
+          ...options.headers,
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (retries > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return this.fetchWithRetry(endpoint, options, retries - 1);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   // 아이템 데이터 조회
   async getGameUserDataByUserId(userId: number) {
     const userDataResponse = await fetch(
@@ -658,61 +701,63 @@ class RealtimeService {
     }
   }
 
-  async getRealtimeUser() {
+  async getRealtimeUser(): Promise<ApiResponse<number>> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch(
-        `${process.env.PRIVATE_API_URL}/DokkuApi/getPlayersCount`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            key: process.env.PRIVATE_API_KEY || "",
-          },
-          signal: controller.signal,
-          cache: "no-store",
-        }
+      const data = await this.fetchWithRetry<{ playerNum: number }>(
+        "/DokkuApi/getPlayersCount",
+        { method: "POST" }
       );
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.playerNum || 0;
+      return {
+        success: true,
+        data: data.playerNum || 0,
+        error: null,
+      };
     } catch (error) {
-      console.error("Get realtime user error:", error);
-      return 0;
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
+      };
     }
   }
 
-  async getAdminData() {
+  async getAdminData(): Promise<
+    ApiResponse<{
+      count: number;
+      users: Array<{ user_id: number; name: string }>;
+    }>
+  > {
     try {
-      const response = await fetch(
-        `${process.env.PRIVATE_API_URL}/DokkuApi/getAdmin`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            key: process.env.PRIVATE_API_KEY || "",
-          },
-          cache: "no-store",
-        }
-      );
+      const data = await this.fetchWithRetry<{
+        count: number;
+        users: Array<{ user_id: number; name: string }>;
+      }>("/DokkuApi/getAdmin", { method: "POST" });
 
-      const adminData = await response.json();
-      return adminData;
+      return {
+        success: true,
+        data,
+        error: null,
+      };
     } catch (error) {
-      console.error("Get admin data error:", error);
-      return { count: 0, users: [] };
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
+      };
     }
   }
 
-  async getWeeklyNewUsersStats() {
+  async getWeeklyNewUsersStats(): Promise<
+    ApiResponse<
+      Array<{ date: string; count: number; changePercentage: number }>
+    >
+  > {
     try {
       const query = `
         WITH RECURSIVE dates AS (
@@ -751,14 +796,24 @@ class RealtimeService {
 
       const [rows] = await pool.execute<RowDataPacket[]>(query);
 
-      return rows.map((row) => ({
-        date: new Date(row.date).toISOString().split("T")[0],
-        count: Number(row.count),
-        changePercentage: Number(row.change_percentage),
-      }));
+      return {
+        success: true,
+        data: rows.map((row) => ({
+          date: new Date(row.date).toISOString().split("T")[0],
+          count: Number(row.count),
+          changePercentage: Number(row.change_percentage),
+        })),
+        error: null,
+      };
     } catch (error) {
-      console.error("Get weekly stats error:", error);
-      return [];
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
+      };
     }
   }
 }
