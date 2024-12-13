@@ -43,7 +43,7 @@ export default async function GameGroupMailPage({ searchParams }: PageProps) {
   };
 
   return (
-    <main className="space-y-4">
+    <main>
       <PageBreadcrumb />
       <GlobalTitle
         title="단체 우편"

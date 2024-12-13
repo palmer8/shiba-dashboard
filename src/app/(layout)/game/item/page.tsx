@@ -51,7 +51,7 @@ export default async function ItemQuantityPage({ searchParams }: PageProps) {
   };
 
   return (
-    <main className="space-y-4">
+    <main>
       <PageBreadcrumb />
       <GlobalTitle
         title="아이템 지급/회수"

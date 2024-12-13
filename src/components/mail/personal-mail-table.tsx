@@ -35,6 +35,8 @@ import { toast } from "@/hooks/use-toast";
 import { useSession } from "next-auth/react";
 import { ExpandedMailRow } from "@/components/mail/expanded-mail-row";
 import EditPersonalMailDialog from "@/components/dialog/edit-personal-mail-dialog";
+import { Input } from "@/components/ui/input";
+import { uploadPersonalMailCSVAction } from "@/actions/mail-action";
 
 interface PersonalMailTableProps {
   data: PersonalMailTableData;
@@ -206,16 +208,68 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
     }
   }, [table]);
 
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    try {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const result = await uploadPersonalMailCSVAction(formData);
+
+      if (result.success) {
+        toast({
+          title: "CSV 업로드 성공",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "CSV 업로드 실패",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "CSV 업로드 실패",
+        description: "파일 처리 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2 items-center">
-        <AddPersonalMailDialog open={open} setOpen={setOpen} />
-        <Button
-          onClick={handleDownloadCSV}
-          disabled={!table.getSelectedRowModel().rows.length}
-        >
-          CSV 다운로드
-        </Button>
+      <div className="flex justify-end items-center">
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => {
+              const selectedMails = table
+                .getSelectedRowModel()
+                .rows.map((row) => row.original);
+              handleDownloadJson2CSV({
+                data: selectedMails,
+                fileName: "personal_mails",
+              });
+            }}
+            disabled={!table.getSelectedRowModel().rows.length}
+          >
+            CSV 다운로드
+          </Button>
+          <div className="relative">
+            <Input
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+            />
+            <Button variant="outline">CSV 업로드</Button>
+          </div>
+          <AddPersonalMailDialog open={open} setOpen={setOpen} />
+        </div>
       </div>
       <Table>
         <TableHeader>

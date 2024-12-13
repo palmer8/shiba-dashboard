@@ -7,8 +7,6 @@ import { BlockTicketTabs } from "@/components/report/block-ticket-tabs";
 import { Status, UserRole } from "@prisma/client";
 import { reportService } from "@/service/report-service";
 import { GlobalTitle } from "@/components/global/global-title";
-import { TableSkeleton } from "@/components/ui/table-skeleton";
-import { Suspense } from "react";
 import { hasAccess } from "@/lib/utils";
 
 interface PageProps {
@@ -57,12 +55,13 @@ export default async function BlockTicketPage({ searchParams }: PageProps) {
   };
 
   return (
-    <main className="space-y-4">
+    <main>
       <PageBreadcrumb />
       <GlobalTitle
         title="사건처리 보고 승인"
-        description="스태프가 임시 영구정지 처분을 내린 사건처리 보고서를 관리합니다."
+        description="스태프의 사건처리 보고서의 영구정지 티켓을 관리합니다."
       />
+
       <BlockTicketFilter filters={filterParams} />
       <BlockTicketTabs />
       <BlockTicketTable data={tableData} />

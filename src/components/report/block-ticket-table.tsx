@@ -27,13 +27,13 @@ import {
   rejectAllBlockTicketAction,
 } from "@/actions/report-action";
 import { toast } from "@/hooks/use-toast";
-import { Status } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { useSession } from "next-auth/react";
 
 interface BlockTicketTableProps {
   data: {
-    records: BlockTicket[];
+    records: (BlockTicket & {
+      registrant: { id: string; nickname: string; userId: number };
+    })[];
     metadata: {
       total: number;
       page: number;
@@ -51,11 +51,16 @@ const STATUS_MAP: Record<"PENDING" | "APPROVED" | "REJECTED", string> = {
 export function BlockTicketTable({ data }: BlockTicketTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [rowSelection, setRowSelection] = useState({});
 
-  const columns = useMemo<ColumnDef<BlockTicket>[]>(
+  const columns = useMemo<
+    ColumnDef<
+      BlockTicket & {
+        registrant: { id: string; nickname: string; userId: number };
+      }
+    >[]
+  >(
     () => [
       {
         id: "select",
@@ -77,12 +82,22 @@ export function BlockTicketTable({ data }: BlockTicketTableProps) {
         ),
       },
       {
-        header: "티켓 ID",
+        id: "id",
         accessorKey: "id",
       },
       {
-        header: "유저 ID",
+        header: "보고서 ID",
+        accessorKey: "reportId",
+      },
+      {
+        header: "고유번호",
         accessorKey: "userId",
+        cell: ({ row }) => (
+          <span>
+            {row.original.registrant?.nickname} (
+            {row.original.registrant?.userId})
+          </span>
+        ),
       },
       {
         header: "상태",
@@ -121,6 +136,11 @@ export function BlockTicketTable({ data }: BlockTicketTableProps) {
     onRowSelectionChange: setRowSelection,
     state: {
       rowSelection,
+    },
+    initialState: {
+      columnVisibility: {
+        id: false,
+      },
     },
   });
 
@@ -198,22 +218,95 @@ export function BlockTicketTable({ data }: BlockTicketTableProps) {
     }
   };
 
+  console.log(data);
+
+  const handleApproveAll = async () => {
+    if (!confirm("전체 티켓을 승인하시겠습니까?")) return;
+    setIsLoading(true);
+
+    try {
+      const result = await approveAllBlockTicketAction();
+      if (result.success) {
+        toast({
+          title: "전체 승인 완료",
+          description: "전체 티켓이 승인되었습니다.",
+        });
+      } else {
+        toast({
+          title: "전체 승인 실패",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "전체 승인 실패",
+        description: "티켓 전체 승인 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRejectAll = async () => {
+    if (!confirm("전체 티켓을 거절하시겠습니까?")) return;
+    setIsLoading(true);
+
+    try {
+      const result = await rejectAllBlockTicketAction();
+      if (result.success) {
+        toast({
+          title: "전체 거절 완료",
+          description: "전체 티켓이 거절되었습니다.",
+        });
+      } else {
+        toast({
+          title: "전체 거절 실패",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "전체 거절 실패",
+        description: "티켓 전체 거절 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isPending =
+    searchParams.get("status") === "PENDING" || !searchParams.get("status");
+
   return (
     <div className="space-y-4">
-      {data.records.length > 0 && searchParams.get("status") === "PENDING" && (
+      {data.records.length > 0 && isPending && (
         <div className="flex justify-end gap-2">
           <Button
-            variant="outline"
+            variant="destructive"
             onClick={handleRejectSelected}
             disabled={isLoading || Object.keys(rowSelection).length === 0}
           >
             선택 거절
           </Button>
           <Button
+            variant="destructive"
+            onClick={handleRejectAll}
+            disabled={isLoading}
+          >
+            전체 거절
+          </Button>
+          <Button
             onClick={handleApproveSelected}
             disabled={isLoading || Object.keys(rowSelection).length === 0}
           >
             선택 승인
+          </Button>
+          <Button onClick={handleApproveAll} disabled={isLoading}>
+            전체 승인
           </Button>
         </div>
       )}

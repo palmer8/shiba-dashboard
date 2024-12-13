@@ -34,7 +34,7 @@ export default async function GamePersonalMailPage({
   const tableData = await mailService.getPersonalMails(page, filterParams);
 
   return (
-    <main className="space-y-4">
+    <main>
       <PageBreadcrumb />
       <GlobalTitle
         title="개인 우편"

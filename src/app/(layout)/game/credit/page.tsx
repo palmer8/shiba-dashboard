@@ -57,7 +57,7 @@ export default async function GameCreditPage({ searchParams }: PageProps) {
   };
 
   return (
-    <main className="space-y-4">
+    <main>
       <PageBreadcrumb />
       <GlobalTitle
         title="재화 지급/회수"

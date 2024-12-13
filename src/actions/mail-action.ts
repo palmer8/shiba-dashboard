@@ -4,6 +4,7 @@ import { GroupMailValues } from "@/components/dialog/add-group-mail-dialog";
 import { PersonalMailValues } from "@/components/dialog/add-personal-mail-dialog";
 import { mailService } from "@/service/mail-service";
 import { revalidatePath } from "next/cache";
+import { parsePersonalMailCSV } from "@/lib/utils";
 
 export async function getGroupMailsByIdsOrigin(ids: string[]) {
   const result = await mailService.getGroupMailsByIds(ids);
@@ -55,4 +56,35 @@ export async function deletePersonalMailAction(id: string) {
 export async function getPersonalMailsByIdsOrigin(ids: string[]) {
   const result = await mailService.getPersonalMailsByIdsOrigin(ids);
   return result;
+}
+
+export async function uploadPersonalMailCSVAction(formData: FormData) {
+  try {
+    const file = formData.get("file") as File;
+    if (!file) {
+      return {
+        success: false,
+        message: "파일이 선택되지 않았습니다.",
+        data: null,
+        error: "No file selected",
+      };
+    }
+
+    const fileContent = await file.text();
+    const records = parsePersonalMailCSV(fileContent);
+
+    const result = await mailService.createPersonalMailsFromCSV(records);
+    if (result.success) {
+      revalidatePath("/game/personal-mail");
+    }
+
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      message: "CSV 파일 처리 중 오류가 발생했습니다.",
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }

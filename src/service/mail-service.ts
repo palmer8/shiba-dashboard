@@ -445,6 +445,39 @@ class MailService {
       };
     }
   }
+
+  async createPersonalMailsFromCSV(records: any[]) {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
+    try {
+      const createdMails = await prisma.personalMail.createMany({
+        data: records.map((record) => ({
+          reason: record.reason,
+          content: record.content,
+          rewards: record.rewards,
+          needItems: record.needItems,
+          userId: record.userId,
+          registrantId: session.user!.id,
+        })),
+      });
+
+      return {
+        success: true,
+        message: `${createdMails.count}개의 개인 우편이 생성되었습니다.`,
+        data: createdMails,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Create personal mails from CSV error:", error);
+      return {
+        success: false,
+        message: "CSV 파일로부터 개인 우편 생성 실패",
+        data: null,
+        error,
+      };
+    }
+  }
 }
 
 export const mailService = new MailService();

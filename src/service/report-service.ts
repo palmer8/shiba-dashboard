@@ -23,7 +23,7 @@ import { auth } from "@/lib/auth-config";
 import prisma from "@/db/prisma";
 import { redirect } from "next/navigation";
 import { ADMIN_LINKS } from "@/constant/constant";
-import { Status, UserRole } from "@prisma/client";
+import { BlockTicket, Status, UserRole } from "@prisma/client";
 
 class ReportService {
   async getIncidentReports(
@@ -259,6 +259,45 @@ class ReportService {
     }
 
     try {
+      if (session.user.role === "STAFF" && data.banDurationHours === -1) {
+        const [result] = await pool.execute<ResultSetHeader>(
+          `UPDATE dokku_incident_report 
+           SET reason = ?, 
+               incident_description = ?,
+               incident_time = ?,
+               penalty_type = ?,
+               warning_count = ?,
+               ban_duration_hours = ?,
+               target_user_id = ?,
+               target_user_nickname = ?,
+               reporting_user_id = ?,
+               reporting_user_nickname = ?
+           WHERE report_id = ?`,
+          [
+            data.reason,
+            data.incidentDescription,
+            formatKoreanDateTime(data.incidentTime),
+            data.penaltyType,
+            data.warningCount || null,
+            72,
+            data.targetUserId,
+            data.targetUserNickname,
+            data.reportingUserId || null,
+            data.reportingUserNickname || null,
+            data.reportId,
+          ]
+        );
+
+        if (result.affectedRows > 0) {
+          await prisma.blockTicket.create({
+            data: {
+              registrantId: session.user.id,
+              reportId: data.reportId,
+            },
+          });
+        }
+      }
+
       const [result] = await pool.execute<ResultSetHeader>(
         `UPDATE dokku_incident_report 
          SET reason = ?, 
@@ -681,12 +720,23 @@ class ReportService {
         orderBy: {
           createdAt: "desc",
         },
+        include: {
+          registrant: {
+            select: {
+              id: true,
+              nickname: true,
+              userId: true,
+            },
+          },
+        },
       });
 
       return {
         success: true,
         data: {
-          records,
+          records: records as (BlockTicket & {
+            registrant: { id: string; nickname: string; userId: number };
+          })[],
           metadata: {
             total,
             page,
@@ -706,37 +756,62 @@ class ReportService {
   }
 
   async approveBlockTicketByIds(
-    ids: string[]
+    ticketIds: string[]
   ): Promise<BlockTicketActionResponse> {
+    const session = await auth();
+
+    if (!session?.user) {
+      return redirect("/login");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        data: null,
+        error: "권한이 없습니다",
+      };
+    }
+
     try {
-      const session = await auth();
-
-      if (!session?.user) {
-        return redirect("/login");
-      }
-
-      if (!hasAccess(session.user.role, UserRole.MASTER)) {
-        return {
-          success: false,
-          data: null,
-          error: "권한이 없습니다",
-        };
-      }
-
-      const result = await prisma.blockTicket.updateMany({
+      // 승인된 티켓들의 report_id 가져오기
+      const tickets = await prisma.blockTicket.findMany({
         where: {
-          id: { in: ids },
-          status: "PENDING",
+          id: {
+            in: ticketIds,
+          },
+        },
+        select: {
+          reportId: true,
+        },
+      });
+
+      // 해당 report들의 ban_duration_hours를 -1로 업데이트
+      for (const ticket of tickets) {
+        await pool.execute(
+          `UPDATE dokku_incident_report 
+           SET ban_duration_hours = -1 
+           WHERE report_id = ?`,
+          [ticket.reportId]
+        );
+      }
+
+      // BlockTicket 상태 업데이트
+      await prisma.blockTicket.updateMany({
+        where: {
+          id: {
+            in: ticketIds,
+          },
         },
         data: {
           status: "APPROVED",
           approverId: session.user.id,
+          approvedAt: new Date(),
         },
       });
 
       return {
         success: true,
-        data: result.count,
+        data: ticketIds.length,
         error: null,
       };
     } catch (error) {
@@ -765,17 +840,35 @@ class ReportService {
         };
       }
 
+      // 대기중인 모든 티켓 조회
+      const pendingTickets = await prisma.blockTicket.findMany({
+        where: { status: "PENDING" },
+        select: { reportId: true },
+      });
+
+      // 해당하는 모든 report의 ban_duration_hours를 -1로 업데이트
+      for (const ticket of pendingTickets) {
+        await pool.execute(
+          `UPDATE dokku_incident_report 
+           SET ban_duration_hours = -1 
+           WHERE report_id = ?`,
+          [ticket.reportId]
+        );
+      }
+
+      // 모든 대기중인 티켓 승인 처리
       const result = await prisma.blockTicket.updateMany({
         where: { status: "PENDING" },
         data: {
           status: "APPROVED",
           approverId: session.user.id,
+          approvedAt: new Date(),
         },
       });
 
       return {
         success: true,
-        data: result.count,
+        data: pendingTickets.length,
         error: null,
       };
     } catch (error) {

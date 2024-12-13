@@ -120,7 +120,9 @@ export type AddBlockTicketData = {
 
 export interface BlockTicketListResponse
   extends ApiResponse<{
-    records: BlockTicket[];
+    records: (BlockTicket & {
+      registrant: { id: string; nickname: string; userId: number };
+    })[];
     metadata: {
       total: number;
       page: number;

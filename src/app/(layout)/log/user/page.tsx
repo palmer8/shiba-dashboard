@@ -42,7 +42,7 @@ export default async function LogUserPage({ searchParams }: PageProps) {
   };
 
   return (
-    <main className="space-y-4">
+    <main>
       <PageBreadcrumb />
       <GlobalTitle
         title="유저 로그"

@@ -40,6 +40,7 @@ import { IncidentReport } from "@/types/report";
 import { hasAccess } from "@/lib/utils";
 import { useDebounce } from "@/hooks/use-debounce";
 import { getGameNicknameByUserIdAction } from "@/actions/user-action";
+import { UserRole } from "@prisma/client";
 
 interface EditIncidentReportDialogProps {
   initialData: IncidentReport;
@@ -260,7 +261,7 @@ export default function EditIncidentReportDialog({
                       <SelectItem value="구두경고">구두경고</SelectItem>
                       <SelectItem value="경고">경고</SelectItem>
                       <SelectItem value="게임정지">게임정지</SelectItem>
-                      {hasAccess(session?.user?.role, "MASTER") && (
+                      {hasAccess(session?.user?.role, UserRole.MASTER) && (
                         <SelectItem value="정지해제">정지해제</SelectItem>
                       )}
                     </SelectContent>

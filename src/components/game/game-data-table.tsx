@@ -70,6 +70,15 @@ export function GameDataTable({
       cell: ({ row }) => row.index + 1 + (currentPage - 1) * 50,
     },
     {
+      header: "유저",
+      accessorKey: "user",
+      cell: ({ row }) => (
+        <span>
+          {row.original.nickname} ({row.original.id})
+        </span>
+      ),
+    },
+    {
       header: "ID",
       accessorKey: "id",
     },
@@ -108,6 +117,12 @@ export function GameDataTable({
     data: tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    initialState: {
+      columnVisibility: {
+        id: false,
+        nickname: false,
+      },
+    },
   });
 
   const handleDownloadCSV = useCallback(() => {
@@ -135,37 +150,35 @@ export function GameDataTable({
           CSV 다운로드
         </Button>
       </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead key={header.id}>
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows.map((row) => (
+            <TableRow key={row.id}>
+              {row.getVisibleCells().map((cell) => (
+                <TableCell key={cell.id}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
       <div className="flex justify-end gap-2">
         <Button
           variant="outline"

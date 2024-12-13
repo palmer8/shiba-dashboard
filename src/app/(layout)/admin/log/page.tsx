@@ -32,7 +32,7 @@ export default async function AdminLogPage({
   const logs = await logService.getAdminLogs(filter);
 
   return (
-    <main className="space-y-4">
+    <main>
       <PageBreadcrumb />
       <GlobalTitle
         title="운영툴 조회 로그"

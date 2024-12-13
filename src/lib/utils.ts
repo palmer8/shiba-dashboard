@@ -6,6 +6,7 @@ import { ko } from "date-fns/locale";
 import { Parser } from "json2csv";
 import { GameDataType } from "@/types/game";
 import { JSONContent } from "novel";
+import { parse } from "csv-parse/sync";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -161,7 +162,7 @@ export function formatAmount(amount: number, type: GameDataType): string {
 }
 
 export function downloadCSV(data: any[], filename: string) {
-  const headers = ["ID", "닉네임", "가입일", "조회 유형", "조회 결과"];
+  const headers = ["ID", "��네임", "가입일", "조회 유형", "조회 결과"];
   const csvContent = [
     headers.join(","),
     ...data.map((row) =>
@@ -218,4 +219,24 @@ export function checkPermission(
   if (!userId) return false;
   if (!userRole) return userId === authorId;
   return userId === authorId || userRole === "SUPERMASTER";
+}
+
+export function parsePersonalMailCSV(fileContent: string) {
+  try {
+    const records = parse(fileContent, {
+      columns: true,
+      skip_empty_lines: true,
+    });
+
+    return records.map((record: any) => ({
+      reason: record.reason,
+      content: record.content,
+      rewards: JSON.parse(record.rewards || "[]"),
+      needItems: JSON.parse(record.needItems || "[]"),
+      userId: parseInt(record.userId),
+    }));
+  } catch (error) {
+    console.error("CSV 파싱 에러:", error);
+    throw new Error("CSV 파일 형식이 올바르지 않습니다.");
+  }
 }

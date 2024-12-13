@@ -24,7 +24,7 @@ export default async function BoardPage({ params }: BoardPageProps) {
   const board = result.data as BoardDetailView;
 
   return (
-    <main className="space-y-4 max-w-[900px] mx-auto">
+    <main className="max-w-[900px] mx-auto">
       <BoardDetail
         board={board}
         userId={session.user.id as string}

@@ -38,7 +38,7 @@ export default async function BoardsPage({ searchParams }: PageProps) {
   };
 
   return (
-    <main className="space-y-4">
+    <main>
       <PageBreadcrumb />
       <div className="flex justify-between items-center">
         <GlobalTitle

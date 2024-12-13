@@ -48,7 +48,7 @@ export default async function PaymentPage({
   }
 
   return (
-    <main className="space-y-4">
+    <main>
       <PageBreadcrumb />
       <GlobalTitle
         title="결제 조회"

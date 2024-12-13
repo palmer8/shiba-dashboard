@@ -124,14 +124,12 @@ export async function deleteBlockTicketAction(
   }
 }
 
-// ... 기존 액션들 ...
-
 export async function approveBlockTicketAction(
   ticketIds: string[]
 ): Promise<BlockTicketActionResponse> {
   try {
     const result = await reportService.approveBlockTicketByIds(ticketIds);
-    revalidatePath("/block/report");
+    revalidatePath("/admin/report");
     return result;
   } catch (error) {
     return {
@@ -145,7 +143,7 @@ export async function approveBlockTicketAction(
 export async function approveAllBlockTicketAction(): Promise<BlockTicketActionResponse> {
   try {
     const result = await reportService.approveAllBlockTicket();
-    revalidatePath("/block/report");
+    revalidatePath("/admin/report");
     return result;
   } catch (error) {
     return {
@@ -161,7 +159,7 @@ export async function rejectBlockTicketAction(
 ): Promise<BlockTicketActionResponse> {
   try {
     const result = await reportService.rejectBlockTicketByIds(ticketIds);
-    revalidatePath("/block/report");
+    revalidatePath("/admin/report");
     return result;
   } catch (error) {
     return {
@@ -175,7 +173,7 @@ export async function rejectBlockTicketAction(
 export async function rejectAllBlockTicketAction(): Promise<BlockTicketActionResponse> {
   try {
     const result = await reportService.rejectAllBlockTicket();
-    revalidatePath("/block/report");
+    revalidatePath("/admin/report");
     return result;
   } catch (error) {
     return {

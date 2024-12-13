@@ -38,6 +38,8 @@ import { useSession } from "next-auth/react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { getGameNicknameByUserIdAction } from "@/actions/user-action";
 import { IncidentReasonCombobox } from "@/components/report/incident-reason-combobox";
+import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
 
 const schema = z.object({
   reason: z.string().min(1, "사유를 입력해주세요"),
@@ -266,7 +268,7 @@ export default function AddIncidentReportDialog() {
                       <SelectItem value="구두경고">구두경고</SelectItem>
                       <SelectItem value="경고">경고</SelectItem>
                       <SelectItem value="게임정지">게임정지</SelectItem>
-                      {session?.user?.role === "MASTER" && (
+                      {hasAccess(session?.user?.role, UserRole.MASTER) && (
                         <SelectItem value="정지해제">정지해제</SelectItem>
                       )}
                     </SelectContent>
