@@ -228,13 +228,33 @@ export function parsePersonalMailCSV(fileContent: string) {
       skip_empty_lines: true,
     });
 
-    return records.map((record: any) => ({
-      reason: record.reason,
-      content: record.content,
-      rewards: JSON.parse(record.rewards || "[]"),
-      needItems: JSON.parse(record.needItems || "[]"),
-      userId: parseInt(record.userId),
-    }));
+    // 빈 행 필터링 및 필수 필드 검증
+    const validRecords = records
+      .filter(
+        (record: any) =>
+          record.reason?.trim() && record.content?.trim() && record.userId
+      )
+      .map((record: any) => {
+        try {
+          return {
+            reason: record.reason.trim(),
+            content: record.content.trim(),
+            rewards: JSON.parse(record.rewards || "[]"),
+            needItems: JSON.parse(record.needItems || "[]"),
+            userId: parseInt(record.userId),
+          };
+        } catch (e) {
+          console.error("레코드 파싱 에러:", e);
+          return null;
+        }
+      })
+      .filter((record: any) => record !== null);
+
+    if (validRecords.length === 0) {
+      throw new Error("유효한 데이터가 없습니다.");
+    }
+
+    return validRecords;
   } catch (error) {
     console.error("CSV 파싱 에러:", error);
     throw new Error("CSV 파일 형식이 올바르지 않습니다.");

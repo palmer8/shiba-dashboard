@@ -77,6 +77,10 @@ export function BoardFilters({ filters }: BoardFiltersProps) {
       params.set("categoryId", localFilter.categoryId);
     }
 
+    if (localFilter.registrantId && localFilter.registrantId.trim()) {
+      params.set("registrantId", localFilter.registrantId.trim());
+    }
+
     router.push(`/boards?${params.toString()}`);
   }, [localFilter, dateRange, router]);
 
@@ -124,6 +128,15 @@ export function BoardFilters({ filters }: BoardFiltersProps) {
             placeholder="제목 입력"
             value={localFilter.title || ""}
             onChange={(e) => handleFilterChange("title", e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>작성자 고유번호</Label>
+          <Input
+            placeholder="작성자 고유번호 입력"
+            value={localFilter.registrantId || ""}
+            onChange={(e) => handleFilterChange("registrantId", e.target.value)}
           />
         </div>
       </div>

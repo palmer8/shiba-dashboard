@@ -218,8 +218,6 @@ export function BlockTicketTable({ data }: BlockTicketTableProps) {
     }
   };
 
-  console.log(data);
-
   const handleApproveAll = async () => {
     if (!confirm("전체 티켓을 승인하시겠습니까?")) return;
     setIsLoading(true);

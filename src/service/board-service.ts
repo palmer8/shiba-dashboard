@@ -519,9 +519,11 @@ class BoardService {
         where.categoryId = filters.categoryId;
       }
 
-      // 작성자 필터
+      // 작성자 필터 (registrantId는 실제로 User의 userId를 의미)
       if (filters.registrantId) {
-        where.registrantId = filters.registrantId;
+        where.registrant = {
+          userId: parseInt(filters.registrantId),
+        };
       }
 
       // 최근 공지사항 5개와 일반 게시글 목록을 동시에 조회
@@ -770,7 +772,7 @@ class BoardService {
       if (boardCount > 0) {
         return {
           success: false,
-          error: "이 카테고리를 사용하는 게시글이 있어 삭제할 수 없습니다.",
+          error: "이 ��테고리를 사용하는 게시글이 있어 삭제할 수 없습니다.",
           data: null,
         };
       }

@@ -451,12 +451,30 @@ class MailService {
     if (!session?.user) return redirect("/login");
 
     try {
+      // 데이터 유효성 검사
+      const validRecords = records.filter(
+        (record) =>
+          record.reason?.trim() &&
+          record.content?.trim() &&
+          !isNaN(record.userId) &&
+          record.userId > 0
+      );
+
+      if (validRecords.length === 0) {
+        return {
+          success: false,
+          message: "유효한 데이터가 없습니다.",
+          data: null,
+          error: "No valid data",
+        };
+      }
+
       const createdMails = await prisma.personalMail.createMany({
-        data: records.map((record) => ({
-          reason: record.reason,
-          content: record.content,
-          rewards: record.rewards,
-          needItems: record.needItems,
+        data: validRecords.map((record) => ({
+          reason: record.reason.trim(),
+          content: record.content.trim(),
+          rewards: record.rewards || [],
+          needItems: record.needItems || [],
           userId: record.userId,
           registrantId: session.user!.id,
         })),

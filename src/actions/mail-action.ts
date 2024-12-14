@@ -72,7 +72,6 @@ export async function uploadPersonalMailCSVAction(formData: FormData) {
 
     const fileContent = await file.text();
     const records = parsePersonalMailCSV(fileContent);
-
     const result = await mailService.createPersonalMailsFromCSV(records);
     if (result.success) {
       revalidatePath("/game/personal-mail");
