@@ -772,7 +772,7 @@ class BoardService {
       if (boardCount > 0) {
         return {
           success: false,
-          error: "이 ��테고리를 사용하는 게시글이 있어 삭제할 수 없습니다.",
+          error: "이 카테고리를 사용하는 게시글이 있어 삭제할 수 없습니다.",
           data: null,
         };
       }

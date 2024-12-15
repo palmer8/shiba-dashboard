@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { sanitizeContent } from "@/lib/utils";
+import { MarkdownConverterDialog } from "../dialog/markdown-converter-dialog";
 
 interface Category {
   id: string;
@@ -63,6 +64,7 @@ export default function BoardEditForm({
     null
   );
   const [isNotice, setIsNotice] = useState(initialData.isNotice);
+  const [editorKey, setEditorKey] = useState(0);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -135,6 +137,11 @@ export default function BoardEditForm({
       return;
     }
 
+    const handleMarkdownConvert = (convertedContent: JSONContent) => {
+      setContent(convertedContent);
+      setEditorKey((prev) => prev + 1);
+    };
+
     setIsSubmitting(true);
 
     try {
@@ -171,6 +178,11 @@ export default function BoardEditForm({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleMarkdownConvert = (convertedContent: JSONContent) => {
+    setContent(convertedContent);
+    setEditorKey((prev) => prev + 1);
   };
 
   return (
@@ -232,6 +244,7 @@ export default function BoardEditForm({
                     </label>
                   </div>
                 )}
+                <MarkdownConverterDialog onConvert={handleMarkdownConvert} />
               </div>
             </div>
           </div>
@@ -277,6 +290,7 @@ export default function BoardEditForm({
                     </label>
                   </div>
                 )}
+                <MarkdownConverterDialog onConvert={handleMarkdownConvert} />
                 <Button onClick={handleSubmit} disabled={isSubmitting}>
                   {isSubmitting ? "수정 중..." : "수정"}
                 </Button>
@@ -302,6 +316,7 @@ export default function BoardEditForm({
 
           <div className="min-h-[calc(100vh-280px)] sm:min-h-[500px]">
             <Editor
+              key={editorKey}
               initialValue={content}
               onChange={(value) => setContent(value)}
               immediatelyRender={false}

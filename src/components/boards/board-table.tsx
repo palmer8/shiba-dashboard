@@ -193,7 +193,7 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
       const result = await deleteBoardAction(id);
       if (result.success) {
         toast({
-          title: "게시글이 삭제��었습니다.",
+          title: "게시글이 삭제되었습니다.",
         });
       } else {
         toast({

@@ -18,7 +18,6 @@ import { defaultExtensions } from "@/lib/extensions";
 import { NodeSelector } from "./selectors/node-selector";
 import { LinkSelector } from "./selectors/link-selector";
 import { ColorSelector } from "./selectors/color-selector";
-
 import { TextButtons } from "./selectors/text-buttons";
 import {
   slashCommand,
@@ -27,6 +26,7 @@ import {
 import { handleImageDrop, handleImagePaste } from "novel/plugins";
 import { uploadFn } from "@/lib/image-upload";
 import { Separator } from "@/components/ui/separator";
+import { convertMarkdownToNovel } from "@/lib/utils";
 
 const extensions = [...defaultExtensions, slashCommand];
 
@@ -35,12 +35,14 @@ interface EditorProp {
   onChange?: (value: JSONContent) => void;
   editable?: boolean;
   immediatelyRender?: boolean;
+  markdown?: boolean;
 }
 const Editor = ({
   initialValue,
   onChange,
   editable = true,
   immediatelyRender = true,
+  markdown = false,
 }: EditorProp) => {
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
@@ -65,6 +67,12 @@ const Editor = ({
           },
         }}
         onUpdate={({ editor }) => {
+          if (markdown) {
+            const nodes = convertMarkdownToNovel(
+              editor.storage.markdown.getMarkdown()
+            );
+            editor.commands.setContent(nodes);
+          }
           onChange?.(editor.getJSON());
         }}
         slotAfter={editable && <ImageResizer />}

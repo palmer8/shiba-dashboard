@@ -7,6 +7,7 @@ import { Parser } from "json2csv";
 import { GameDataType } from "@/types/game";
 import { JSONContent } from "novel";
 import { parse } from "csv-parse/sync";
+import { MarkdownNode } from "@/types/lib";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -162,7 +163,7 @@ export function formatAmount(amount: number, type: GameDataType): string {
 }
 
 export function downloadCSV(data: any[], filename: string) {
-  const headers = ["ID", "��네임", "가입일", "조회 유형", "조회 결과"];
+  const headers = ["ID", "네임", "가입일", "조회 유형", "조회 결과"];
   const csvContent = [
     headers.join(","),
     ...data.map((row) =>
@@ -259,4 +260,172 @@ export function parsePersonalMailCSV(fileContent: string) {
     console.error("CSV 파싱 에러:", error);
     throw new Error("CSV 파일 형식이 올바르지 않습니다.");
   }
+}
+
+export function cleanupContent(
+  content: JSONContent | JSONContent[]
+): JSONContent | JSONContent[] {
+  if (Array.isArray(content)) {
+    return content
+      .filter((node) => {
+        if (node.type === "text") {
+          return node.text && node.text.trim() !== "";
+        }
+        return true;
+      })
+      .map((node) => cleanupContent(node) as JSONContent);
+  }
+
+  const node = { ...content };
+
+  // content 속성이 있는 경우 재귀적으로 정리
+  if (node.content) {
+    node.content = node.content
+      .filter((child: JSONContent) => {
+        if (child.type === "text") {
+          return child.text && child.text.trim() !== "";
+        }
+        return true;
+      })
+      .map((child: JSONContent) => cleanupContent(child) as JSONContent);
+
+    // 빈 content 배열 처리
+    if (node.content.length === 0) {
+      delete node.content;
+    }
+  }
+
+  // text 노드의 경우 공백 처리
+  if (node.type === "text" && (!node.text || node.text.trim() === "")) {
+    return null as any;
+  }
+
+  return node;
+}
+
+export function convertMarkdownToNovel(nodes: MarkdownNode[]): JSONContent[] {
+  const converted = nodes
+    .map((node): JSONContent => {
+      switch (node.type) {
+        case "heading":
+          return {
+            type: "heading",
+            attrs: { level: node.depth || 1 },
+            content: node.children
+              ? convertMarkdownToNovel(node.children)
+              : undefined,
+          };
+
+        case "list":
+          return {
+            type: node.ordered ? "orderedList" : "bulletList",
+            content: node.children
+              ? convertMarkdownToNovel(node.children)
+              : undefined,
+          };
+
+        case "listItem":
+          return {
+            type: "listItem",
+            content: node.children
+              ? convertMarkdownToNovel(node.children)
+              : undefined,
+          };
+
+        case "paragraph":
+          return {
+            type: "paragraph",
+            content: node.children
+              ? convertMarkdownToNovel(node.children)
+              : undefined,
+          };
+
+        case "link":
+          return {
+            type: "text",
+            marks: [
+              {
+                type: "link",
+                attrs: {
+                  href: node.url || "",
+                  title: node.title || "",
+                },
+              },
+            ],
+            text: node.children?.[0]?.value || node.value || "",
+          };
+
+        case "image":
+          return {
+            type: "image",
+            attrs: {
+              src: node.url || "",
+              alt: node.alt || "",
+              title: node.title || "",
+            },
+          };
+
+        case "strong":
+          return {
+            type: "text",
+            marks: [{ type: "bold" }],
+            text: node.children?.[0]?.value || node.value || "",
+          };
+
+        case "emphasis":
+          return {
+            type: "text",
+            marks: [{ type: "italic" }],
+            text: node.children?.[0]?.value || node.value || "",
+          };
+
+        case "code":
+          return {
+            type: "text",
+            marks: [{ type: "code" }],
+            text: node.value || "",
+          };
+
+        case "blockquote":
+          return {
+            type: "blockquote",
+            content: node.children
+              ? convertMarkdownToNovel(node.children)
+              : undefined,
+          };
+
+        case "thematicBreak":
+          return {
+            type: "horizontalRule",
+          };
+
+        case "text":
+          // 빈 텍스트 노드 처리
+          if (!node.value?.trim()) {
+            return null as any;
+          }
+          const textNode: JSONContent = {
+            type: "text",
+            text: node.value,
+          };
+
+          // marks가 있는 경우에만 추가
+          if (node.marks && node.marks.length > 0) {
+            textNode.marks = node.marks;
+          }
+
+          return textNode;
+
+        default:
+          // 알 수 없는 노드 타입은 일반 텍스트로 변환
+          return {
+            type: "text",
+            text: node.value || "",
+          };
+      }
+    })
+    .filter(Boolean); // null 값 제거
+
+  // 변환된 결과를 cleanup
+  return cleanupContent(converted) as JSONContent[];
 }

@@ -41,6 +41,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { sanitizeContent } from "@/lib/utils";
+import { MarkdownConverterDialog } from "../dialog/markdown-converter-dialog";
 
 interface Category {
   id: string;
@@ -342,6 +343,11 @@ export default function BoardWriteForm() {
     }
   };
 
+  const handleMarkdownConvert = (convertedContent: JSONContent) => {
+    setContent(convertedContent);
+    setEditorKey((prev) => prev + 1);
+  };
+
   return (
     <>
       <div className="w-full h-full mx-auto max-w-[1200px]">
@@ -392,6 +398,7 @@ export default function BoardWriteForm() {
                     ))}
                   </SelectContent>
                 </Select>
+                <MarkdownConverterDialog onConvert={handleMarkdownConvert} />
                 {session?.user?.role === "SUPERMASTER" && (
                   <div className="flex items-center gap-2">
                     <Checkbox
@@ -454,6 +461,8 @@ export default function BoardWriteForm() {
                     </label>
                   </div>
                 )}
+
+                <MarkdownConverterDialog onConvert={handleMarkdownConvert} />
 
                 <div className="flex gap-2">
                   <Button
