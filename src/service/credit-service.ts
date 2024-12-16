@@ -634,6 +634,34 @@ class CreditService {
       };
     }
   }
+
+  async getRewardRevokeByIds(
+    ids: string[]
+  ): Promise<GlobalReturn<RewardRevoke[]>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
+    try {
+      const records = await prisma.rewardRevoke.findMany({
+        where: { id: { in: ids } },
+      });
+
+      return {
+        success: true,
+        message: "선택된 재화 지급/회수 내역 조회 성공",
+        data: records as RewardRevoke[],
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get reward revoke by IDs error:", error);
+      return {
+        success: false,
+        message: "선택된 재화 지급/회수 내역 조회 실패",
+        data: null,
+        error,
+      };
+    }
+  }
 }
 
 export const creditService = new CreditService();

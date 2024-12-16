@@ -6,6 +6,8 @@ import AdminLogFilter from "@/components/admin/admin-log-filter";
 import AdminLogTable from "@/components/admin/admin-log-table";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { GlobalTitle } from "@/components/global/global-title";
+import { UserRole } from "@prisma/client";
+import { hasAccess } from "@/lib/utils";
 
 export default async function AdminLogPage({
   searchParams,
@@ -13,7 +15,9 @@ export default async function AdminLogPage({
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   const session = await auth();
-  if (!session?.user) return redirect("/login");
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/pending");
+  if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/");
 
   const params = await searchParams;
 

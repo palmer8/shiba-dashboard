@@ -5,8 +5,20 @@ import Loading from "./loading";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
-  title: "SHIBA | 어드민 대시보드",
-  description: "SHIBA 어드민 대시보드에서 손쉽게 서비스를 관리하세요.",
+  title: "SHIBA 대시보드",
+  description: "SHIBA 대시보드를 통해서 손쉽게 SHIBA를 관리하세요.",
+  icons: {
+    icon: "/favicon.ico",
+  },
+  openGraph: {
+    title: "SHIBA 대시보드",
+    description: "SHIBA 대시보드를 통해서 손쉽게 SHIBA를 관리하세요.",
+    images: [
+      {
+        url: "/logo.png",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({

@@ -20,14 +20,6 @@ export async function getGameNicknameByUserIdAction(
   return result;
 }
 
-export async function isAccessiblePageAction(
-  userId: string,
-  role: UserRole
-): Promise<GlobalReturn<boolean>> {
-  const result = await userService.isAccessiblePage(userId, role);
-  return result;
-}
-
 export async function isAccountPermissiveAction(
   name: string,
   password: string

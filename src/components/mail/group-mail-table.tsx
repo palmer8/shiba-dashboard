@@ -212,7 +212,7 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
     if (result.success && result.data) {
       handleDownloadJson2CSV({
         data: result.data,
-        fileName: "group-mail-list.csv",
+        fileName: `${formatKoreanDateTime(new Date())}-group-mail-list.csv`,
       });
     }
   }, [table]);

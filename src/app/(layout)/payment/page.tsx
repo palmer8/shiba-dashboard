@@ -2,9 +2,13 @@ import { GlobalTitle } from "@/components/global/global-title";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import PaymentSearchFilter from "@/components/payment/payment-search-filter";
 import PaymentTable from "@/components/payment/payment-table";
+import { auth } from "@/lib/auth-config";
+import { hasAccess } from "@/lib/utils";
 import { paymentService } from "@/service/payment-service";
 import { PaymentFilter } from "@/types/filters/payment-filter";
 import { PaymentDto } from "@/types/payment";
+import { UserRole } from "@prisma/client";
+import { redirect } from "next/navigation";
 
 interface SearchParams {
   page?: string;
@@ -20,6 +24,11 @@ export default async function PaymentPage({
 }: {
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
+  const session = await auth();
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/login");
+  if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) return redirect("/");
+
   let data: PaymentDto = {
     items: [],
     total: 0,

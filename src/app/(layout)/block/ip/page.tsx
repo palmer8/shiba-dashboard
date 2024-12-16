@@ -7,6 +7,8 @@ import AddWhitelistDialog from "@/components/dialog/add-whitelist-dialog";
 import { WhitelistFilters } from "@/types/report";
 import { reportService } from "@/service/report-service";
 import { GlobalTitle } from "@/components/global/global-title";
+import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
 
 interface WhitelistPageProps {
   searchParams: Promise<{
@@ -18,8 +20,9 @@ export default async function WhitelistPage({
   searchParams,
 }: WhitelistPageProps) {
   const session = await auth();
-
-  if (!session?.user) return redirect("/login");
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/pending");
+  if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/");
 
   const params = await searchParams;
 

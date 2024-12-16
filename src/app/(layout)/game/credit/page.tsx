@@ -3,9 +3,11 @@ import { CreditTable } from "@/components/credit/credit-table";
 import { CreditTabs } from "@/components/credit/credit-tabs";
 import { GlobalTitle } from "@/components/global/global-title";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
+import { auth } from "@/lib/auth-config";
 import { creditService } from "@/service/credit-service";
 import { CreditTableData } from "@/types/credit";
 import { Status } from "@prisma/client";
+import { redirect } from "next/navigation";
 
 interface PageProps {
   searchParams: Promise<{
@@ -22,6 +24,10 @@ interface PageProps {
 }
 
 export default async function GameCreditPage({ searchParams }: PageProps) {
+  const session = await auth();
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/login");
+
   const params = await searchParams;
   const page = Number(params.page) || 1;
   const status = (params.status as Status) || "PENDING";

@@ -24,7 +24,9 @@ interface PageProps {
 
 export default async function BoardsPage({ searchParams }: PageProps) {
   const session = await auth();
-  if (!session?.user) return redirect("/login");
+
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/login");
 
   const params = await searchParams;
   const page = parseInt(params.page || "1");

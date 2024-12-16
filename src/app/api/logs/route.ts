@@ -69,11 +69,6 @@ class LogMemoryStore {
     if (filters.level) {
       filteredLogs = filteredLogs.filter((log) => log.level === filters.level);
     }
-    if (filters.resource) {
-      filteredLogs = filteredLogs.filter(
-        (log) => log.resource === filters.resource
-      );
-    }
     if (filters.startDate) {
       filteredLogs = filteredLogs.filter(
         (log) => new Date(log.timestamp) >= new Date(filters.startDate)
@@ -137,7 +132,6 @@ export async function GET(req: Request) {
   const filters = {
     type: searchParams.get("type") || undefined,
     level: searchParams.get("level") || undefined,
-    resource: searchParams.get("resource") || undefined,
     startDate: searchParams.get("startDate")
       ? new Date(searchParams.get("startDate")!)
       : undefined,

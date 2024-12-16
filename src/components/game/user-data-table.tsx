@@ -16,8 +16,11 @@ import {
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { formatKoreanDateTime } from "@/lib/utils";
+import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { exportGameLogsAction } from "@/actions/log-action";
+import { toast } from "@/hooks/use-toast";
 
 interface GameLogData {
   id: number;
@@ -25,7 +28,6 @@ interface GameLogData {
   level: string;
   type: string;
   message: string;
-  resource?: string;
   metadata?: any;
 }
 
@@ -46,6 +48,21 @@ export function UserDataTable({ data, metadata, page }: UserDataTableProps) {
   const searchParams = useSearchParams();
 
   const columns: ColumnDef<GameLogData>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+        />
+      ),
+    },
     {
       accessorKey: "timestamp",
       header: "시간",
@@ -90,15 +107,6 @@ export function UserDataTable({ data, metadata, page }: UserDataTableProps) {
       cell: ({ row }) => <span>{row.original.message}</span>,
     },
     {
-      accessorKey: "resource",
-      header: "리소스",
-      cell: ({ row }) => (
-        <span className="text-muted-foreground">
-          {row.original.resource || "-"}
-        </span>
-      ),
-    },
-    {
       accessorKey: "metadata",
       header: "메타데이터",
       cell: ({ row }) => (
@@ -133,8 +141,39 @@ export function UserDataTable({ data, metadata, page }: UserDataTableProps) {
     router.push(`/log/user?${params.toString()}`);
   };
 
+  const handleExport = async () => {
+    const ids = table.getSelectedRowModel().rows.map((row) => row.original.id);
+    try {
+      const result = await exportGameLogsAction(ids);
+      if (result.success) {
+        handleDownloadJson2CSV({
+          data: result.data ?? [],
+          fileName: `${formatKoreanDateTime(new Date())}-game-logs-.csv`,
+        });
+        toast({
+          title: "선택한 유저 데이터 로그를 성공적으로 내보냈습니다.",
+          description: "선택한 로그가 CSV 파일로 저장되었습니다.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "유저 데이터 로그 내보내기 실패",
+        description: "잠시 후에 다시 시도해주세요.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button
+          onClick={handleExport}
+          disabled={table.getSelectedRowModel().rows.length === 0}
+        >
+          CSV 다운로드
+        </Button>
+      </div>
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (

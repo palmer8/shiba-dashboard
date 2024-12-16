@@ -13,7 +13,12 @@ interface PageProps {
 
 export default async function BoardEditPage({ params }: PageProps) {
   const session = await auth();
-  if (!session?.user) return redirect("/login");
+
+  if (!session || !session.user) return redirect("/login");
+
+  if (session.user && !session.user.isPermissive) {
+    return redirect("/pending");
+  }
 
   const awaitParams = await params;
 

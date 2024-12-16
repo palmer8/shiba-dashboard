@@ -10,7 +10,6 @@ interface PageProps {
     page?: string;
     type?: string;
     level?: string;
-    resource?: string;
     startDate?: string;
     endDate?: string;
   }>;
@@ -18,7 +17,8 @@ interface PageProps {
 
 export default async function LogUserPage({ searchParams }: PageProps) {
   const session = await auth();
-  if (!session?.user) return redirect("/login");
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/login");
 
   const params = await searchParams;
 
@@ -26,7 +26,6 @@ export default async function LogUserPage({ searchParams }: PageProps) {
     page: Number(params.page) || 1,
     type: params.type,
     level: params.level,
-    resource: params.resource,
     startDate: params.startDate ? new Date(params.startDate) : undefined,
     endDate: params.endDate ? new Date(params.endDate) : undefined,
     limit: 50,

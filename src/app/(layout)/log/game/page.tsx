@@ -1,26 +1,30 @@
 import { GlobalTitle } from "@/components/global/global-title";
 import { auth } from "@/lib/auth-config";
-import { redirect } from "next/navigation";
 import { realtimeService } from "@/service/realtime-service";
 import GameDataFilter from "@/components/game/game-data-filter";
 import { ComparisonOperator, GameDataType } from "@/types/game";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
+import { redirect } from "next/navigation";
+import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
 
-interface SearchParams {
-  type?: string;
-  itemId?: string;
-  value?: string;
-  condition?: string;
-  page?: string;
+interface LogGamePageProps {
+  searchParams: Promise<{
+    type?: string;
+    itemId?: string;
+    value?: string;
+    condition?: string;
+    page?: string;
+  }>;
 }
 
-export default async function LogGamePage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
+export default async function LogGamePage({ searchParams }: LogGamePageProps) {
   const session = await auth();
-  if (!session?.user) return redirect("/login");
+
+  if (!session || !session.user) return redirect("/login");
+
+  if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN))
+    return redirect("/");
 
   const params = await searchParams;
 

@@ -4,7 +4,9 @@ import { GlobalTitle } from "@/components/global/global-title";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { AdminDto } from "@/dto/admin.dto";
 import { auth } from "@/lib/auth-config";
+import { hasAccess } from "@/lib/utils";
 import { adminService } from "@/service/admin-service";
+import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 
 export default async function AdminPage({
@@ -12,6 +14,11 @@ export default async function AdminPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const session = await auth();
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/pending");
+  if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/");
+
   const params = await searchParams;
   let data: AdminDto = {
     items: [],
@@ -19,11 +26,6 @@ export default async function AdminPage({
     page: 0,
     totalPages: 0,
   };
-  const session = await auth();
-
-  if (!session) {
-    return redirect("/login");
-  }
 
   const result = await adminService.getDashboardUsers(params);
 

@@ -6,8 +6,8 @@ import { GlobalTitle } from "@/components/global/global-title";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
 import { couponService } from "@/service/coupon-service";
-import { CouponGroupStatus, CouponGroupType } from "@prisma/client";
-import AddCouponDialog from "@/components/dialog/add-coupon-dialog";
+import { CouponGroupStatus, CouponGroupType, UserRole } from "@prisma/client";
+import { hasAccess } from "@/lib/utils";
 
 interface PageProps {
   searchParams: Promise<{
@@ -22,8 +22,9 @@ interface PageProps {
 
 export default async function CouponPage({ searchParams }: PageProps) {
   const session = await auth();
-
-  if (!session?.user) return redirect("/login");
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/pending");
+  if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) return redirect("/");
 
   const params = await searchParams;
 

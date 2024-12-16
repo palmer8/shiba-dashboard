@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import { User, UserRole } from "@prisma/client";
 import pool from "@/db/mysql";
 import { hasAccess } from "@/lib/utils";
+import { Session } from "next-auth";
 
 class UserService {
   async signup(data: {
@@ -100,40 +101,6 @@ class UserService {
         error,
       };
     }
-  }
-
-  async isAccessiblePage(
-    userId: string | null,
-    role: UserRole
-  ): Promise<GlobalReturn<boolean>> {
-    if (!userId)
-      return {
-        success: false,
-        message: "접근 권한이 없습니다.",
-        data: null,
-        error: null,
-      };
-
-    const result = await prisma.user.findFirst({
-      where: {
-        AND: [{ id: userId }, { isPermissive: true }],
-      },
-    });
-
-    if (!result || !hasAccess(result.role, role))
-      return {
-        success: false,
-        message: "접근 권한이 없습니다.",
-        data: null,
-        error: null,
-      };
-
-    return {
-      success: true,
-      message: "접근 가능한 페이지입니다.",
-      data: result ? true : false,
-      error: null,
-    };
   }
 
   async isAccountPermissive(username: string, password: string) {

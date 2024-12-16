@@ -10,12 +10,14 @@ declare module "next-auth" {
     email?: string | null;
     nickname: string;
     role: UserRole;
+    isPermissive: boolean;
   }
 
   interface Session extends DefaultSession {
     user?: User & {
       nickname: string;
       role: UserRole;
+      isPermissive: boolean;
     };
   }
 }
@@ -25,5 +27,6 @@ declare module "next-auth/jwt" {
     id: string;
     nickname: string;
     role: UserRole;
+    isPermissive: boolean;
   }
 }

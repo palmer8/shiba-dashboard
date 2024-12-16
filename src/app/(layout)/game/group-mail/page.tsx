@@ -4,6 +4,10 @@ import { GroupMailTable } from "@/components/mail/group-mail-table";
 import { GroupMailSearchFilter } from "@/components/mail/group-mail-search-filter";
 import { mailService } from "@/service/mail-service";
 import { GroupMailTableData } from "@/types/mail";
+import { auth } from "@/lib/auth-config";
+import { redirect } from "next/navigation";
+import { UserRole } from "@prisma/client";
+import { hasAccess } from "@/lib/utils";
 
 interface PageProps {
   searchParams: Promise<{
@@ -16,6 +20,11 @@ interface PageProps {
 }
 
 export default async function GameGroupMailPage({ searchParams }: PageProps) {
+  const session = await auth();
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/login");
+  if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/");
+
   const params = await searchParams;
   const page = Number(params.page) || 1;
 

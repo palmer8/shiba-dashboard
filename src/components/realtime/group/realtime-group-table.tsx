@@ -17,9 +17,14 @@ import {
 import { Fragment, useMemo, useState } from "react";
 import { RealtimeGroupExpandedRow } from "./realtime-group-expanded-row";
 import { RealtimeGroupData } from "@/types/user";
-import { formatKoreanDateTime, parseTimeString } from "@/lib/utils";
+import {
+  formatKoreanDateTime,
+  handleDownloadJson2CSV,
+  parseTimeString,
+} from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface RealtimeGroupTableProps {
   data: {
@@ -43,6 +48,23 @@ export default function RealtimeGroupTable({
 
   const columns = useMemo<ColumnDef<RealtimeGroupData>[]>(
     () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected()}
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+          />
+        ),
+      },
       {
         accessorKey: "user_id",
         header: "고유번호",
@@ -110,6 +132,15 @@ export default function RealtimeGroupTable({
     getCoreRowModel: getCoreRowModel(),
   });
 
+  const handleCSVDownload = () => {
+    const selectedRows = table.getSelectedRowModel().rows;
+    const csvData = selectedRows.map((row) => row.original);
+    handleDownloadJson2CSV({
+      data: csvData,
+      fileName: `${formatKoreanDateTime(new Date())}-realtime-group-data.csv`,
+    });
+  };
+
   const toggleRow = (rowId: string) => {
     setExpandedRows((prev) => ({
       ...prev,
@@ -122,44 +153,49 @@ export default function RealtimeGroupTable({
       <div className="text-sm text-muted-foreground">
         총 {data.count}명의 그룹원이 검색되었습니다.
       </div>
-
+      <div className="flex justify-end">
+        <Button
+          disabled={table.getSelectedRowModel().rows.length === 0}
+          onClick={handleCSVDownload}
+        >
+          CSV 다운로드
+        </Button>
+      </div>
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <TableHead key={header.id}>
-                  {flexRender(
-                    header.column.columnDef.header,
-                    header.getContext()
-                  )}
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
                 </TableHead>
               ))}
             </TableRow>
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <Fragment key={row.id}>
-              <TableRow
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => toggleRow(row.id)}
-              >
+          {table.getRowModel().rows.length ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
               </TableRow>
-              {expandedRows[row.id] && (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="p-0">
-                    <RealtimeGroupExpandedRow userId={row.original.user_id} />
-                  </TableCell>
-                </TableRow>
-              )}
-            </Fragment>
-          ))}
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                데이터가 존재하지 않습니다.
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
       <div className="flex items-center justify-end gap-2">

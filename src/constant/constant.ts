@@ -2,7 +2,7 @@ import { JSONContent } from "novel";
 
 const ROLE_LINKS = {
   dashboard: {
-    name: "홈",
+    name: "메인",
     role: ["MASTER", "SUPERMASTER", "STAFF", "INGAME_ADMIN"],
     routes: [
       {
@@ -143,6 +143,11 @@ export const ADMIN_LINKS = {
       {
         name: "카테고리 관리",
         href: "/admin/category",
+        role: ["MASTER", "SUPERMASTER"],
+      },
+      {
+        name: "관리자 근태 관리",
+        href: "/admin/attendance",
         role: ["MASTER", "SUPERMASTER"],
       },
     ],

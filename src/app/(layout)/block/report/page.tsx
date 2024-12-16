@@ -18,7 +18,8 @@ interface ReportPageProps {
 
 export default async function ReportPage({ searchParams }: ReportPageProps) {
   const session = await auth();
-  if (!session?.user) return redirect("/login");
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/pending");
 
   const params = await searchParams;
 

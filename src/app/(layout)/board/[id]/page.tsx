@@ -14,9 +14,15 @@ interface BoardPageProps {
 export default async function BoardPage({ params }: BoardPageProps) {
   const session = await auth();
   const awaitParams = await params;
-  if (!session?.user) return redirect("/login");
+
+  if (!session || !session.user) return redirect("/login");
+
+  if (session.user && !session.user.isPermissive) {
+    return redirect("/pending");
+  }
 
   const result = await boardService.getBoardById(awaitParams.id);
+
   if (!result.success || !result.data) {
     redirect("/boards");
   }

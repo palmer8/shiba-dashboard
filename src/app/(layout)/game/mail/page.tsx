@@ -3,6 +3,10 @@ import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { PersonalMailTable } from "@/components/mail/personal-mail-table";
 import { PersonalMailSearchFilter } from "@/components/mail/personal-mail-search-filter";
 import { mailService } from "@/service/mail-service";
+import { auth } from "@/lib/auth-config";
+import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
+import { redirect } from "next/navigation";
 
 interface PageProps {
   searchParams: Promise<{
@@ -18,6 +22,11 @@ interface PageProps {
 export default async function GamePersonalMailPage({
   searchParams,
 }: PageProps) {
+  const session = await auth();
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/login");
+  if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/");
+
   const params = await searchParams;
   const page = params.page ? parseInt(params.page) : 1;
 

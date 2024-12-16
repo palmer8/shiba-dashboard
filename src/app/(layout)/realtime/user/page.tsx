@@ -17,24 +17,17 @@ export default async function RealtimeUserPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const session = await auth();
+
+  if (!session || !session.user) return redirect("/login");
+
+  if (session.user && !session.user.isPermissive) {
+    return redirect("/pending");
+  }
+
   const userId = (await searchParams).userId
     ? Number((await searchParams).userId) || null
     : null;
-
-  const session = await auth();
-
-  if (!session || !session.user || !session.user.id) {
-    redirect("/login");
-  }
-
-  const isAccessiblePage = await userService.isAccessiblePage(
-    session.user.id,
-    UserRole.STAFF
-  );
-
-  if (!isAccessiblePage.data) {
-    redirect("/");
-  }
 
   let response = null;
 

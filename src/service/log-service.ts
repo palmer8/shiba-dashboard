@@ -6,7 +6,6 @@ import { GlobalReturn } from "@/types/global-return";
 interface GameLogFilters {
   type?: string;
   level?: string;
-  resource?: string;
   startDate?: Date;
   endDate?: Date;
   page?: number;
@@ -20,7 +19,6 @@ interface GameLogResponse {
     level: string;
     type: string;
     message: string;
-    resource?: string;
     metadata?: any;
   }>;
   total: number;
@@ -151,6 +149,26 @@ export class LogService {
           page: 1,
           totalPages: 1,
         },
+        error,
+      };
+    }
+  }
+
+  async exportGameLogs(ids: number[]) {
+    try {
+      const logs = await db.queryLogsByIds(ids);
+      return {
+        success: true,
+        message: "유저 데이터 로드 성공",
+        data: logs,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Export game logs error:", error);
+      return {
+        success: false,
+        message: "유저 데이터 로드 실패",
+        data: null,
         error,
       };
     }

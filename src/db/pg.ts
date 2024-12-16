@@ -23,7 +23,6 @@ const createPartitionTable = async () => {
       level VARCHAR(10) NOT NULL,
       type VARCHAR(50) NOT NULL,
       message TEXT NOT NULL,
-      resource VARCHAR(50),
       metadata JSONB,
       PRIMARY KEY (timestamp, id)
     ) PARTITION BY RANGE (timestamp)
@@ -37,9 +36,6 @@ const createPartitionTable = async () => {
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS idx_game_logs_level ON game_logs(level)
-  `;
-  await sql`
-    CREATE INDEX IF NOT EXISTS idx_game_logs_resource ON game_logs(resource)
   `;
 };
 
@@ -66,19 +62,11 @@ const batchInsert = async (
     level?: string;
     type: string;
     message: string;
-    resource?: string | null;
     metadata?: any;
   }>
 ) => {
   return sql`
-    INSERT INTO game_logs ${sql(
-      logs,
-      "level",
-      "type",
-      "message",
-      "resource",
-      "metadata"
-    )}
+    INSERT INTO game_logs ${sql(logs, "level", "type", "message", "metadata")}
   `;
 };
 
@@ -86,7 +74,6 @@ const batchInsert = async (
 const queryLogs = async (filters: {
   type?: string;
   level?: string;
-  resource?: string;
   startDate?: Date;
   endDate?: Date;
   limit?: number;
@@ -99,8 +86,6 @@ const queryLogs = async (filters: {
 
   if (filters.type) baseQuery = sql`${baseQuery} AND type = ${filters.type}`;
   if (filters.level) baseQuery = sql`${baseQuery} AND level = ${filters.level}`;
-  if (filters.resource)
-    baseQuery = sql`${baseQuery} AND resource = ${filters.resource}`;
   if (filters.startDate)
     baseQuery = sql`${baseQuery} AND timestamp >= ${filters.startDate}`;
   if (filters.endDate)
@@ -142,6 +127,14 @@ const cleanupOldData = async (monthsToKeep: number = 6) => {
   }
 };
 
+const queryLogsByIds = async (ids: number[]) => {
+  return sql`
+    SELECT * FROM game_logs 
+    WHERE id = ANY(${ids})
+    ORDER BY timestamp DESC
+  `;
+};
+
 export default {
   sql,
   createPartitionTable,
@@ -149,4 +142,5 @@ export default {
   batchInsert,
   queryLogs,
   cleanupOldData,
+  queryLogsByIds,
 };

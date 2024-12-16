@@ -23,6 +23,7 @@ import {
   formatGameDataType,
   formatKoreanDateTime,
   formatKoreanNumber,
+  handleDownloadJson2CSV,
 } from "@/lib/utils";
 import { downloadCSV } from "@/lib/utils";
 
@@ -128,7 +129,10 @@ export function GameDataTable({
   const handleDownloadCSV = useCallback(() => {
     const selectedRows = table.getSelectedRowModel().rows;
     const csvData = selectedRows.map((row) => row.original);
-    downloadCSV(csvData, "game-data");
+    handleDownloadJson2CSV({
+      data: csvData,
+      fileName: `${formatKoreanDateTime(new Date())}-game-data.csv`,
+    });
   }, [table]);
 
   if (tableData.length === 0) {

@@ -203,7 +203,7 @@ export default function DashboardClientContent() {
           </div>
           <FileText className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
-        <CardContent className="h-[300px] overflow-y-auto">
+        <CardContent className="h-[200px] overflow-y-auto">
           {data.recentBoards.recentNotices.length > 0 ? (
             <div className="space-y-3">
               {data.recentBoards.recentNotices.map((notice) => (
@@ -262,7 +262,7 @@ export default function DashboardClientContent() {
           </div>
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
-        <CardContent className="h-[300px] overflow-y-auto">
+        <CardContent className="h-[200px] overflow-y-auto">
           {data.recentBoards.recentBoards.length > 0 ? (
             <div className="space-y-3">
               {data.recentBoards.recentBoards.map((board) => (

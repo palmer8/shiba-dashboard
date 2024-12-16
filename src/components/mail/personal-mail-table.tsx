@@ -241,6 +241,19 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
     }
   };
 
+  const handleCSVDownload = async () => {
+    const selectedRows = table.getSelectedRowModel().rows;
+    const csvData = await getPersonalMailsByIdsOrigin(
+      selectedRows.map((row) => row.original.id)
+    );
+    if (csvData.success && csvData.data) {
+      handleDownloadJson2CSV({
+        data: csvData.data,
+        fileName: `${formatKoreanDateTime(new Date())}-personal_mails.csv`,
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end items-center">
