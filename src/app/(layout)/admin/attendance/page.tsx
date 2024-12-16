@@ -15,7 +15,7 @@ export default async function AdminAttendancePage() {
     <main>
       <PageBreadcrumb />
       <GlobalTitle
-        title="관리자 근태 관리"
+        title="근태 관리"
         description="SHIBA 관리자들의 근태를 조회할 수 있습니다."
       />
     </main>

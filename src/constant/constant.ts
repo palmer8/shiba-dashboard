@@ -146,7 +146,7 @@ export const ADMIN_LINKS = {
         role: ["MASTER", "SUPERMASTER"],
       },
       {
-        name: "관리자 근태 관리",
+        name: "근태 관리",
         href: "/admin/attendance",
         role: ["MASTER", "SUPERMASTER"],
       },
