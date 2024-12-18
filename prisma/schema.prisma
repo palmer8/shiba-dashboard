@@ -346,7 +346,7 @@ model Board {
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
   registrant    User?        @relation(fields: [registrantId], references: [id], onDelete: SetNull)
-  category   BoardCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category   BoardCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   comments  BoardComment[]
   likes     BoardLike[]
 

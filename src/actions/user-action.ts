@@ -34,3 +34,11 @@ export async function getUserByIdAction(
   const result = await userService.getUserById(id);
   return result;
 }
+
+export async function updateUserAction(
+  id: string,
+  data: Partial<User>
+): Promise<GlobalReturn<User>> {
+  const result = await userService.updateUser(id, data);
+  return result;
+}

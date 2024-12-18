@@ -38,8 +38,6 @@ export interface PersonalMail {
   userId: number;
   rewards: GroupMailReward[];
   needItems: GroupMailReward[];
-  startDate: Date;
-  endDate: Date;
   registrantId: string | null;
   registrant?: {
     nickname: string;

@@ -17,9 +17,12 @@ import {
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { formatKoreanDateTime } from "@/lib/utils";
+import {
+  formatKoreanDateTime,
+  handleDownloadJson2CSV,
+  hasAccess,
+} from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
 import { useMemo } from "react";
 import {
   DropdownMenu,
@@ -29,10 +32,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, Trash, Eye, Heart } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { deleteBoardAction } from "@/actions/board-action";
+import {
+  deleteBoardAction,
+  getBoardListsByIdsOriginAction,
+} from "@/actions/board-action";
 import { toast } from "@/hooks/use-toast";
 import { BoardData, BoardList } from "@/types/board";
 import { checkPermission } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { UserRole } from "@prisma/client";
 
 interface BoardTableProps {
   data: BoardData[];
@@ -47,6 +55,29 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
   const { data: session } = useSession();
 
   const columns: ColumnDef<BoardData>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          onClick={(e) => e.stopPropagation()}
+          checked={row.getIsSelected()}
+          onCheckedChange={() => row.toggleSelected()}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
     {
       accessorKey: "title",
       header: "제목",
@@ -205,8 +236,43 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
     }
   };
 
+  const handleDownload = async () => {
+    const result = await getBoardListsByIdsOriginAction(
+      table.getSelectedRowModel().rows.map((row) => row.original.id)
+    );
+    if (result.success) {
+      handleDownloadJson2CSV({
+        data: result.data || [],
+        fileName: `${formatKoreanDateTime(new Date())}_boards`,
+      });
+      toast({
+        title: "게시글 목록 CSV 파일을 다운로드하였습니다.",
+      });
+    } else {
+      toast({
+        title: "게시글 목록 CSV 파일 다운로드에 실패했습니다.",
+        description: result.error || "잠시 후에 다시 시도해주세요",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
-    <div className="space-y-4">
+    <>
+      <div className="flex justify-end items-center gap-2">
+        {hasAccess(session?.user?.role, UserRole.MASTER) && (
+          <Button
+            disabled={!table.getSelectedRowModel().rows.length}
+            size="sm"
+            onClick={handleDownload}
+          >
+            CSV 다운로드
+          </Button>
+        )}
+        <Button size="sm" onClick={() => router.push("/board/write")}>
+          글쓰기
+        </Button>
+      </div>
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -290,6 +356,6 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

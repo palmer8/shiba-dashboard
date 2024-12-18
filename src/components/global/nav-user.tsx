@@ -19,10 +19,11 @@ import {
 import { signOut } from "next-auth/react";
 import { formatRole } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
-import { User } from "next-auth";
+import { Session } from "next-auth";
 import { useTheme } from "next-themes";
+import EditUserDialog from "@/components/dialog/edit-user-dialog";
 
-export function NavUser({ user }: { user: User }) {
+export function NavUser({ session }: { session: Session }) {
   const { isMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
 
@@ -36,12 +37,14 @@ export function NavUser({ user }: { user: User }) {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white font-semibold">
-                {user.nickname?.[0]?.toUpperCase() || "U"}
+                {session.user?.nickname?.[0]?.toUpperCase() || "U"}
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{user.nickname}</span>
+                <span className="truncate font-semibold">
+                  {session.user?.nickname}
+                </span>
                 <span className="truncate text-xs">
-                  {formatRole(user.role as UserRole)}
+                  {formatRole(session.user?.role as UserRole)}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
@@ -56,24 +59,29 @@ export function NavUser({ user }: { user: User }) {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white font-semibold">
-                  {user.nickname?.[0]?.toUpperCase() || "U"}
+                  {session.user?.nickname?.[0]?.toUpperCase() || "U"}
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">
-                    {user.nickname}
+                    {session.user?.nickname}
                   </span>
                   <span className="truncate text-xs">
-                    {formatRole(user.role as UserRole)}
+                    {formatRole(session.user?.role as UserRole)}
                   </span>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Settings />
-                계정 정보 수정
-              </DropdownMenuItem>
+              <EditUserDialog
+                session={session}
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>계정 정보 수정</span>
+                  </DropdownMenuItem>
+                }
+              />
             </DropdownMenuGroup>
             <DropdownMenuGroup>
               <DropdownMenuItem

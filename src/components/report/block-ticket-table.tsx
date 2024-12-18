@@ -17,7 +17,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { BlockTicket } from "@prisma/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -54,13 +54,7 @@ export function BlockTicketTable({ data }: BlockTicketTableProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [rowSelection, setRowSelection] = useState({});
 
-  const columns = useMemo<
-    ColumnDef<
-      BlockTicket & {
-        registrant: { id: string; nickname: string; userId: number };
-      }
-    >[]
-  >(
+  const columns = useMemo<ColumnDef<any>[]>(
     () => [
       {
         id: "select",
@@ -90,7 +84,33 @@ export function BlockTicketTable({ data }: BlockTicketTableProps) {
         accessorKey: "reportId",
       },
       {
-        header: "고유번호",
+        header: "사유",
+        accessorKey: "reason",
+        cell: ({ row }) => <span>{row.original.report?.reason}</span>,
+      },
+      {
+        header: "대상자",
+        accessorKey: "targetUserId",
+        cell: ({ row }) => (
+          <span>
+            {row.original.report?.target_user_nickname} (
+            {row.original.report?.target_user_id})
+          </span>
+        ),
+      },
+      {
+        header: "신고자",
+        accessorKey: "reportingUserId",
+        cell: ({ row }) => (
+          <span>
+            {row.original.report?.reporting_user_id
+              ? `${row.original.report?.reporting_user_nickname} (${row.original.report?.reporting_user_id})`
+              : "정보없음"}
+          </span>
+        ),
+      },
+      {
+        header: "처리자",
         accessorKey: "userId",
         cell: ({ row }) => (
           <span>
@@ -329,13 +349,32 @@ export function BlockTicketTable({ data }: BlockTicketTableProps) {
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
+              <Fragment key={row.id}>
+                <TableRow
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={(e) => {
+                    row.toggleExpanded();
+                  }}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                {row.getIsExpanded() && (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="bg-muted/30">
+                      <div className="p-2">
+                        {row.original.report?.incident_description}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
             ))
           ) : (
             <TableRow>

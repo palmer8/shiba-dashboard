@@ -111,7 +111,7 @@ export async function deleteCategoryAction(
 export async function getCategoriesAction(): Promise<
   ApiResponse<BoardCategory[]>
 > {
-  return await boardService.getCategoryList();
+  return await boardService.getCategoryListByUsed();
 }
 
 export async function toggleBoardLikeAction(
@@ -128,4 +128,10 @@ export async function getBoardLikesAction(
   boardId: string
 ): Promise<ApiResponse<LikeInfo[]>> {
   return await boardService.getBoardLikes(boardId);
+}
+
+export async function getBoardListsByIdsOriginAction(
+  ids: string[]
+): Promise<ApiResponse<Board[]>> {
+  return await boardService.getBoardListsByIdsOrigin(ids);
 }

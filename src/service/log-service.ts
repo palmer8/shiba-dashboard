@@ -2,6 +2,8 @@ import { prisma } from "@/db/prisma";
 import db from "@/db/pg";
 import { AdminLogFilters, AdminLogListResponse } from "@/types/log";
 import { GlobalReturn } from "@/types/global-return";
+import { auth } from "@/lib/auth-config";
+import { hasAccess } from "@/lib/utils";
 
 interface GameLogFilters {
   type?: string;
@@ -155,6 +157,14 @@ export class LogService {
   }
 
   async exportGameLogs(ids: number[]) {
+    const session = await auth();
+    if (!session || !session.user)
+      return {
+        success: false,
+        message: "세션이 존재하지 않습니다",
+        data: null,
+        error: "세션이 존재하지 않습니다",
+      };
     try {
       const logs = await db.queryLogsByIds(ids);
       return {

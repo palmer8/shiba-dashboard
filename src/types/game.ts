@@ -10,3 +10,11 @@ export type GameDataType =
   | "REGISTRATION"
   | "CURRENT_CASH"
   | "ACCUMULATED_CASH";
+
+export type UserLogFilter = {
+  message?: string;
+  createdAt?: [string, string];
+  level?: string;
+  type?: string;
+  page?: number;
+};

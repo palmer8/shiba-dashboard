@@ -246,8 +246,6 @@ class MailService {
         data: {
           records: records.map((record) => ({
             ...record,
-            startDate: record.createdAt,
-            endDate: record.updatedAt,
             registrant: record.registrant || undefined,
             rewards: record.rewards as GroupMailReward[],
             needItems: record.needItems as GroupMailReward[],

@@ -101,7 +101,7 @@ export default function AddGroupDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>그룹 추가</Button>
+        <Button size="sm">그룹 추가</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

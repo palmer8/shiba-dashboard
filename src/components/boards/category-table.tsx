@@ -100,7 +100,9 @@ export default function CategoryTable({ data }: CategoryTableProps) {
                       <DropdownMenuItem
                         onClick={async () => {
                           if (
-                            confirm("정말로 이 카테고리를 삭제하시겠습니까?")
+                            confirm(
+                              "정말로 카테고리를 삭제하시겠습니까?\n해당 카테고리를 사용하는 게시글도 전부 삭제됩니다."
+                            )
                           ) {
                             const result = await deleteCategoryAction(
                               row.original.id
@@ -111,8 +113,10 @@ export default function CategoryTable({ data }: CategoryTableProps) {
                               });
                             } else {
                               toast({
-                                title: "카테고리 삭제에 실패했습니다.",
-                                description: "잠시 후에 다시 시도해주세요",
+                                title: "카테고리 삭제하는데 실패했습니다.",
+                                description:
+                                  result.error || "잠시 후에 다시 시도해주세요",
+                                variant: "destructive",
                               });
                             }
                           }

@@ -42,15 +42,10 @@ export default async function BoardsPage({ searchParams }: PageProps) {
   return (
     <main>
       <PageBreadcrumb />
-      <div className="flex justify-between items-center">
-        <GlobalTitle
-          title="게시판"
-          description="게시글을 작성하여 SHIBA 대시보드 이용자들과 소통하세요."
-        />
-        <Button asChild>
-          <Link href="/board/write">글쓰기</Link>
-        </Button>
-      </div>
+      <GlobalTitle
+        title="게시판"
+        description="게시글을 작성하여 SHIBA 대시보드 이용자들과 소통하세요."
+      />
       <BoardFilters filters={filters} />
       <Suspense fallback={<TableSkeleton />}>
         <BoardContent filters={filters} page={page} />

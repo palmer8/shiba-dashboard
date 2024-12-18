@@ -148,16 +148,15 @@ export function UserDataTable({ data, metadata, page }: UserDataTableProps) {
       if (result.success) {
         handleDownloadJson2CSV({
           data: result.data ?? [],
-          fileName: `${formatKoreanDateTime(new Date())}-game-logs-.csv`,
+          fileName: `user-logs`,
         });
         toast({
-          title: "선택한 유저 데이터 로그를 성공적으로 내보냈습니다.",
-          description: "선택한 로그가 CSV 파일로 저장되었습니다.",
+          title: "유저 데이터 로그 CSV 파일을 다운로드하였습니다.",
         });
       }
     } catch (error) {
       toast({
-        title: "유저 데이터 로그 내보내기 실패",
+        title: "유저 데이터 로그 CSV 파일 다운로드에 실패했습니다.",
         description: "잠시 후에 다시 시도해주세요.",
         variant: "destructive",
       });
@@ -165,9 +164,10 @@ export function UserDataTable({ data, metadata, page }: UserDataTableProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <>
       <div className="flex justify-end">
         <Button
+          size="sm"
           onClick={handleExport}
           disabled={table.getSelectedRowModel().rows.length === 0}
         >
@@ -253,6 +253,6 @@ export function UserDataTable({ data, metadata, page }: UserDataTableProps) {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

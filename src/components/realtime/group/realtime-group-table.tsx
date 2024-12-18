@@ -137,7 +137,7 @@ export default function RealtimeGroupTable({
     const csvData = selectedRows.map((row) => row.original);
     handleDownloadJson2CSV({
       data: csvData,
-      fileName: `${formatKoreanDateTime(new Date())}-realtime-group-data.csv`,
+      fileName: `group-data`,
     });
   };
 
@@ -157,6 +157,7 @@ export default function RealtimeGroupTable({
         <Button
           disabled={table.getSelectedRowModel().rows.length === 0}
           onClick={handleCSVDownload}
+          size="sm"
         >
           CSV 다운로드
         </Button>

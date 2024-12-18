@@ -126,67 +126,56 @@ export default function RealtimeUserGroup({
 
   return (
     <div className="grid gap-4">
-      <div className="flex justify-end">
+      <h1 className="text-xl font-bold mt-2">
+        {data.last_nickname}({userId})님의 그룹 목록
+      </h1>
+      <div className="flex justify-end gap-2 items-center">
+        <Button
+          disabled={table.getSelectedRowModel().rows.length === 0}
+          onClick={handleCSVDownload}
+          size="sm"
+        >
+          CSV 다운로드
+        </Button>
         <AddGroupDialog userId={userId} page="user" />
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>그룹 목록</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-end">
-            <Button
-              disabled={table.getSelectedRowModel().rows.length === 0}
-              onClick={handleCSVDownload}
-            >
-              CSV 다운로드
-            </Button>
-          </div>
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
-                </TableRow>
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead key={header.id}>
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                </TableHead>
               ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                  >
-                    데이터가 존재하지 않습니다.
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows.length ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                데이터가 존재하지 않습니다.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }

@@ -1,7 +1,10 @@
 import pool from "@/db/mysql";
+import { auth } from "@/lib/auth-config";
+import { hasAccess } from "@/lib/utils";
 import { PaymentFilter } from "@/types/filters/payment-filter";
 import { GlobalReturn } from "@/types/global-return";
 import { Payment, PaymentDto } from "@/types/payment";
+import { UserRole } from "@prisma/client";
 import { RowDataPacket } from "mysql2";
 
 class PaymentService {
@@ -84,13 +87,45 @@ class PaymentService {
     }
   }
 
-  async getPaymentByIdsToOrigin(ids: string[]) {
+  async getPaymentByIdsToOrigin(ids: number[]) {
+    const session = await auth();
+
+    if (
+      !session ||
+      !session.user ||
+      !hasAccess(session?.user.role, UserRole.SUPERMASTER)
+    ) {
+      return {
+        success: false,
+        message: "권한이 없습니다.",
+        data: null,
+        error: null,
+      };
+    }
+
+    // IN 절에 대한 플레이스홀더를 동적으로 생성
+    const placeholders = ids.map(() => "?").join(",");
+
     const [result] = await pool.execute<RowDataPacket[]>(
-      "SELECT * FROM dokku_tebex_log WHERE transid IN (?)",
-      [ids]
+      `SELECT * FROM dokku_tebex_log WHERE transid IN (${placeholders})`,
+      [...ids] // 배열을 개별 매개변수로 전달
     );
 
-    return result;
+    if (!result) {
+      return {
+        success: false,
+        message: "결제 내역 조회 실패",
+        data: null,
+        error: null,
+      };
+    }
+
+    return {
+      success: true,
+      message: "결제 내역 조회 성공",
+      data: result,
+      error: null,
+    };
   }
 }
 

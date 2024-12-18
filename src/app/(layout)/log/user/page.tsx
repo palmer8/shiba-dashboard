@@ -4,6 +4,7 @@ import { UserDataTable } from "@/components/game/user-data-table";
 import { logService } from "@/service/log-service";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
+import UserLogFilter from "@/components/game/user-log-filter";
 
 interface PageProps {
   searchParams: Promise<{
@@ -47,6 +48,7 @@ export default async function LogUserPage({ searchParams }: PageProps) {
         title="유저 로그"
         description="실시간으로 SHIBA의 유저 로그를 확인할 수 있습니다."
       />
+      <UserLogFilter filter={filters} />
       <UserDataTable
         data={result.success ? result.data?.records || [] : []}
         metadata={{

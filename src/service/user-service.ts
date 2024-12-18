@@ -6,6 +6,8 @@ import { User, UserRole } from "@prisma/client";
 import pool from "@/db/mysql";
 import { hasAccess } from "@/lib/utils";
 import { Session } from "next-auth";
+import { auth } from "@/lib/auth-config";
+import { redirect } from "next/navigation";
 
 class UserService {
   async signup(data: {
@@ -162,6 +164,44 @@ class UserService {
       success: true,
       message: "유저를 찾았습니다.",
       data: user,
+      error: null,
+    };
+  }
+
+  async updateUser(id: string, data: Partial<User>) {
+    const session = await auth();
+
+    if (!session || !session.user) return redirect("/login");
+
+    const user = await prisma.user.findFirst({
+      where: { id: session.user.id },
+    });
+
+    if (!user || user.id !== id)
+      return {
+        success: false,
+        message: "유저를 찾을 수 없습니다.",
+        data: null,
+        error: null,
+      };
+
+    const result = await prisma.user.update({
+      where: { id },
+      data,
+    });
+
+    if (!result)
+      return {
+        success: false,
+        message: "유저를 수정하지 못했습니다.",
+        data: null,
+        error: null,
+      };
+
+    return {
+      success: true,
+      message: "유저를 수정하였습니다.",
+      data: result,
       error: null,
     };
   }

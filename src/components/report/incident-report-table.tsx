@@ -254,8 +254,7 @@ export default function IncidentReportTable({
                 {row.getIsExpanded() && (
                   <TableRow>
                     <TableCell colSpan={columns.length} className="bg-muted/30">
-                      <div className="p-2 grid gap-2">
-                        <p className="text-lg font-bold">상세 내용</p>
+                      <div className="p-1">
                         <p className="text-sm whitespace-pre-wrap">
                           {row.original.incident_description}
                         </p>

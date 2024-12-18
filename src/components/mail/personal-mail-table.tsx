@@ -53,7 +53,6 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
     content: false,
   });
   const { data: session } = useSession();
-  const isSuperMaster = session?.user?.role === "SUPERMASTER";
 
   const columns = useMemo<ColumnDef<PersonalMail>[]>(
     () => [
@@ -260,13 +259,7 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
         <div className="flex items-center gap-2">
           <Button
             onClick={() => {
-              const selectedMails = table
-                .getSelectedRowModel()
-                .rows.map((row) => row.original);
-              handleDownloadJson2CSV({
-                data: selectedMails,
-                fileName: "personal_mails",
-              });
+              handleCSVDownload();
             }}
             disabled={!table.getSelectedRowModel().rows.length}
           >

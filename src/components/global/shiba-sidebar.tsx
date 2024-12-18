@@ -54,7 +54,7 @@ export function ShibaSidebar({
         )}
       </SidebarContent>
       <SidebarFooter>
-        {session?.user && <NavUser user={session.user} />}
+        {session?.user && <NavUser session={session} />}
       </SidebarFooter>
     </Sidebar>
   );

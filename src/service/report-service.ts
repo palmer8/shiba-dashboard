@@ -3,7 +3,6 @@ import { RowDataPacket, ResultSetHeader } from "mysql2";
 import {
   AddIncidentReportData,
   EditIncidentReportData,
-  IncidentReport,
   ReportFilters,
   WhitelistFilters,
   WhitelistIP,
@@ -11,24 +10,20 @@ import {
   EditWhitelistData,
   AddBlockTicketData,
   ReportActionResponse,
-  ReportListResponse,
   BlockTicketActionResponse,
   WhitelistActionResponse,
   BlockTicketListResponse,
   WhitelistListResponse,
 } from "@/types/report";
-import { GlobalReturn } from "@/types/global-return";
 import { formatKoreanDateTime, hasAccess } from "@/lib/utils";
 import { auth } from "@/lib/auth-config";
 import prisma from "@/db/prisma";
 import { redirect } from "next/navigation";
-import { ADMIN_LINKS } from "@/constant/constant";
-import { BlockTicket, Status, UserRole } from "@prisma/client";
+import { Status, UserRole } from "@prisma/client";
+import { ApiResponse } from "@/types/global.dto";
 
 class ReportService {
-  async getIncidentReports(
-    filters: ReportFilters
-  ): Promise<ReportListResponse> {
+  async getIncidentReports(filters: ReportFilters): Promise<ApiResponse<any>> {
     const session = await auth();
 
     if (!session?.user) {
@@ -98,10 +93,12 @@ class ReportService {
       return {
         success: true,
         data: {
-          records: records as IncidentReport[],
-          total,
-          page,
-          totalPages,
+          records,
+          metadata: {
+            total,
+            page,
+            totalPages,
+          },
         },
         error: null,
       };
@@ -674,69 +671,106 @@ class ReportService {
     }
   ): Promise<BlockTicketListResponse> {
     const session = await auth();
-
-    if (!session?.user) {
-      return redirect("/login");
-    }
+    if (!session?.user) return redirect("/login");
 
     try {
       const pageSize = 50;
       const skip = (page - 1) * pageSize;
 
-      // 기본 where 조건
-      const where: any = {
-        status: filters.status,
-      };
-
-      // 등록일 필터
-      if (filters.startDate && filters.endDate) {
-        where.createdAt = {
-          gte: new Date(filters.startDate),
-          lte: new Date(filters.endDate),
-        };
-      }
-
-      // 승인일 필터
-      if (filters.approveStartDate && filters.approveEndDate) {
-        where.approvedAt = {
-          gte: new Date(filters.approveStartDate),
-          lte: new Date(filters.approveEndDate),
-        };
-      }
-
-      // 유저 ID 필터
-      if (filters.userId) {
-        where.userId = filters.userId;
-      }
-
-      // 전체 레코드 수 조회
-      const total = await prisma.blockTicket.count({ where });
-
-      // 페이지네이션된 데이터 조회
-      const records = await prisma.blockTicket.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: {
-          createdAt: "desc",
-        },
-        include: {
-          registrant: {
-            select: {
-              id: true,
-              nickname: true,
-              userId: true,
+      const [blockTickets, total] = await Promise.all([
+        prisma.blockTicket.findMany({
+          where: {
+            status: filters.status,
+            ...(filters.startDate &&
+              filters.endDate && {
+                createdAt: {
+                  gte: new Date(filters.startDate),
+                  lte: new Date(filters.endDate),
+                },
+              }),
+            ...(filters.approveStartDate &&
+              filters.approveEndDate && {
+                approvedAt: {
+                  gte: new Date(filters.approveStartDate),
+                  lte: new Date(filters.approveEndDate),
+                },
+              }),
+            ...(filters.userId && { userId: filters.userId }),
+          },
+          skip,
+          take: pageSize,
+          orderBy: { createdAt: "desc" },
+          include: {
+            registrant: {
+              select: {
+                id: true,
+                nickname: true,
+                userId: true,
+              },
             },
           },
-        },
-      });
+        }),
+        prisma.blockTicket.count({
+          where: {
+            status: filters.status,
+            ...(filters.startDate &&
+              filters.endDate && {
+                createdAt: {
+                  gte: new Date(filters.startDate),
+                  lte: new Date(filters.endDate),
+                },
+              }),
+            ...(filters.approveStartDate &&
+              filters.approveEndDate && {
+                approvedAt: {
+                  gte: new Date(filters.approveStartDate),
+                  lte: new Date(filters.approveEndDate),
+                },
+              }),
+            ...(filters.userId && { userId: filters.userId }),
+          },
+        }),
+      ]);
+
+      // reportId 목록 추출
+      const reportIds = blockTickets.map((ticket) => ticket.reportId);
+
+      let reportsMap: Record<number, any> = {};
+
+      // reportIds가 있을 때만 MySQL 쿼리 실행
+      if (reportIds.length > 0) {
+        const [reports] = await pool.query(
+          `SELECT 
+            report_id,
+            target_user_id,
+            target_user_nickname,
+            reporting_user_id,
+            reporting_user_nickname,
+            reason,
+            incident_time,
+            ban_duration_hours,
+            incident_description
+           FROM dokku_incident_report 
+           WHERE report_id IN (?)`,
+          [reportIds]
+        );
+
+        reportsMap = (reports as any[]).reduce((acc, report) => {
+          acc[report.report_id] = report;
+          return acc;
+        }, {} as Record<number, any>);
+      }
+
+      const enrichedTickets = blockTickets.map((ticket) => ({
+        ...ticket,
+        report: reportsMap[ticket.reportId] || null,
+        registrant: ticket.registrant as any,
+      }));
 
       return {
         success: true,
         data: {
-          records: records as (BlockTicket & {
-            registrant: { id: string; nickname: string; userId: number };
-          })[],
+          records: enrichedTickets,
           metadata: {
             total,
             page,
@@ -785,14 +819,74 @@ class ReportService {
         },
       });
 
-      // 해당 report들의 ban_duration_hours를 -1로 업데이트
-      for (const ticket of tickets) {
-        await pool.execute(
-          `UPDATE dokku_incident_report 
-           SET ban_duration_hours = -1 
-           WHERE report_id = ?`,
-          [ticket.reportId]
+      // MySQL 트랜잭션 시작
+      const connection = await pool.getConnection();
+      await connection.beginTransaction();
+
+      try {
+        const [reports] = await connection.query(
+          `SELECT 
+            report_id,
+            target_user_id,
+            target_user_nickname,
+            reporting_user_id,
+            reporting_user_nickname,
+            reason,
+            incident_time,
+            ban_duration_hours,
+            incident_description,
+            admin
+           FROM dokku_incident_report 
+           WHERE report_id IN (?)`,
+          [tickets.map((ticket) => ticket.reportId)]
         );
+
+        // 각 티켓에 대해 처리
+        for (const ticket of tickets) {
+          // 현재 티켓의 reportId와 일치하는 신고 데이터 찾기
+          const matchingReport = (reports as any[]).find(
+            (report) => report.report_id === ticket.reportId
+          );
+
+          if (!matchingReport) {
+            throw new Error(`Report not found for ticket ${ticket.reportId}`);
+          }
+
+          // dokku_incident_report 업데이트
+          await connection.execute(
+            `UPDATE dokku_incident_report 
+             SET ban_duration_hours = -1 
+             WHERE report_id = ?`,
+            [ticket.reportId]
+          );
+
+          await connection.execute(
+            `UPDATE vrp_users
+             SET banned = 1,
+             bantime = "영구정지",
+             banreason = ?,
+             banadmin = ?
+             WHERE id = ?`,
+            [
+              matchingReport.reason,
+              matchingReport.admin,
+              matchingReport.target_user_id,
+            ]
+          );
+        }
+
+        // 트랜잭션 커밋
+        await connection.commit();
+      } catch (error) {
+        // 에러 발생시 롤백
+        await connection.rollback();
+        return {
+          data: null,
+          error: "트랜잭션 중 에러가 발생하였습니다.",
+          success: false,
+        };
+      } finally {
+        connection.release();
       }
 
       // BlockTicket 상태 업데이트
@@ -819,7 +913,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생했습니다.",
       };
     }
   }

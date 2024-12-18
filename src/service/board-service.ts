@@ -7,7 +7,6 @@ import {
   BoardCategory,
 } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
-import { GlobalReturn } from "@/types/global-return";
 import { hasAccess } from "@/lib/utils";
 import { CategoryForm } from "@/components/dialog/add-category-dialog";
 import { JSONContent } from "novel";
@@ -271,7 +270,6 @@ class BoardService {
     }
   }
 
-  // 댓글 생성
   // 댓글 생성
   async createComment(data: {
     boardId: string;
@@ -730,6 +728,7 @@ class BoardService {
         data: {
           name: data.name,
           template: data.template,
+          isUsed: data.isUsed,
         },
       });
 
@@ -765,18 +764,6 @@ class BoardService {
     }
 
     try {
-      const boardCount = await prisma.board.count({
-        where: { categoryId: id },
-      });
-
-      if (boardCount > 0) {
-        return {
-          success: false,
-          error: "이 카테고리를 사용하는 게시글이 있어 삭제할 수 없습니다.",
-          data: null,
-        };
-      }
-
       const category = await prisma.boardCategory.delete({
         where: { id },
       });
@@ -795,6 +782,38 @@ class BoardService {
           error instanceof Error
             ? error.message
             : "카테고리 삭제에 실패했습니다.",
+      };
+    }
+  }
+
+  async getCategoryListByUsed() {
+    const session = await auth();
+
+    if (!session || !session.user)
+      return {
+        success: false,
+        error: "세션이 존재하지 않습니다.",
+        data: null,
+      };
+
+    try {
+      const categories = await prisma.boardCategory.findMany({
+        where: { isUsed: true },
+        orderBy: { createdAt: "desc" },
+      });
+      return {
+        success: true,
+        error: null,
+        data: categories,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "카테고리 목록 조회에 실패했습니다.",
       };
     }
   }
@@ -996,6 +1015,51 @@ class BoardService {
             : "좋아요 목록 조회에 실패했습니다.",
       };
     }
+  }
+
+  async getBoardListsByIdsOrigin(ids: string[]) {
+    const session = await auth();
+
+    if (!session || !session.user)
+      return {
+        success: false,
+        error: "세션이 존재하지 않습니다.",
+        data: null,
+      };
+
+    if (session.user.isPermissive !== true) {
+      return {
+        success: false,
+        error: "권한이 존재하지 않습니다.",
+        data: null,
+      };
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        error: "권한이 존재하지 않습니다.",
+        data: null,
+      };
+    }
+
+    const boards = await prisma.board.findMany({
+      where: { id: { in: ids } },
+    });
+
+    if (!boards) {
+      return {
+        success: false,
+        error: "게시글을 찾을 수 없습니다.",
+        data: null,
+      };
+    }
+
+    return {
+      success: true,
+      error: null,
+      data: boards,
+    };
   }
 }
 

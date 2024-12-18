@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatKoreanDateTime } from "@/lib/utils";
 import { Payment } from "@/types/payment";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface PaymentTableProps {
   data: {
@@ -37,6 +38,31 @@ export default function PaymentTable({ data }: PaymentTableProps) {
 
   const columns: ColumnDef<Payment>[] = useMemo(
     () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            onClick={(e) => e.stopPropagation()}
+            checked={row.getIsSelected()}
+            onCheckedChange={() => row.toggleSelected()}
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
       {
         accessorKey: "transid",
         header: "거래번호",
@@ -87,7 +113,7 @@ export default function PaymentTable({ data }: PaymentTableProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <>
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -180,7 +206,7 @@ export default function PaymentTable({ data }: PaymentTableProps) {
           </Button>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

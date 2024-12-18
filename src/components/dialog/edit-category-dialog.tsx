@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useState } from "react";
-import { z } from "zod";
+import { useState } from "react";
+import { boolean, z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "@/hooks/use-toast";
@@ -26,9 +26,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { updateCategoryAction } from "@/actions/board-action";
-import Editor from "../editor/advanced-editor";
-import { Switch } from "../ui/switch";
-import { Pencil } from "lucide-react";
+import Editor from "@/components/editor/advanced-editor";
+import { Switch } from "@/components/ui/switch";
 import { sanitizeContent } from "@/lib/utils";
 
 const categorySchema = z.object({
@@ -75,14 +74,14 @@ export default function EditCategoryDialog({
     const result = await updateCategoryAction(initialData.id, formData);
     if (result.success) {
       toast({
-        title: "카테고리 수정 성공",
-        description: "카테고리가 성공적으로 수정되었습니다.",
+        title: "카테고리를 성공적으로 수정하였습니다.",
       });
       setOpen(false);
     } else {
       toast({
-        title: "카테고리 수정 실패",
-        description: "카테고리 수정에 실패했습니다.",
+        title: "카테고리를 수정하는데 실패하였습니다.",
+        description: result.error || "잠시 후에 다시 시도해주세요",
+        variant: "destructive",
       });
     }
   };
