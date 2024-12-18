@@ -15,19 +15,29 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
+  Row,
   useReactTable,
 } from "@tanstack/react-table";
 import { useState, useMemo, Fragment } from "react";
-import { BlockTicket } from "@prisma/client";
+import { BlockTicket, RewardRevoke, UserRole } from "@prisma/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   approveAllBlockTicketAction,
   approveBlockTicketAction,
   rejectBlockTicketAction,
   rejectAllBlockTicketAction,
+  deleteBlockTicketAction,
 } from "@/actions/report-action";
 import { toast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
+import { MoreHorizontal, Trash } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Session } from "next-auth";
+import Empty from "../ui/empty";
 
 interface BlockTicketTableProps {
   data: {
@@ -40,15 +50,10 @@ interface BlockTicketTableProps {
       totalPages: number;
     };
   };
+  session: Session;
 }
 
-const STATUS_MAP: Record<"PENDING" | "APPROVED" | "REJECTED", string> = {
-  PENDING: "대기중",
-  APPROVED: "승인됨",
-  REJECTED: "거절됨",
-} as const;
-
-export function BlockTicketTable({ data }: BlockTicketTableProps) {
+export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
@@ -120,30 +125,63 @@ export function BlockTicketTable({ data }: BlockTicketTableProps) {
         ),
       },
       {
-        header: "상태",
-        accessorKey: "status",
-        cell: ({ row }) => (
-          <Badge variant="outline">
-            {
-              STATUS_MAP[
-                row.original.status as "PENDING" | "APPROVED" | "REJECTED"
-              ]
-            }
-          </Badge>
-        ),
+        header: "사건 발생 시간",
+        accessorKey: "incident_time",
+        cell: ({ row }) => {
+          return row.original.report?.incident_time
+            ? formatKoreanDateTime(row.original.report?.incident_time)
+            : "정보없음";
+        },
       },
       {
-        header: "등록일",
+        header: "등록일자",
         accessorKey: "createdAt",
         cell: ({ row }) => formatKoreanDateTime(row.original.createdAt),
       },
       {
-        header: "승인일",
+        header: "승인일자",
         accessorKey: "approvedAt",
         cell: ({ row }) =>
           row.original.approvedAt
-            ? formatKoreanDateTime(row.original.approvedAt)
-            : "-",
+            ? formatKoreanDateTime(row.original.createdAt)
+            : "정보없음",
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }: { row: Row<RewardRevoke> }) => {
+          return (
+            hasAccess(session?.user?.role, UserRole.MASTER) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost">
+                    <MoreHorizontal />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[160px]">
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
+                        const result = await deleteBlockTicketAction(
+                          row.original.id
+                        );
+                        if (result && result.success) {
+                          toast({
+                            title: "해당 항목을 성공적으로 삭제하였습니다.",
+                          });
+                        }
+                      }
+                    }}
+                    className="text-red-600"
+                  >
+                    <Trash className="mr-2 h-4 w-4" />
+                    <span>삭제</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )
+          );
+        },
       },
     ],
     []
@@ -182,13 +220,11 @@ export function BlockTicketTable({ data }: BlockTicketTableProps) {
 
       if (result.success) {
         toast({
-          title: "승인 완료",
-          description: "선택한 티켓이 승인되었습니다.",
+          title: "정상적으로 승인하였습니다.",
         });
-        router.refresh();
       } else {
         toast({
-          title: "승인 실패",
+          title: "일부 티켓을 승인하는데 실패하였습니다.",
           description: result.error,
           variant: "destructive",
         });
@@ -216,13 +252,12 @@ export function BlockTicketTable({ data }: BlockTicketTableProps) {
 
       if (result.success) {
         toast({
-          title: "거절 완료",
+          title: "정상적으로 거절하였습니다.",
           description: "선택한 티켓이 거절되었습니다.",
         });
-        router.refresh();
       } else {
         toast({
-          title: "거절 실패",
+          title: "일부 티켓을 거절하는데 실패했습니다.",
           description: result.error,
           variant: "destructive",
         });
@@ -379,7 +414,7 @@ export function BlockTicketTable({ data }: BlockTicketTableProps) {
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                데이터가 존재하지 않습니다.
+                <Empty description="데이터가 존재하지 않습니다." />
               </TableCell>
             </TableRow>
           )}

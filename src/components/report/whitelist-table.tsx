@@ -32,6 +32,7 @@ import { deleteWhitelistAction } from "@/actions/report-action";
 import { toast } from "@/hooks/use-toast";
 import { WHITELIST_STATUS } from "@/constant/constant";
 import EditWhitelistDialog from "@/components/dialog/edit-whitelist-dialog";
+import Empty from "@/components/ui/empty";
 
 interface WhitelistTableProps {
   data: {
@@ -186,15 +187,23 @@ export default function WhitelistTable({ data }: WhitelistTableProps) {
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
+          {table.getRowModel().rows.length > 0 ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                <Empty description="데이터가 존재하지 않습니다." />
+              </TableCell>
             </TableRow>
-          ))}
+          )}
         </TableBody>
       </Table>
 

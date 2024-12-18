@@ -37,6 +37,7 @@ import { ExpandedMailRow } from "@/components/mail/expanded-mail-row";
 import EditPersonalMailDialog from "@/components/dialog/edit-personal-mail-dialog";
 import { Input } from "@/components/ui/input";
 import { uploadPersonalMailCSVAction } from "@/actions/mail-action";
+import Empty from "../ui/empty";
 
 interface PersonalMailTableProps {
   data: PersonalMailTableData;
@@ -221,19 +222,19 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
 
       if (result.success) {
         toast({
-          title: "CSV 업로드 성공",
+          title: "CSV가 성공적으로 업로드되었습니다.",
           description: result.message,
         });
       } else {
         toast({
-          title: "CSV 업로드 실패",
+          title: "CSV 업로드를 실패하였습니다.",
           description: result.message,
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
-        title: "CSV 업로드 실패",
+        title: "CSV 업로드를 실패하였습니다.",
         description: "파일 처리 중 오류가 발생했습니다.",
         variant: "destructive",
       });
@@ -248,7 +249,7 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
     if (csvData.success && csvData.data) {
       handleDownloadJson2CSV({
         data: csvData.data,
-        fileName: `${formatKoreanDateTime(new Date())}-personal_mails.csv`,
+        fileName: `personal_mails.csv`,
       });
     }
   };
@@ -323,7 +324,7 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                데이터가 존재하지 않습니다.
+                <Empty description="데이터가 존재하지 않습니다." />
               </TableCell>
             </TableRow>
           )}

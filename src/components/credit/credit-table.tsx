@@ -37,7 +37,7 @@ import {
   deleteCreditAction,
 } from "@/actions/credit-action";
 import { toast } from "@/hooks/use-toast";
-import { Status } from "@prisma/client";
+import { Status, UserRole } from "@prisma/client";
 import { GlobalReturn } from "@/types/global-return";
 import { Badge } from "@/components/ui/badge";
 import { Edit, MoreHorizontal, Trash } from "lucide-react";
@@ -48,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSession } from "next-auth/react";
+import Empty from "../ui/empty";
 
 interface CreditTableProps {
   data: CreditTableData;
@@ -180,44 +181,41 @@ export function CreditTable({ data }: CreditTableProps) {
         header: "승인자",
         cell: ({ row }) => row.original.approver?.nickname || "-",
       },
-      ...(session?.user?.role === "SUPERMASTER"
-        ? [
-            {
-              id: "actions",
-              header: "관리",
-              cell: ({ row }: { row: Row<RewardRevoke> }) => {
-                return (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost">
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[160px]">
-                      {/* <DropdownMenuItem asChild></DropdownMenuItem> */}
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
-                            const result = await deleteCreditAction(
-                              row.original.id
-                            );
-                            if (result && result.success) {
-                              handleSuccess(result.message);
-                            }
-                          }
-                        }}
-                        className="text-red-600"
-                      >
-                        <Trash className="mr-2 h-4 w-4" />
-                        <span>삭제</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              },
-            },
-          ]
-        : []),
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }: { row: Row<RewardRevoke> }) => {
+          return (
+            hasAccess(session?.user?.role, UserRole.MASTER) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost">
+                    <MoreHorizontal />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[160px]">
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
+                        const result = await deleteCreditAction(
+                          row.original.id
+                        );
+                        if (result && result.success) {
+                          handleSuccess(result.message);
+                        }
+                      }
+                    }}
+                    className="text-red-600"
+                  >
+                    <Trash className="mr-2 h-4 w-4" />
+                    <span>삭제</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )
+          );
+        },
+      },
     ],
     [session]
   );
@@ -320,7 +318,7 @@ export function CreditTable({ data }: CreditTableProps) {
     [handleAction]
   );
 
-  // 전체 처리 핸들러
+  // 전체 처리 ���들러
   const handleBulkAction = useCallback(
     async (
       action: () => Promise<GlobalReturn<boolean>>,
@@ -496,7 +494,7 @@ export function CreditTable({ data }: CreditTableProps) {
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                데이터가 존재하지 않습니다.
+                <Empty description="데이터가 존재하지 않습니다." />
               </TableCell>
             </TableRow>
           )}

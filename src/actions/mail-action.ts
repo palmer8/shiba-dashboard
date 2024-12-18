@@ -83,7 +83,10 @@ export async function uploadPersonalMailCSVAction(formData: FormData) {
       success: false,
       message: "CSV 파일 처리 중 오류가 발생했습니다.",
       data: null,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "알 수 없는 에러가 발생하였습니다",
     };
   }
 }

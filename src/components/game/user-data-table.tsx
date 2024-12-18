@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { exportGameLogsAction } from "@/actions/log-action";
 import { toast } from "@/hooks/use-toast";
+import Empty from "@/components/ui/empty";
 
 interface GameLogData {
   id: number;
@@ -203,7 +204,7 @@ export function UserDataTable({ data, metadata, page }: UserDataTableProps) {
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                검색 결과가 없습니다.
+                <Empty description="데이터가 존재하지 않습니다." />
               </TableCell>
             </TableRow>
           )}

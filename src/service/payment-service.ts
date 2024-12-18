@@ -82,7 +82,10 @@ class PaymentService {
         success: false,
         message: "결제 내역 조회 실패",
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }

@@ -62,7 +62,7 @@ export default async function BlockTicketPage({ searchParams }: PageProps) {
 
       <BlockTicketFilter filters={filterParams} />
       <BlockTicketTabs />
-      <BlockTicketTable data={tableData} />
+      <BlockTicketTable session={session} data={tableData} />
     </main>
   );
 }

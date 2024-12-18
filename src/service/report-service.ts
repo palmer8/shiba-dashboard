@@ -19,7 +19,7 @@ import { formatKoreanDateTime, hasAccess } from "@/lib/utils";
 import { auth } from "@/lib/auth-config";
 import prisma from "@/db/prisma";
 import { redirect } from "next/navigation";
-import { Status, UserRole } from "@prisma/client";
+import { BlockTicket, Status, UserRole } from "@prisma/client";
 import { ApiResponse } from "@/types/global.dto";
 
 class ReportService {
@@ -107,7 +107,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생했습니다.",
       };
     }
   }
@@ -196,7 +199,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다.",
       };
     }
   }
@@ -233,7 +239,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
@@ -334,7 +343,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
@@ -419,7 +431,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
@@ -477,7 +492,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
@@ -546,7 +564,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
@@ -585,7 +606,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
@@ -617,7 +641,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
@@ -654,7 +681,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
@@ -784,7 +814,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
@@ -922,39 +955,106 @@ class ReportService {
   }
 
   async approveAllBlockTicket(): Promise<BlockTicketActionResponse> {
+    const session = await auth();
+
+    if (!session?.user) {
+      return redirect("/login");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        data: null,
+        error: "권한이 없습니다",
+      };
+    }
+
     try {
-      const session = await auth();
-
-      if (!session?.user) {
-        return redirect("/login");
-      }
-
-      if (!hasAccess(session.user.role, UserRole.MASTER)) {
-        return {
-          success: false,
-          data: null,
-          error: "권한이 없습니다",
-        };
-      }
-
       // 대기중인 모든 티켓 조회
       const pendingTickets = await prisma.blockTicket.findMany({
         where: { status: "PENDING" },
         select: { reportId: true },
       });
 
-      // 해당하는 모든 report의 ban_duration_hours를 -1로 업데이트
-      for (const ticket of pendingTickets) {
-        await pool.execute(
-          `UPDATE dokku_incident_report 
-           SET ban_duration_hours = -1 
-           WHERE report_id = ?`,
-          [ticket.reportId]
-        );
+      if (pendingTickets.length === 0) {
+        return {
+          success: true,
+          data: 0,
+          error: null,
+        };
       }
 
-      // 모든 대기중인 티켓 승인 처리
-      const result = await prisma.blockTicket.updateMany({
+      // MySQL 트랜잭션 시작
+      const connection = await pool.getConnection();
+      await connection.beginTransaction();
+
+      try {
+        const [reports] = await connection.query(
+          `SELECT 
+            report_id,
+            target_user_id,
+            target_user_nickname,
+            reporting_user_id,
+            reporting_user_nickname,
+            reason,
+            incident_time,
+            ban_duration_hours,
+            incident_description,
+            admin
+           FROM dokku_incident_report 
+           WHERE report_id IN (?)`,
+          [pendingTickets.map((ticket) => ticket.reportId)]
+        );
+
+        // 각 티켓에 대해 처리
+        for (const ticket of pendingTickets) {
+          const matchingReport = (reports as any[]).find(
+            (report) => report.report_id === ticket.reportId
+          );
+
+          if (!matchingReport) {
+            throw new Error(`Report not found for ticket ${ticket.reportId}`);
+          }
+
+          // dokku_incident_report 업데이트
+          await connection.execute(
+            `UPDATE dokku_incident_report 
+             SET ban_duration_hours = -1 
+             WHERE report_id = ?`,
+            [ticket.reportId]
+          );
+
+          // vrp_users 업데이트
+          await connection.execute(
+            `UPDATE vrp_users
+             SET banned = 1,
+             bantime = "영구정지",
+             banreason = ?,
+             banadmin = ?
+             WHERE id = ?`,
+            [
+              matchingReport.reason,
+              matchingReport.admin,
+              matchingReport.target_user_id,
+            ]
+          );
+        }
+
+        // 트랜잭션 커밋
+        await connection.commit();
+      } catch (error) {
+        // 에러 발생시 롤백
+        await connection.rollback();
+        return {
+          data: null,
+          error: "트랜잭션 중 에러가 발생하였습니다.",
+          success: false,
+        };
+      } finally {
+        connection.release();
+      }
+
+      await prisma.blockTicket.updateMany({
         where: { status: "PENDING" },
         data: {
           status: "APPROVED",
@@ -973,7 +1073,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생했습니다.",
       };
     }
   }
@@ -1017,7 +1120,10 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
@@ -1056,7 +1162,49 @@ class ReportService {
       return {
         success: false,
         data: null,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
+      };
+    }
+  }
+
+  async getBlockTicketByIdsOrigin(
+    ids: string[]
+  ): Promise<ApiResponse<BlockTicket[]>> {
+    const session = await auth();
+
+    if (!session || !session.user) return redirect("/login");
+
+    if (!hasAccess(session.user.role, UserRole.MASTER))
+      return {
+        error: "권한이 존재하지 않습니다.",
+        data: null,
+        success: false,
+      };
+
+    try {
+      const result = await prisma.blockTicket.findMany({
+        where: {
+          id: {
+            in: ids,
+          },
+        },
+      });
+      return {
+        error: null,
+        data: result,
+        success: true,
+      };
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생했습니다.",
+        data: null,
+        success: false,
       };
     }
   }

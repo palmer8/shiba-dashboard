@@ -9,6 +9,7 @@ import { reportService } from "@/service/report-service";
 import { GlobalTitle } from "@/components/global/global-title";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { Suspense } from "react";
+import { Session } from "next-auth";
 
 interface ReportPageProps {
   searchParams: Promise<{
@@ -48,13 +49,19 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
       </div>
       <IncidentReportFilter filter={filter} />
       <Suspense fallback={<TableSkeleton />}>
-        <ReportContent filter={filter} />
+        <ReportContent filter={filter} session={session} />
       </Suspense>
     </main>
   );
 }
 
-async function ReportContent({ filter }: { filter: ReportFilters }) {
+async function ReportContent({
+  filter,
+  session,
+}: {
+  filter: ReportFilters;
+  session: Session;
+}) {
   const reports = await reportService.getIncidentReports(filter);
 
   const initialData = {
@@ -67,5 +74,5 @@ async function ReportContent({ filter }: { filter: ReportFilters }) {
   const tableData =
     reports?.success && reports.data ? reports.data : initialData;
 
-  return <IncidentReportTable data={tableData} />;
+  return <IncidentReportTable data={tableData} session={session} />;
 }

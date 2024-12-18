@@ -1,6 +1,5 @@
 "use client";
 
-import { IncidentReport } from "@/types/report";
 import {
   Table,
   TableBody,
@@ -33,6 +32,7 @@ import AddCategoryDialog from "../dialog/add-category-dialog";
 import { deleteCategoryAction } from "@/actions/board-action";
 import Editor from "@/components/editor/advanced-editor";
 import EditCategoryDialog from "../dialog/edit-category-dialog";
+import Empty from "@/components/ui/empty";
 
 interface CategoryTableProps {
   data: BoardCategory[];
@@ -171,41 +171,52 @@ export default function CategoryTable({ data }: CategoryTableProps) {
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <Fragment key={row.id}>
-              <TableRow
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={(e) => {
-                  if (
-                    e.target instanceof Element &&
-                    (e.target.closest('[role="dialog"]') ||
-                      e.target.closest('[role="menuitem"]'))
-                  ) {
-                    return;
-                  }
-                  row.toggleExpanded();
-                }}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-              {row.getIsExpanded() && (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="bg-muted/30">
-                    <div className="p-2">
-                      <Editor
-                        initialValue={row.original.template}
-                        editable={false}
-                      />
-                    </div>
-                  </TableCell>
+          {table.getRowModel().rows.length > 0 ? (
+            table.getRowModel().rows.map((row) => (
+              <Fragment key={row.id}>
+                <TableRow
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={(e) => {
+                    if (
+                      e.target instanceof Element &&
+                      (e.target.closest('[role="dialog"]') ||
+                        e.target.closest('[role="menuitem"]'))
+                    ) {
+                      return;
+                    }
+                    row.toggleExpanded();
+                  }}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
                 </TableRow>
-              )}
-            </Fragment>
-          ))}
+                {row.getIsExpanded() && (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="bg-muted/30">
+                      <div className="p-2">
+                        <Editor
+                          initialValue={row.original.template}
+                          editable={false}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                <Empty description="데이터가 존재하지 않습니다." />
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </div>

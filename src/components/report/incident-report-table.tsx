@@ -31,6 +31,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { deleteIncidentReportAction } from "@/actions/report-action";
 import { toast } from "@/hooks/use-toast";
 import EditIncidentReportDialog from "@/components/dialog/edit-incident-report-dialog";
+import { Session } from "next-auth";
+import Empty from "../ui/empty";
 
 interface IncidentReportTableProps {
   data: {
@@ -39,6 +41,7 @@ interface IncidentReportTableProps {
     page: number;
     totalPages: number;
   };
+  session: Session;
 }
 
 export default function IncidentReportTable({
@@ -48,8 +51,8 @@ export default function IncidentReportTable({
     page: 1,
     totalPages: 1,
   },
+  session,
 }: IncidentReportTableProps) {
-  const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -133,7 +136,7 @@ export default function IncidentReportTable({
         accessorKey: "admin",
       },
       {
-        header: "처리 일시",
+        header: "사건 발생 일자",
         accessorKey: "incident_time",
         cell: ({ row }) => formatKoreanDateTime(row.original.incident_time),
       },
@@ -197,7 +200,7 @@ export default function IncidentReportTable({
           ]
         : []),
     ],
-    [session]
+    []
   );
 
   const table = useReactTable({
@@ -269,7 +272,7 @@ export default function IncidentReportTable({
           <TableBody>
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                데이터가 없습니다.
+                <Empty description="데이터가 존재하지 않습니다." />
               </TableCell>
             </TableRow>
           </TableBody>

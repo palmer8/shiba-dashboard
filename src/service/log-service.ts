@@ -4,6 +4,7 @@ import { AdminLogFilters, AdminLogListResponse } from "@/types/log";
 import { GlobalReturn } from "@/types/global-return";
 import { auth } from "@/lib/auth-config";
 import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
 
 interface GameLogFilters {
   type?: string;
@@ -180,6 +181,45 @@ export class LogService {
         message: "유저 데이터 로드 실패",
         data: null,
         error,
+      };
+    }
+  }
+
+  async getAccountUsingLogs(ids: string[]) {
+    const session = await auth();
+    if (!session || !session.user)
+      return {
+        error: "세션이 존재하지 않습니다.",
+        data: null,
+        success: false,
+      };
+    if (!hasAccess(session.user.role, UserRole.MASTER))
+      return {
+        error: "권한이 없습니다.",
+        data: null,
+        success: false,
+      };
+    try {
+      const result = await prisma.accountUsingQuerylog.findMany({
+        where: {
+          id: {
+            in: ids,
+          },
+        },
+      });
+      return {
+        success: true,
+        data: result,
+        error: null,
+      };
+    } catch (err) {
+      return {
+        error:
+          err instanceof Error
+            ? err.message
+            : "알 수 없는 에러가 발생하였습니다",
+        data: null,
+        success: false,
       };
     }
   }

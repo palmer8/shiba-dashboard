@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Prisma } from "@prisma/client";
 import EditCouponDialog from "@/components/dialog/edit-coupon-dialog";
+import Empty from "@/components/ui/empty";
 
 interface CouponTableProps {
   data: {
@@ -273,45 +274,56 @@ export function CouponTable({ data, page }: CouponTableProps) {
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <Fragment key={row.id}>
-              <TableRow
-                className={cn(
-                  "cursor-pointer hover:bg-muted/50",
-                  !row.original.isIssued && "cursor-not-allowed opacity-50"
-                )}
-                onClick={() => {
-                  {
-                    setExpandedRows((prev) => ({
-                      ...prev,
-                      [row.id]: !prev[row.id],
-                    }));
-                  }
-                }}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-              {expandedRows[row.id] && (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="bg-muted/30 p-0"
-                  >
-                    {row.original.isIssued && (
-                      <ExpandedCouponRow
-                        couponGroup={row.original}
-                        rewards={row.original.rewards as Prisma.JsonArray}
-                      />
-                    )}
-                  </TableCell>
+          {table.getRowModel().rows?.length ? (
+            table.getRowModel().rows.map((row) => (
+              <Fragment key={row.id}>
+                <TableRow
+                  className={cn(
+                    "cursor-pointer hover:bg-muted/50",
+                    !row.original.isIssued && "cursor-not-allowed opacity-50"
+                  )}
+                  onClick={() => {
+                    {
+                      setExpandedRows((prev) => ({
+                        ...prev,
+                        [row.id]: !prev[row.id],
+                      }));
+                    }
+                  }}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
                 </TableRow>
-              )}
-            </Fragment>
-          ))}
+                {expandedRows[row.id] && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="bg-muted/30 p-0"
+                    >
+                      {row.original.isIssued && (
+                        <ExpandedCouponRow
+                          couponGroup={row.original}
+                          rewards={row.original.rewards as Prisma.JsonArray}
+                        />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                <Empty description="데이터가 존재하지 않습니다." />
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
 

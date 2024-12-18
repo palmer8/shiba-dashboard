@@ -47,6 +47,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSession } from "next-auth/react";
+import Empty from "../ui/empty";
 
 interface ItemQuantityTableProps {
   data: ItemQuantityTableData;
@@ -441,7 +442,7 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                데이터가 존재하지 않습니다.
+                <Empty description="데이터가 존재하지 않습니다." />
               </TableCell>
             </TableRow>
           )}

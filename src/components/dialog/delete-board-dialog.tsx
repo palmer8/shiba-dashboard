@@ -37,7 +37,6 @@ export function DeleteBoardDialog({ boardId }: DeleteBoardDialogProps) {
       if (result.success) {
         toast({ title: "게시글이 삭제되었습니다." });
         router.push("/boards");
-        router.refresh();
       } else {
         toast({
           title: "게시글 삭제 실패",

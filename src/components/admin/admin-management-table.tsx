@@ -44,6 +44,7 @@ import {
 import { UserRole } from "@prisma/client";
 import { AdminDto } from "@/dto/admin.dto";
 import { useRouter, useSearchParams } from "next/navigation";
+import Empty from "@/components/ui/empty";
 
 interface AdminManagementTableProps {
   data: AdminDto;
@@ -270,7 +271,7 @@ export default function AdminManagementTable({
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                데이터가 존재하지 않습니다.
+                <Empty description="데이터가 존재하지 않습니다." />
               </TableCell>
             </TableRow>
           )}

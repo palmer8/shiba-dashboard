@@ -26,6 +26,7 @@ import {
   handleDownloadJson2CSV,
 } from "@/lib/utils";
 import { downloadCSV } from "@/lib/utils";
+import Empty from "../ui/empty";
 
 interface GameDataTableProps {
   data: any;
@@ -131,14 +132,14 @@ export function GameDataTable({
     const csvData = selectedRows.map((row) => row.original);
     handleDownloadJson2CSV({
       data: csvData,
-      fileName: `${formatKoreanDateTime(new Date())}-game-data.csv`,
+      fileName: `game-data.csv`,
     });
   }, [table]);
 
   if (tableData.length === 0) {
     return (
       <div className="flex h-[400px] items-center justify-center">
-        데이터가 존재하지 않습니다.
+        <Empty description="데이터가 존재하지 않습니다." />
       </div>
     );
   }

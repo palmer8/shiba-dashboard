@@ -14,8 +14,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Fragment, useMemo, useState } from "react";
-import { RealtimeGroupExpandedRow } from "./realtime-group-expanded-row";
+import { useMemo, useState } from "react";
 import { RealtimeGroupData } from "@/types/user";
 import {
   formatKoreanDateTime,
@@ -25,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
+import Empty from "@/components/ui/empty";
 
 interface RealtimeGroupTableProps {
   data: {
@@ -193,7 +193,7 @@ export default function RealtimeGroupTable({
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                데이터가 존재하지 않습니다.
+                <Empty description="데이터가 존재하지 않습니다." />
               </TableCell>
             </TableRow>
           )}
