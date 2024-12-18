@@ -73,8 +73,8 @@ interface RecentBoards {
     id: string;
     title: string;
     createdAt: Date;
-    commentCount: number; // 추가
-    likeCount: number; // 추가
+    commentCount: number;
+    likeCount: number;
     registrant: {
       id: string;
       nickname: string;
@@ -685,6 +685,8 @@ class BoardService {
         data: {
           name: data.name,
           template: data.template,
+          isUsed: data.isUsed,
+          registrantId: session.user.id,
         },
       });
 
@@ -1059,6 +1061,42 @@ class BoardService {
       success: true,
       error: null,
       data: boards,
+    };
+  }
+
+  async getCategoryListByIdsOrigin(ids: string[]) {
+    const session = await auth();
+    if (!session || !session.user)
+      return {
+        success: false,
+        error: "세션이 존재하지 않습니다.",
+        data: null,
+      };
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        error: "권한이 존재하지 않습니다.",
+        data: null,
+      };
+    }
+
+    const categories = await prisma.boardCategory.findMany({
+      where: { id: { in: ids } },
+    });
+
+    if (!categories) {
+      return {
+        success: false,
+        error: "카테고리를 찾을 수 없습니다.",
+        data: null,
+      };
+    }
+
+    return {
+      success: true,
+      error: null,
+      data: categories,
     };
   }
 }

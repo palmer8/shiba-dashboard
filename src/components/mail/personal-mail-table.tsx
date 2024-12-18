@@ -246,10 +246,19 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
     const csvData = await getPersonalMailsByIdsOrigin(
       selectedRows.map((row) => row.original.id)
     );
-    if (csvData.success && csvData.data) {
+    if (csvData.success) {
       handleDownloadJson2CSV({
-        data: csvData.data,
+        data: csvData.data || [],
         fileName: `personal_mails.csv`,
+      });
+      toast({
+        title: "게시글 목록 CSV 파일을 다운로드하였습니다.",
+      });
+    } else {
+      toast({
+        title: "게시글 목록 CSV 파일을 다운로드하였습니다.",
+        description: csvData.message || "잠시 후에 다시 시도해주세요",
+        variant: "destructive",
       });
     }
   };

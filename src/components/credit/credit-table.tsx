@@ -380,10 +380,11 @@ export function CreditTable({ data }: CreditTableProps) {
           data: result.data,
           fileName: "reward_revoke_data",
         });
-        toast({ title: "CSV 다운로드 성공" });
+        toast({ title: "재화 지급/회수 CSV 파일을 다운로드하였습니다." });
       } else {
         toast({
-          title: result.message || "CSV 다운로드 실패",
+          title: "재화 지급/회수 CSV 파일을 다운로드 실패하였습니다.",
+          description: result.message || "잠시 후에 다시 시도해주세요",
           variant: "destructive",
         });
       }

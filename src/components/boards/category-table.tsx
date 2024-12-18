@@ -15,9 +15,9 @@ import {
   Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { useMemo, useState, useCallback, Fragment } from "react";
+import { useMemo, useState, Fragment } from "react";
 import { useSession } from "next-auth/react";
-import { formatKoreanDateTime } from "@/lib/utils";
+import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,11 +28,17 @@ import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Pencil, Trash } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { BoardCategory } from "@prisma/client";
-import AddCategoryDialog from "../dialog/add-category-dialog";
-import { deleteCategoryAction } from "@/actions/board-action";
+import AddCategoryDialog from "@/components/dialog/add-category-dialog";
+import {
+  deleteCategoryAction,
+  getCategoryListByIdsOriginAction,
+} from "@/actions/board-action";
 import Editor from "@/components/editor/advanced-editor";
-import EditCategoryDialog from "../dialog/edit-category-dialog";
+import EditCategoryDialog from "@/components/dialog/edit-category-dialog";
 import Empty from "@/components/ui/empty";
+import { Checkbox } from "@/components/ui/checkbox";
+import { JSONContent } from "novel";
+import { Badge } from "@/components/ui/badge";
 
 interface CategoryTableProps {
   data: BoardCategory[];
@@ -45,8 +51,32 @@ export default function CategoryTable({ data }: CategoryTableProps) {
     template: false,
   });
 
-  const columns: ColumnDef<any>[] = useMemo(
+  const columns: ColumnDef<BoardCategory>[] = useMemo(
     () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
       {
         header: "id",
         accessorKey: "id",
@@ -61,6 +91,15 @@ export default function CategoryTable({ data }: CategoryTableProps) {
         header: "템플릿",
         accessorKey: "template",
         cell: ({ row }) => <></>,
+      },
+      {
+        header: "사용 여부",
+        accessorKey: "isUsed",
+        cell: ({ row }) => (
+          <Badge variant={row.original.isUsed ? "default" : "outline"}>
+            {row.original.isUsed ? "사용" : "미사용"}
+          </Badge>
+        ),
       },
       {
         header: "생성일",
@@ -148,9 +187,36 @@ export default function CategoryTable({ data }: CategoryTableProps) {
     },
   });
 
+  const handleDownloadCSV = async () => {
+    const ids = table.getSelectedRowModel().rows.map((row) => row.original.id);
+    const result = await getCategoryListByIdsOriginAction(ids);
+    if (result.success) {
+      toast({
+        title: "카테고리 목록 CSV 파일을 다운로드하였습니다.",
+      });
+      handleDownloadJson2CSV({
+        data: result.data || [],
+        fileName: "category_list.csv",
+      });
+    } else {
+      toast({
+        title: "카테고리 목록 CSV 파일을 다운로드 실패하였습니다.",
+        description: result.error || "잠시 후에 다시 시도해주세요",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end gap-2">
+        <Button
+          size="sm"
+          disabled={table.getSelectedRowModel().rows.length === 0}
+          onClick={handleDownloadCSV}
+        >
+          CSV 다운로드
+        </Button>
         <AddCategoryDialog />
       </div>
       <Table>
@@ -201,7 +267,7 @@ export default function CategoryTable({ data }: CategoryTableProps) {
                     <TableCell colSpan={columns.length} className="bg-muted/30">
                       <div className="p-2">
                         <Editor
-                          initialValue={row.original.template}
+                          initialValue={row.original.template as JSONContent}
                           editable={false}
                         />
                       </div>

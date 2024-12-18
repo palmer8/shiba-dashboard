@@ -135,3 +135,9 @@ export async function getBoardListsByIdsOriginAction(
 ): Promise<ApiResponse<Board[]>> {
   return await boardService.getBoardListsByIdsOrigin(ids);
 }
+
+export async function getCategoryListByIdsOriginAction(
+  ids: string[]
+): Promise<ApiResponse<BoardCategory[]>> {
+  return await boardService.getCategoryListByIdsOrigin(ids);
+}
