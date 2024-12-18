@@ -45,9 +45,6 @@ export default async function RealtimeGroupPage({
       <RealtimeGroupSearch groupName={groupName} />
       {groupName && <RealtimeGroupTable data={data} groupName={groupName} />}
       {!groupName && <Empty description="그룹 이름을 입력해주세요" />}
-      {groupName && !data?.users?.length && (
-        <Empty description="검색된 그룹원이 없습니다." />
-      )}
     </main>
   );
 }

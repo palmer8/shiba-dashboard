@@ -14,7 +14,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { RealtimeGroupData } from "@/types/user";
 import {
   formatKoreanDateTime,
@@ -25,6 +25,9 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import Empty from "@/components/ui/empty";
+import { toast } from "@/hooks/use-toast";
+import { updateUserGroupAction } from "@/actions/realtime/realtime-group-action";
+import { RealtimeGroupExpandedRow } from "./realtime-group-expanded-row";
 
 interface RealtimeGroupTableProps {
   data: {
@@ -39,12 +42,30 @@ export default function RealtimeGroupTable({
   data,
   groupName,
 }: RealtimeGroupTableProps) {
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [cursorHistory, setCursorHistory] = useState<number[]>([0]);
   const [isLoading, setIsLoading] = useState(false);
 
   const router = useRouter();
+
+  async function handleRemoveGroup(userId: string, groupName: string) {
+    const result = await updateUserGroupAction({
+      user_id: parseInt(userId),
+      group: groupName,
+      action: "remove",
+    });
+
+    if (result.success) {
+      toast({
+        title: "해당 그룹에서 성공적으로 추방하였습니다.",
+      });
+    } else {
+      toast({
+        title: "그룹 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  }
 
   const columns = useMemo<ColumnDef<RealtimeGroupData>[]>(
     () => [
@@ -92,6 +113,20 @@ export default function RealtimeGroupTable({
           );
         },
       },
+      {
+        id: "action",
+        header: "",
+        cell: ({ row }) => (
+          <Button
+            variant="destructive"
+            onClick={() =>
+              handleRemoveGroup(row.original.user_id, row.original.name)
+            }
+          >
+            추방
+          </Button>
+        ),
+      },
     ],
     []
   );
@@ -137,15 +172,11 @@ export default function RealtimeGroupTable({
     const csvData = selectedRows.map((row) => row.original);
     handleDownloadJson2CSV({
       data: csvData,
-      fileName: `group-data`,
+      fileName: `${groupName}_group-data`,
     });
-  };
-
-  const toggleRow = (rowId: string) => {
-    setExpandedRows((prev) => ({
-      ...prev,
-      [rowId]: !prev[rowId],
-    }));
+    toast({
+      title: "그룹 목록 CSV 파일을 다운로드하였습니다.",
+    });
   };
 
   return (
@@ -182,13 +213,28 @@ export default function RealtimeGroupTable({
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
+              <Fragment key={row.id}>
+                <TableRow
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => row.toggleExpanded()}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                {row.getIsExpanded() && (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="bg-muted/30">
+                      <RealtimeGroupExpandedRow userId={row.original.user_id} />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
             ))
           ) : (
             <TableRow>

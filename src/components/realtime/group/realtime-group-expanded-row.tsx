@@ -5,7 +5,7 @@ import {
   updateUserGroupByGroupMenuAction,
 } from "@/actions/realtime/realtime-group-action";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LoadingBar } from "@/components/global/loading";
 import {
   Table,
@@ -18,16 +18,125 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import AddGroupDialog from "@/components/dialog/add-group-dialog";
+import {
+  ColumnDef,
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+} from "@tanstack/react-table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
 
 interface RealtimeGroupExpandedRowProps {
   userId: string;
 }
 
+interface GroupData {
+  groupName: string;
+  isSelected?: boolean;
+}
+
 export function RealtimeGroupExpandedRow({
   userId,
 }: RealtimeGroupExpandedRowProps) {
-  const [data, setData] = useState<Record<string, boolean> | null>(null);
+  const [data, setData] = useState<Record<string, any> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [rowSelection, setRowSelection] = useState({});
+
+  const columns = useMemo<ColumnDef<GroupData>[]>(
+    () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected()}
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="모두 선택"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="행 선택"
+          />
+        ),
+      },
+      {
+        accessorKey: "groupName",
+        header: "그룹명",
+      },
+      {
+        id: "actions",
+        header: "관리",
+        cell: ({ row }) => (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={async (e) => {
+              e.stopPropagation();
+              try {
+                const result = await updateUserGroupByGroupMenuAction({
+                  user_id: Number(userId),
+                  group: row.original.groupName,
+                  action: "remove",
+                });
+                if (result.success) {
+                  toast({
+                    title: "해당 그룹에서 성공적으로 추방하였습니다.",
+                  });
+                  fetchUserGroups();
+                } else {
+                  toast({
+                    title: "그룹 삭제에 실패하였습니다",
+                    description: result.message,
+                    variant: "destructive",
+                  });
+                }
+              } catch (error) {
+                toast({
+                  title: "그룹 제거 실패",
+                  variant: "destructive",
+                });
+              }
+            }}
+          >
+            제거
+          </Button>
+        ),
+      },
+    ],
+    [userId]
+  );
+
+  const handleCSVDownload = () => {
+    const selectedRows = table.getSelectedRowModel().rows;
+
+    // 선택된 행들의 groupName만 추출하여 원본 데이터 형식으로 변환
+    const selectedGroups = selectedRows.reduce((acc, row) => {
+      acc[row.original.groupName] = true;
+      return acc;
+    }, {} as Record<string, boolean>);
+
+    // CSV를 위한 배열 변환
+    const csvData = Object.entries(selectedGroups).map(
+      ([groupName, value]) => ({
+        group: groupName,
+        status: value ? "true" : "false",
+      })
+    );
+
+    handleDownloadJson2CSV({
+      data: csvData,
+      fileName: `${userId}'s-group.csv`,
+    });
+
+    toast({
+      title: "그룹 목록 CSV 다운로드가 완료되었습니다.",
+    });
+  };
 
   async function fetchUserGroups() {
     try {
@@ -37,14 +146,14 @@ export function RealtimeGroupExpandedRow({
         setData(result.data);
       } else {
         toast({
-          title: "그룹 정보 조회 실패",
+          title: "해당 유저의 그룹 정보를 조회하는데에 실패했습니다",
           description: result.message,
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
-        title: "오류가 발생했습니다",
+        title: "그룹 정보를 조회하는데에 오류가 발생했습니다",
         description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
@@ -56,6 +165,23 @@ export function RealtimeGroupExpandedRow({
   useEffect(() => {
     fetchUserGroups();
   }, [userId]);
+
+  const groupsData = useMemo(() => {
+    if (!data?.groups) return [];
+    return Object.keys(data.groups).map((groupName) => ({
+      groupName,
+    }));
+  }, [data?.groups]);
+
+  const table = useReactTable({
+    data: groupsData,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    onRowSelectionChange: setRowSelection,
+    state: {
+      rowSelection,
+    },
+  });
 
   if (isLoading) {
     return (
@@ -76,13 +202,22 @@ export function RealtimeGroupExpandedRow({
   return (
     <div className="p-4 bg-muted/25">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="grid gap-2">
           <CardTitle className="text-lg">그룹 정보</CardTitle>
-          <AddGroupDialog
-            userId={Number(userId)}
-            page="group"
-            onSuccess={fetchUserGroups}
-          />
+          <div className="flex justify-end items-center gap-2">
+            <Button
+              disabled={table.getSelectedRowModel().rows.length === 0}
+              onClick={handleCSVDownload}
+              size="sm"
+            >
+              CSV 다운로드
+            </Button>
+            <AddGroupDialog
+              userId={Number(userId)}
+              page="group"
+              onSuccess={fetchUserGroups}
+            />
+          </div>
         </CardHeader>
         <CardContent className="grid gap-6">
           <div className="grid gap-2">
@@ -105,54 +240,35 @@ export function RealtimeGroupExpandedRow({
 
           <div className="grid gap-2">
             <h3 className="font-semibold">소속 그룹</h3>
-            {data.groups && Object.keys(data.groups).length > 0 ? (
+            {groupsData.length > 0 ? (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>그룹명</TableHead>
-                    <TableHead>관리</TableHead>
-                  </TableRow>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
                 </TableHeader>
                 <TableBody>
-                  {Object.entries(data.groups).map(([groupName]) => (
-                    <TableRow key={groupName}>
-                      <TableCell>{groupName}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const result =
-                                await updateUserGroupByGroupMenuAction({
-                                  user_id: Number(userId),
-                                  group: groupName,
-                                  action: "remove",
-                                });
-                              if (result.success) {
-                                toast({
-                                  title:
-                                    "해당 그룹에서 성공적으로 추방하였습니다.",
-                                });
-                                fetchUserGroups();
-                              } else {
-                                toast({
-                                  title: "그룹 삭제에 실패하였습니다",
-                                  description: result.message,
-                                  variant: "destructive",
-                                });
-                              }
-                            } catch (error) {
-                              toast({
-                                title: "그룹 제거 실패",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                        >
-                          제거
-                        </Button>
-                      </TableCell>
+                  {table.getRowModel().rows.map((row) => (
+                    <TableRow key={row.id}>
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   ))}
                 </TableBody>

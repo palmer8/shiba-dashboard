@@ -10,7 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import AddGroupDialog from "@/components/dialog/add-group-dialog";
 import { updateUserGroupAction } from "@/actions/realtime/realtime-group-action";
 import { toast } from "@/hooks/use-toast";
@@ -95,7 +94,7 @@ export default function RealtimeUserGroup({
       },
       {
         id: "action",
-        header: "관리",
+        header: "",
         cell: ({ row }) => (
           <Button
             variant="destructive"
@@ -117,10 +116,28 @@ export default function RealtimeUserGroup({
 
   const handleCSVDownload = () => {
     const selectedRows = table.getSelectedRowModel().rows;
-    const csvData = selectedRows.map((row) => row.original);
+
+    // 선택된 행들의 name을 기반으로 원본 데이터 형식으로 변환
+    const selectedGroups = selectedRows.reduce((acc, row) => {
+      acc[row.original.name] = true;
+      return acc;
+    }, {} as Record<string, boolean>);
+
+    // CSV를 위한 배열 변환
+    const csvData = Object.entries(selectedGroups).map(
+      ([groupName, value]) => ({
+        group: groupName,
+        status: value ? "true" : "false",
+      })
+    );
+
     handleDownloadJson2CSV({
       data: csvData,
-      fileName: `${formatKoreanDateTime(new Date())}-${userId}'s-group.csv`,
+      fileName: `${userId}'s-group.csv`,
+    });
+
+    toast({
+      title: "그룹 목록 CSV 다운로드가 완료되었습니다.",
     });
   };
 
