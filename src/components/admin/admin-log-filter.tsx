@@ -69,10 +69,10 @@ export default function AdminLogFilter({ filter }: AdminLogFilterProps) {
     <div className="space-y-4">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-2">
-          <Label htmlFor="content">내용</Label>
+          <Label htmlFor="content">메시지</Label>
           <Input
             id="content"
-            placeholder="내용 검색"
+            placeholder="메시지 검색"
             value={localFilter.content || ""}
             onChange={(e) => handleFilterChange("content", e.target.value)}
           />

@@ -132,9 +132,15 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
 
   return (
     <div className="space-y-4">
-      <Button onClick={handleCSVDownload} size="sm">
-        CSV 다운로드
-      </Button>
+      <div className="flex justify-end items-center gap-2">
+        <Button
+          disabled={table.getSelectedRowModel().rows.length === 0}
+          onClick={handleCSVDownload}
+          size="sm"
+        >
+          CSV 다운로드
+        </Button>
+      </div>
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
