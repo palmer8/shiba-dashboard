@@ -23,22 +23,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
-interface Comment {
-  id: string;
-  content: string;
-  createdAt: Date;
-  updatedAt: Date;
-  boardId: string;
-  registrant: {
-    id: string;
-    nickname: string;
-  };
-}
+import { CommentData } from "@/types/board";
 
 interface CommentSectionProps {
   boardId: string;
-  comments: Comment[];
+  comments: CommentData[];
   userId: string;
   userRole: UserRole;
 }
@@ -107,7 +96,7 @@ export function CommentSection({
     }
   };
 
-  const startEditing = (comment: Comment) => {
+  const startEditing = (comment: CommentData) => {
     setEditingId(comment.id);
     setEditContent(comment.content);
   };

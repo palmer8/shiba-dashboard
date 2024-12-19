@@ -1,4 +1,3 @@
-import { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -6,11 +5,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { LoginForm } from "@/components/form/login-form";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth-config";
-
-export const metadata: Metadata = {
-  title: "SHIBA | 로그인",
-  description: "SHIBA Dashboard에 로그인하세요.",
-};
 
 export default async function LoginPage() {
   const session = await auth();

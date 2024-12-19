@@ -31,7 +31,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, Trash, Eye, Heart } from "lucide-react";
-import { useSession } from "next-auth/react";
 import {
   deleteBoardAction,
   getBoardListsByIdsOriginAction,
@@ -41,18 +40,26 @@ import { BoardData, BoardList } from "@/types/board";
 import { checkPermission } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { UserRole } from "@prisma/client";
+import { Session } from "next-auth";
+import Link from "next/link";
 
 interface BoardTableProps {
   data: BoardData[];
   notices: BoardData[];
   metadata: BoardList["metadata"];
   page: number;
+  session: Session;
 }
 
-export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
+export function BoardTable({
+  data,
+  notices,
+  metadata,
+  page,
+  session,
+}: BoardTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
 
   const columns: ColumnDef<BoardData>[] = [
     {
@@ -150,9 +157,9 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
       id: "actions",
       cell: ({ row }: { row: Row<BoardData> }) => {
         const hasPermission = checkPermission(
-          session?.user?.id,
+          session.user?.id,
           row.original.registrant.id,
-          session?.user?.role
+          session.user?.role
         );
 
         if (!hasPermission) return null;
@@ -269,8 +276,8 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
             CSV 다운로드
           </Button>
         )}
-        <Button size="sm" onClick={() => router.push("/board/write")}>
-          글쓰기
+        <Button size="sm" asChild>
+          <Link href="/board/write">글쓰기</Link>
         </Button>
       </div>
       <Table>

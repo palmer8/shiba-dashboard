@@ -1,11 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { formatKoreanDateTime } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import Editor from "@/components/editor/advanced-editor";
-import Link from "next/link";
+import { memo, useCallback, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Eye,
@@ -14,7 +10,6 @@ import {
   Pencil,
   Trash,
 } from "lucide-react";
-import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +26,6 @@ import {
 import { useSession } from "next-auth/react";
 import { toast } from "@/hooks/use-toast";
 import { BoardDetailView, LikeInfo } from "@/types/board";
-import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +45,12 @@ import {
 import { UserRole } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
+import Link from "next/link";
+import { Button } from "../ui/button";
+import { formatKoreanDateTime } from "@/lib/utils";
+import { Badge } from "../ui/badge";
+import Editor from "../editor/advanced-editor";
+import { Separator } from "../ui/separator";
 
 interface BoardDetailProps {
   board: BoardDetailView;
@@ -58,8 +58,13 @@ interface BoardDetailProps {
   userRole: UserRole;
 }
 
-export function BoardDetail({ board, userId, userRole }: BoardDetailProps) {
+export const BoardDetail = memo(function BoardDetail({
+  board,
+  userId,
+  userRole,
+}: BoardDetailProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const { data: session } = useSession();
   const [showLikes, setShowLikes] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
@@ -67,24 +72,28 @@ export function BoardDetail({ board, userId, userRole }: BoardDetailProps) {
   const canModify =
     userId === board.registrant.id || userRole === UserRole.SUPERMASTER;
 
-  const handleLikeClick = async () => {
-    if (!session?.user) {
-      toast({
-        title: "로그인이 필요합니다.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleLikeClick = useCallback(async () => {
+    startTransition(async () => {
+      if (!session?.user) {
+        toast({
+          title: "로그인이 필요합니다.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    const result = await toggleBoardLikeAction(board.id);
-    if (!result.success) {
-      toast({
-        title: "좋아요 처리 실패",
-        description: result.error,
-        variant: "destructive",
-      });
-    }
-  };
+      const result = await toggleBoardLikeAction(board.id);
+      if (result.success) {
+        router.refresh();
+      } else {
+        toast({
+          title: "좋아요 처리 실패",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    });
+  }, [board.id, session?.user, router]);
 
   const handleDelete = async () => {
     const result = await deleteBoardAction(board.id);
@@ -224,4 +233,4 @@ export function BoardDetail({ board, userId, userRole }: BoardDetailProps) {
       </AlertDialog>
     </>
   );
-}
+});

@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getDashboardData } from "@/actions/realtime/realtime-dashboard-action";
+import { useDashboard } from "@/hooks/use-dashboard";
+import { memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users,
   Shield,
@@ -14,188 +13,100 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatKoreanDateTime } from "@/lib/utils";
-import { useTransition } from "react";
 import { DashboardData } from "@/types/dashboard";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import DashboardSkeleton from "./dashboard-skeleton";
 
-export function DashboardSkeleton() {
+const UserStatsCard = memo(function UserStatsCard({
+  userCount,
+}: {
+  userCount: number;
+}) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {[...Array(3)].map((_, i) => (
-        <Card key={i}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <Skeleton className="h-5 w-24" />
-            <Skeleton className="h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-8 w-16 mt-2" />
-          </CardContent>
-        </Card>
-      ))}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-4 w-4" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-8 w-16 mt-2" />
-          <div className="mt-4 space-y-2">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-4 w-full" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-      {[...Array(2)].map((_, i) => (
-        <Card key={`board-${i}`} className="md:col-span-2 min-h-[300px]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            {[...Array(6)].map((_, j) => (
-              <div key={j} className="flex justify-between items-center py-3">
-                <Skeleton className="h-4 w-3/4" />
-                <div className="flex items-center gap-2">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+        <CardTitle className="text-sm font-medium">실시간 접속 수</CardTitle>
+        <Users className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{userCount}명</div>
+      </CardContent>
+    </Card>
   );
-}
+});
 
-export default function DashboardClientContent() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  const refreshData = async () => {
-    const now = Date.now();
-
-    startTransition(async () => {
-      try {
-        const result = await getDashboardData();
-        if (result.success && result.data) {
-          setData(result.data);
-        } else {
-          console.error("Failed to fetch dashboard data:", result.error);
-        }
-      } catch (error) {
-        console.error("Dashboard refresh error:", error);
-      }
-    });
-  };
-
-  useEffect(() => {
-    refreshData();
-  }, []);
-
-  if (!data) {
-    return <DashboardSkeleton />;
-  }
-
+const AdminStatsCard = memo(function AdminStatsCard({
+  adminData,
+}: {
+  adminData: NonNullable<DashboardData["adminData"]>;
+}) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card className={isPending ? "opacity-60" : ""}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-          <CardTitle className="text-sm font-medium">실시간 접속 수</CardTitle>
-          <Users className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="text-2xl font-bold">{data.userCount}명</div>
-          {data.userCount === 0 && (
-            <div className="text-muted-foreground text-sm">
-              접속자 데이터가 없습니다.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className={isPending ? "opacity-60" : ""}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-          <CardTitle className="text-sm font-medium">
-            실시간 접속 관리자
-          </CardTitle>
-          <Shield className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="text-xl font-bold">{data.adminData.count}명</div>
-          {data.adminData.count === 0 && (
-            <div className="text-muted-foreground text-sm">
-              접속 중인 관리자가 없습니다.
-            </div>
-          )}
-          <div className="mt-2">
-            <div className="grid grid-rows-7 grid-flow-col gap-1">
-              {data.adminData.users.map((admin) => (
-                <div
-                  key={admin.user_id}
-                  className="text-xs text-muted-foreground flex items-center gap-1"
-                >
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_2px_rgba(34,197,94,0.6)]" />
-                  {admin.name} ({admin.user_id}번)
-                </div>
-              ))}
-            </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+        <CardTitle className="text-sm font-medium">
+          실시간 접속 관리자
+        </CardTitle>
+        <Shield className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="text-2xl font-bold">{adminData.count}명</div>
+        {adminData.users.length > 0 && (
+          <div className="text-xs text-muted-foreground">
+            {adminData.users.map((admin) => admin.name).join(", ")}
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </CardContent>
+    </Card>
+  );
+});
 
-      <Card className={isPending ? "opacity-60" : ""}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-          <CardTitle className="text-sm font-medium">
-            주간 가입자 현황
-          </CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {data.weeklyStats.map((stat) => (
-              <div
-                key={stat.date}
-                className="flex items-center justify-between"
-              >
-                <span className="text-sm text-muted-foreground">
-                  {new Date(stat.date).toLocaleDateString("ko-KR", {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{stat.count}명</span>
-                  <span
-                    className={`text-xs ${
-                      stat.changePercentage > 0
-                        ? "text-green-500"
-                        : stat.changePercentage < 0
-                        ? "text-red-500"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {stat.changePercentage > 0 && "+"}
-                    {stat.changePercentage}%
-                  </span>
-                </div>
-              </div>
-            ))}
-            {data.weeklyStats.length === 0 && (
-              <div className="text-muted-foreground text-sm">
-                통계 데이터가 없습니다.
-              </div>
-            )}
+const WeeklyStatsCard = memo(function WeeklyStatsCard({
+  weeklyStats,
+}: {
+  weeklyStats: NonNullable<DashboardData["weeklyStats"]>;
+}) {
+  const latestStat = weeklyStats[0];
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+        <CardTitle className="text-sm font-medium">주간 신규 유저</CardTitle>
+        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="text-2xl font-bold">{latestStat?.count || 0}명</div>
+        {latestStat && (
+          <div className="text-xs text-muted-foreground">
+            전일 대비{" "}
+            <span
+              className={
+                latestStat.changePercentage > 0
+                  ? "text-green-600"
+                  : "text-red-600"
+              }
+            >
+              {latestStat.changePercentage}%
+            </span>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </CardContent>
+    </Card>
+  );
+});
 
+const BoardStatsCard = memo(function BoardStatsCard({
+  recentBoards,
+}: {
+  recentBoards: NonNullable<DashboardData["recentBoards"]>;
+}) {
+  return (
+    <>
       <Card className="md:col-span-2">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-sm font-medium">최근 공지사항</CardTitle>
+            <CardTitle className="text-sm font-medium">공지사항</CardTitle>
             <Link
-              href="/boards"
+              href="/notices"
               className="text-xs text-muted-foreground hover:text-primary transition-colors"
             >
               더보기 →
@@ -204,9 +115,9 @@ export default function DashboardClientContent() {
           <FileText className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent className="h-[200px] overflow-y-auto">
-          {data.recentBoards.recentNotices.length > 0 ? (
+          {recentBoards.recentNotices.length > 0 ? (
             <div className="space-y-3">
-              {data.recentBoards.recentNotices.map((notice) => (
+              {recentBoards.recentNotices.map((notice) => (
                 <div
                   key={notice.id}
                   className="flex items-center justify-between group hover:bg-muted/50 rounded-lg p-2 transition-colors"
@@ -216,19 +127,6 @@ export default function DashboardClientContent() {
                     className="flex items-center gap-2 text-sm flex-1"
                   >
                     <span className="flex-1">{notice.title}</span>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {notice.commentCount > 0 && (
-                        <span className="text-blue-500 font-medium">
-                          [{notice.commentCount}]
-                        </span>
-                      )}
-                      {notice.likeCount > 0 && (
-                        <span className="flex items-center gap-1 text-rose-500">
-                          <Heart className="h-3 w-3" />
-                          {notice.likeCount}
-                        </span>
-                      )}
-                    </div>
                   </Link>
                   <div className="flex items-center gap-3 ml-4">
                     <span className="text-xs text-muted-foreground">
@@ -263,9 +161,9 @@ export default function DashboardClientContent() {
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent className="h-[200px] overflow-y-auto">
-          {data.recentBoards.recentBoards.length > 0 ? (
+          {recentBoards.recentBoards.length > 0 ? (
             <div className="space-y-3">
-              {data.recentBoards.recentBoards.map((board) => (
+              {recentBoards.recentBoards.map((board) => (
                 <div
                   key={board.id}
                   className="flex items-center justify-between group hover:bg-muted/50 rounded-lg p-2 transition-colors"
@@ -307,6 +205,34 @@ export default function DashboardClientContent() {
           )}
         </CardContent>
       </Card>
+    </>
+  );
+});
+
+export default function DashboardClientContent() {
+  const { data, error, isLoading } = useDashboard();
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (error || !data) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {error?.message || "데이터를 불러오는데 실패했습니다."}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <UserStatsCard userCount={data.userCount} />
+      <AdminStatsCard adminData={data.adminData} />
+      <WeeklyStatsCard weeklyStats={data.weeklyStats} />
+      <BoardStatsCard recentBoards={data.recentBoards} />
     </div>
   );
 }

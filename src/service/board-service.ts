@@ -11,7 +11,7 @@ import { hasAccess } from "@/lib/utils";
 import { CategoryForm } from "@/components/dialog/add-category-dialog";
 import { JSONContent } from "novel";
 import { redirect } from "next/navigation";
-import { BoardDetailView, LikeInfo } from "@/types/board";
+import { BoardDetailView, CommentData, LikeInfo } from "@/types/board";
 import { BoardsData } from "@/types/dashboard";
 import { ApiResponse } from "@/types/global.dto";
 
@@ -274,7 +274,7 @@ class BoardService {
   async createComment(data: {
     boardId: string;
     content: string;
-  }): Promise<ApiResponse<BoardComment>> {
+  }): Promise<ApiResponse<CommentData>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -283,13 +283,29 @@ class BoardService {
         data: {
           content: data.content,
           boardId: data.boardId,
-          registrantId: session.user.id!,
+          registrantId: session.user.id as string,
+        },
+        include: {
+          registrant: {
+            select: {
+              id: true,
+              nickname: true,
+            },
+          },
         },
       });
 
+      const transformedComment: CommentData = {
+        id: comment.id,
+        content: comment.content,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+        registrant: comment.registrant,
+      };
+
       return {
         success: true,
-        data: comment,
+        data: transformedComment,
         error: null,
       };
     } catch (error) {
@@ -390,9 +406,9 @@ class BoardService {
   // 게시글 상세 조회
   async getBoardById(id: string): Promise<ApiResponse<BoardDetailView>> {
     const session = await auth();
+    if (!session?.user) return redirect("/login");
 
     try {
-      // 한 번의 쿼리로 모든 관련 데이터를 가져옴
       const board = await prisma.board.findUnique({
         where: { id },
         include: {
@@ -403,31 +419,18 @@ class BoardService {
             select: { id: true, name: true },
           },
           comments: {
-            orderBy: { createdAt: "desc" },
             include: {
               registrant: {
                 select: { id: true, nickname: true },
               },
             },
+            orderBy: { createdAt: "desc" },
           },
           likes: {
             include: {
               user: {
-                select: {
-                  id: true,
-                  nickname: true,
-                  userId: true,
-                },
+                select: { id: true, nickname: true },
               },
-            },
-            orderBy: {
-              createdAt: "desc",
-            },
-          },
-          _count: {
-            select: {
-              likes: true,
-              comments: true,
             },
           },
         },
@@ -436,44 +439,53 @@ class BoardService {
       if (!board) {
         return {
           success: false,
-          data: null,
           error: "게시글을 찾을 수 없습니다.",
+          data: null,
         };
       }
 
-      // 현재 사용자의 좋아요 여부 확인
-      const isLiked = session?.user
-        ? board.likes.some(
-            (like) => like.user.id === (session.user!.id as string)
-          )
-        : false;
+      // 데이터 변환
+      const transformedData: BoardDetailView = {
+        id: board.id,
+        title: board.title,
+        content: board.content as JSONContent,
+        createdAt: board.createdAt,
+        updatedAt: board.updatedAt,
+        views: board.views,
+        isNotice: board.isNotice,
+        registrant: board.registrant || { id: "", nickname: "정보없음" },
+        category: board.category || { id: "", name: "정보없음" },
+        comments: board.comments.map((comment) => ({
+          id: comment.id,
+          content: comment.content,
+          createdAt: comment.createdAt,
+          updatedAt: comment.updatedAt,
+          registrant: comment.registrant,
+        })),
+        isLiked: board.likes.some((like) => like.user.id === session.user!.id),
+        likes: board.likes.map((like) => ({
+          id: like.user.id,
+          nickname: like.user.nickname,
+          userId: like.user.id,
+          createdAt: like.createdAt,
+        })),
+        _count: {
+          likes: board.likes.length,
+          comments: board.comments.length,
+        },
+      };
 
       return {
         success: true,
+        data: transformedData,
         error: null,
-        data: {
-          ...board,
-          content: board.content as unknown as JSONContent,
-          isLiked,
-          registrant: board.registrant || { id: "", nickname: "정보없음" },
-          category: board.category || { id: "", name: "정보없음" },
-          likes: board.likes.map((like) => ({
-            id: like.id,
-            nickname: like.user.nickname,
-            userId: like.user.userId.toString(),
-            createdAt: like.createdAt,
-          })),
-        },
       };
     } catch (error) {
       console.error("Get board error:", error);
       return {
         success: false,
+        error: "게시글 조회 중 오류가 발생했습니다.",
         data: null,
-        error:
-          error instanceof Error
-            ? error.message
-            : "게시글 조회에 실패했습니다.",
       };
     }
   }
@@ -1098,6 +1110,48 @@ class BoardService {
       error: null,
       data: categories,
     };
+  }
+
+  // 댓글 목록 조회 메서드 추가
+  async getComments(boardId: string): Promise<ApiResponse<CommentData[]>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
+    try {
+      const comments = await prisma.boardComment.findMany({
+        where: { boardId },
+        include: {
+          registrant: {
+            select: {
+              id: true,
+              nickname: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const transformedComments: CommentData[] = comments.map((comment) => ({
+        id: comment.id,
+        content: comment.content,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+        registrant: comment.registrant,
+      }));
+
+      return {
+        success: true,
+        data: transformedComments,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get comments error:", error);
+      return {
+        success: false,
+        error: "댓글 목록 조회 중 오류가 발생했습니다.",
+        data: null,
+      };
+    }
   }
 }
 

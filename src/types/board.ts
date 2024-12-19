@@ -1,29 +1,56 @@
-import { Board } from "@prisma/client";
 import { JSONContent } from "novel";
 
-// 게시글 작성자 정보
-type BoardAuthor = {
-  id: string;
-  nickname: string;
-};
-
-// 게시글 데이터
-export interface BoardData {
+// 기본 타입들 정리
+export interface BoardBase {
   id: string;
   title: string;
   createdAt: Date;
   updatedAt: Date;
   views: number;
   isNotice: boolean;
+}
+
+export interface BoardAuthor {
+  id: string;
+  nickname: string;
+}
+
+export interface BoardCategory {
+  id: string;
+  name: string;
+}
+
+// 게시글 목록용 타입
+export interface BoardData extends BoardBase {
   registrant: BoardAuthor;
-  category: {
-    id: string;
-    name: string;
-  };
+  category: BoardCategory;
   commentCount: number;
   _count: {
     likes: number;
   };
+}
+
+// 게시글 상세 조회용 타입
+export interface BoardDetailView extends BoardBase {
+  content: JSONContent;
+  registrant: BoardAuthor;
+  category: BoardCategory;
+  comments: CommentData[];
+  isLiked: boolean;
+  likes: LikeInfo[];
+  _count: {
+    likes: number;
+    comments: number;
+  };
+}
+
+// 댓글 타입
+export interface CommentData {
+  id: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+  registrant: BoardAuthor;
 }
 
 // 게시글 목록 메타데이터
@@ -57,53 +84,12 @@ export interface CategoryData {
   template: JSONContent | null;
 }
 
-// 게시글 상세 조회 응답 타입 수정
-export interface BoardDetail extends Omit<Board, "content"> {
-  content: JSONContent;
-  registrant: {
-    id: string;
-    nickname: string;
-  };
-  category: {
-    id: string;
-    name: string;
-  };
-  comments: Array<{
-    id: string;
-    content: string;
-    boardId: string;
-    registrantId: string;
-    createdAt: Date;
-    updatedAt: Date;
-    registrant: {
-      id: string;
-      nickname: string;
-    };
-  }>;
-  likes: {
-    user: {
-      id: string;
-      nickname: string;
-    };
-  }[];
-  _count: {
-    likes: number;
-    comments: number;
-  };
-}
-
 // 좋아요 정보 타입 추가
 export interface LikeInfo {
   id: string;
   nickname: string;
   userId: string;
   createdAt: Date;
-}
-
-// 클라이언트 컴포넌트용 타입 추가
-export interface BoardDetailView extends Omit<BoardDetail, "likes"> {
-  isLiked: boolean;
-  likes: LikeInfo[];
 }
 
 // 기존 타입들은 유지하면서 새로운 타입 추가

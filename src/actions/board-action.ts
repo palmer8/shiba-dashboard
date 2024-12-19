@@ -5,8 +5,30 @@ import { CategoryForm } from "@/components/dialog/add-category-dialog";
 import { revalidatePath } from "next/cache";
 import { JSONContent } from "novel";
 import { Board, BoardComment, BoardCategory } from "@prisma/client";
-import { LikeInfo } from "@/types/board";
+import { BoardDetailView, CommentData, LikeInfo } from "@/types/board";
 import { ApiResponse } from "@/types/global.dto";
+import { cache } from "react";
+import { BoardList, BoardFilter } from "@/types/board";
+
+// 게시글 목록 캐싱
+const getCachedBoardList = cache(async (filters: BoardFilter) => {
+  return boardService.getBoardList(filters);
+});
+
+// 카테고리 목록 캐싱
+const getCachedCategories = cache(async () => {
+  return boardService.getCategoryListByUsed();
+});
+
+// 게시글 상세 정보 캐싱
+const getCachedBoardDetail = cache(async (id: string) => {
+  return boardService.getBoardById(id);
+});
+
+// 댓글 목록 캐싱
+const getCachedComments = cache(async (boardId: string) => {
+  return boardService.getComments(boardId);
+});
 
 export async function createBoardAction(data: {
   title: string;
@@ -48,10 +70,10 @@ export async function deleteBoardAction(
 export async function createCommentAction(data: {
   boardId: string;
   content: string;
-}): Promise<ApiResponse<BoardComment>> {
+}): Promise<ApiResponse<CommentData>> {
   const result = await boardService.createComment(data);
   if (result.success) {
-    revalidatePath(`/board/[id]`, "layout");
+    revalidatePath(`/board/${data.boardId}`);
   }
   return result;
 }
@@ -111,7 +133,7 @@ export async function deleteCategoryAction(
 export async function getCategoriesAction(): Promise<
   ApiResponse<BoardCategory[]>
 > {
-  return await boardService.getCategoryListByUsed();
+  return getCachedCategories();
 }
 
 export async function toggleBoardLikeAction(
@@ -140,4 +162,16 @@ export async function getCategoryListByIdsOriginAction(
   ids: string[]
 ): Promise<ApiResponse<BoardCategory[]>> {
   return await boardService.getCategoryListByIdsOrigin(ids);
+}
+
+export async function getBoardListAction(
+  filters: BoardFilter
+): Promise<ApiResponse<BoardList>> {
+  return getCachedBoardList(filters);
+}
+
+export async function getBoardDetailAction(
+  id: string
+): Promise<ApiResponse<BoardDetailView>> {
+  return getCachedBoardDetail(id);
 }

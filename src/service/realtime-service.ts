@@ -47,10 +47,9 @@ class RealtimeService {
   private readonly API_KEY = process.env.PRIVATE_API_KEY || "";
   private readonly DEFAULT_TIMEOUT = 5000;
 
-  private async fetchWithRetry<T>(
+  private async fetchWithTimeout<T>(
     endpoint: string,
-    options: RequestInit = {},
-    retries = 3
+    options: RequestInit = {}
   ): Promise<T> {
     const controller = new AbortController();
     const timeoutId = setTimeout(
@@ -67,6 +66,7 @@ class RealtimeService {
           ...options.headers,
         },
         signal: controller.signal,
+        next: { revalidate: 30 },
       });
 
       if (!response.ok) {
@@ -74,12 +74,6 @@ class RealtimeService {
       }
 
       return await response.json();
-    } catch (error) {
-      if (retries > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        return this.fetchWithRetry(endpoint, options, retries - 1);
-      }
-      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -703,7 +697,7 @@ class RealtimeService {
 
   async getRealtimeUser(): Promise<ApiResponse<number>> {
     try {
-      const data = await this.fetchWithRetry<{ playerNum: number }>(
+      const data = await this.fetchWithTimeout<{ playerNum: number }>(
         "/DokkuApi/getPlayersCount",
         { method: "POST" }
       );
@@ -729,7 +723,7 @@ class RealtimeService {
     }>
   > {
     try {
-      const data = await this.fetchWithRetry<{
+      const data = await this.fetchWithTimeout<{
         count: number;
         users: Array<{ user_id: number; name: string }>;
       }>("/DokkuApi/getAdmin", { method: "POST" });

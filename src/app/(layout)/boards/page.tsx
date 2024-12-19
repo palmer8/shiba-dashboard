@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { BoardFilter } from "@/types/board";
 import { BoardTable } from "@/components/boards/board-table";
 import { BoardFilters } from "@/components/boards/board-filter";
@@ -5,11 +6,14 @@ import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { GlobalTitle } from "@/components/global/global-title";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
-import { boardService } from "@/service/board-service";
+import { getBoardListAction } from "@/actions/board-action";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { Session } from "next-auth";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Suspense } from "react";
-import { TableSkeleton } from "@/components/ui/table-skeleton";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 interface PageProps {
   searchParams: Promise<{
@@ -24,11 +28,11 @@ interface PageProps {
 
 export default async function BoardsPage({ searchParams }: PageProps) {
   const session = await auth();
-
-  if (!session || !session.user) return redirect("/login");
-  if (session.user && !session.user.isPermissive) return redirect("/login");
-
   const params = await searchParams;
+
+  if (!session?.user) return redirect("/login");
+  if (!session.user.isPermissive) return redirect("/pending");
+
   const page = parseInt(params.page || "1");
   const filters: BoardFilter = {
     page,
@@ -46,10 +50,12 @@ export default async function BoardsPage({ searchParams }: PageProps) {
         title="게시판"
         description="게시글을 작성하여 SHIBA 대시보드 이용자들과 소통하세요."
       />
-      <BoardFilters filters={filters} />
-      <Suspense fallback={<TableSkeleton />}>
-        <BoardContent filters={filters} page={page} />
-      </Suspense>
+      <div className="space-y-4">
+        <BoardFilters filters={filters} />
+        <Suspense fallback={<TableSkeleton />}>
+          <BoardContent session={session} filters={filters} page={page} />
+        </Suspense>
+      </div>
     </main>
   );
 }
@@ -57,11 +63,13 @@ export default async function BoardsPage({ searchParams }: PageProps) {
 async function BoardContent({
   filters,
   page,
+  session,
 }: {
   filters: BoardFilter;
   page: number;
+  session: Session;
 }) {
-  const result = await boardService.getBoardList(filters);
+  const result = await getBoardListAction(filters);
 
   if (!result.success) {
     return (
@@ -83,6 +91,7 @@ async function BoardContent({
         }
       }
       page={page}
+      session={session}
     />
   );
 }

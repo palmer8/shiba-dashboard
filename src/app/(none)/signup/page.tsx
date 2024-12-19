@@ -1,14 +1,8 @@
-import { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { SignUpForm } from "@/components/form/signup-form";
-
-export const metadata: Metadata = {
-  title: "SHIBA | 회원가입",
-  description: "SHIBA Dashboard에 회원가입하세요.",
-};
 
 export default function SignUpPage() {
   return (

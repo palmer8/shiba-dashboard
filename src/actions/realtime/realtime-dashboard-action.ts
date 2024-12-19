@@ -2,65 +2,54 @@
 
 import { boardService } from "@/service/board-service";
 import { realtimeService } from "@/service/realtime-service";
-import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import { ApiResponse } from "@/types/global.dto";
-import { DashboardData, BoardsData } from "@/types/dashboard";
+import { DashboardData } from "@/types/dashboard";
 
-const getCachedUserCount = unstable_cache(
-  async () => realtimeService.getRealtimeUser(),
-  ["realtime-user-count"],
-  { revalidate: 30 }
-);
+const getCachedUserCount = cache(async () => {
+  return realtimeService.getRealtimeUser();
+});
 
-const getCachedAdminData = unstable_cache(
-  async () => realtimeService.getAdminData(),
-  ["realtime-admin-data"],
-  { revalidate: 30 }
-);
+const getCachedAdminData = cache(async () => {
+  return realtimeService.getAdminData();
+});
 
-const getCachedWeeklyStats = unstable_cache(
-  async () => {
-    return realtimeService.getWeeklyNewUsersStats();
-  },
-  ["weekly-stats"],
-  {
-    revalidate: 3600,
-    tags: ["weekly-stats"],
-  }
-);
+const getCachedWeeklyStats = cache(async () => {
+  return realtimeService.getWeeklyNewUsersStats();
+});
 
 export async function getDashboardData(): Promise<ApiResponse<DashboardData>> {
   try {
-    const weeklyStatsRes = await getCachedWeeklyStats();
-    const [userCountRes, adminDataRes, recentBoardsRes] = await Promise.all([
-      getCachedUserCount(),
-      getCachedAdminData(),
-      boardService.getRecentBoards(),
-    ]);
+    const [userCountRes, adminDataRes, weeklyStatsRes, recentBoardsRes] =
+      await Promise.all([
+        getCachedUserCount(),
+        getCachedAdminData(),
+        getCachedWeeklyStats(),
+        boardService.getRecentBoards(),
+      ]);
 
-    const dashboardData: Partial<DashboardData> = {};
-
-    if (userCountRes.success && userCountRes.data !== null) {
-      dashboardData.userCount = userCountRes.data;
+    if (
+      !userCountRes.success ||
+      !adminDataRes.success ||
+      !weeklyStatsRes.success ||
+      !recentBoardsRes.success
+    ) {
+      throw new Error("일부 데이터를 가져오는데 실패했습니다.");
     }
 
-    if (adminDataRes.success && adminDataRes.data !== null) {
-      dashboardData.adminData = adminDataRes.data;
-    }
-
-    if (weeklyStatsRes.success && weeklyStatsRes.data !== null) {
-      dashboardData.weeklyStats = weeklyStatsRes.data;
-    } else {
-      dashboardData.weeklyStats = [];
-    }
-
-    if (recentBoardsRes.success && recentBoardsRes.data !== null) {
-      dashboardData.recentBoards = recentBoardsRes.data;
-    }
+    const dashboardData: DashboardData = {
+      userCount: userCountRes.data ?? 0,
+      adminData: adminDataRes.data ?? { count: 0, users: [] },
+      weeklyStats: weeklyStatsRes.data ?? [],
+      recentBoards: recentBoardsRes.data ?? {
+        recentBoards: [],
+        recentNotices: [],
+      },
+    };
 
     return {
       success: true,
-      data: dashboardData as DashboardData,
+      data: dashboardData,
       error: null,
     };
   } catch (error) {
