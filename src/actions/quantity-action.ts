@@ -3,21 +3,29 @@
 import { itemQuantityService } from "@/service/quantity-service";
 import { revalidatePath } from "next/cache";
 import { CreateItemQuantityData } from "@/types/quantity";
+import { ApiResponse } from "@/types/global.dto";
+import { ItemQuantity } from "@prisma/client";
 
-export async function createItemQuantityAction(data: CreateItemQuantityData) {
+export async function createItemQuantityAction(
+  data: CreateItemQuantityData
+): Promise<ApiResponse<ItemQuantity>> {
   try {
     const result = await itemQuantityService.createItemQuantity(data);
-    if (result.success) {
-      revalidatePath("/game/item");
-    }
-    return result;
+    if (result.success) revalidatePath("/game/item");
+    return {
+      success: result.success,
+      data: result.data,
+      error: null,
+    };
   } catch (error) {
     console.error("Create item quantity action error:", error);
     return {
       success: false,
-      message: "아이템 지급/회수 티켓 생성 실패",
       data: null,
-      error,
+      error:
+        error instanceof Error
+          ? error.message
+          : "알 수 없는 에러가 발생하였습니다",
     };
   }
 }
@@ -25,9 +33,7 @@ export async function createItemQuantityAction(data: CreateItemQuantityData) {
 export async function approveItemQuantitiesAction(ids: string[]) {
   try {
     const result = await itemQuantityService.approveItemQuantities(ids);
-    if (result.success) {
-      revalidatePath("/game/item");
-    }
+    if (result.success) revalidatePath("/game/item");
     return result;
   } catch (error) {
     console.error("Approve item quantities action error:", error);

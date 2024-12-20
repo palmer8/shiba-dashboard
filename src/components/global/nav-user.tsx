@@ -1,6 +1,16 @@
 "use client";
 
-import { ChevronsUpDown, LogOut, Moon, Settings, Sun } from "lucide-react";
+import { Session } from "next-auth";
+import { signOut } from "next-auth/react";
+import { useTheme } from "next-themes";
+import {
+  ChevronsUpDown,
+  LogOut,
+  Moon,
+  Settings,
+  Sun,
+  User as UserIcon,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,103 +20,117 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from "@/components/ui/sidebar";
-import { signOut } from "next-auth/react";
+import EditUserDialog from "@/components/dialog/edit-user-dialog";
 import { formatRole } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
-import { Session } from "next-auth";
-import { useTheme } from "next-themes";
-import EditUserDialog from "@/components/dialog/edit-user-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Button } from "../ui/button";
+import { useState } from "react";
 
-export function NavUser({ session }: { session: Session }) {
-  const { isMobile } = useSidebar();
-  const { theme, setTheme } = useTheme();
+interface NavUserProps {
+  session: Session;
+}
+
+export function NavUser({ session }: NavUserProps) {
+  const { setTheme, theme } = useTheme();
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const handleSignOut = (e: React.MouseEvent) => {
+    e.preventDefault();
+    signOut({
+      redirect: true,
+      callbackUrl: "/login",
+    });
+  };
+
+  const handleThemeChange = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white font-semibold">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="lg"
+          className="w-full justify-start gap-2 px-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={session.user?.image || ""} />
+            <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-500 text-white">
+              {session.user?.nickname?.[0]?.toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 overflow-hidden text-left">
+            <p className="truncate text-sm font-medium">
+              {session.user?.nickname}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {formatRole(session.user?.role as UserRole)}
+            </p>
+          </div>
+          <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        className="w-[--radix-dropdown-menu-trigger-width] min-w-[240px]"
+        align="end"
+        sideOffset={8}
+      >
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex items-center gap-2 p-2">
+            <Avatar className="h-12 w-12">
+              <AvatarImage src={session.user?.image || ""} />
+              <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-500 text-white text-lg">
                 {session.user?.nickname?.[0]?.toUpperCase() || "U"}
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">
-                  {session.user?.nickname}
-                </span>
-                <span className="truncate text-xs">
-                  {formatRole(session.user?.role as UserRole)}
-                </span>
-              </div>
-              <ChevronsUpDown className="ml-auto size-4" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white font-semibold">
-                  {session.user?.nickname?.[0]?.toUpperCase() || "U"}
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
-                    {session.user?.nickname}
-                  </span>
-                  <span className="truncate text-xs">
-                    {formatRole(session.user?.role as UserRole)}
-                  </span>
-                </div>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <EditUserDialog
-                session={session}
-                trigger={
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>계정 정보 수정</span>
-                  </DropdownMenuItem>
-                }
-              />
-            </DropdownMenuGroup>
-            <DropdownMenuGroup>
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 space-y-0.5">
+              <p className="text-sm font-medium">{session.user?.nickname}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatRole(session.user?.role as UserRole)}
+              </p>
+            </div>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <EditUserDialog
+            session={session}
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            trigger={
               <DropdownMenuItem
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="gap-2 p-2"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setDialogOpen(true);
+                }}
               >
-                {theme === "dark" ? <Sun /> : <Moon />}
-                {theme === "dark" ? "라이트 모드" : "다크 모드"} 변경
+                <Settings className="h-4 w-4" />
+                <span>계정 정보 수정</span>
               </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-500"
-              onClick={() =>
-                signOut({
-                  redirect: true,
-                  callbackUrl: "/login",
-                })
-              }
-            >
-              <LogOut />
-              로그아웃
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+            }
+          />
+          <DropdownMenuItem className="gap-2 p-2" onClick={handleThemeChange}>
+            {theme === "dark" ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+            <span>{theme === "dark" ? "라이트 모드" : "다크 모드"}</span>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="gap-2 p-2 text-red-500 focus:text-red-500"
+          onClick={handleSignOut}
+        >
+          <LogOut className="h-4 w-4" />
+          <span>로그아웃</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -1,13 +1,10 @@
 import prisma from "@/db/prisma";
-import { GlobalReturn } from "@/types/global-return";
-import { SignUpUser } from "@/types/user";
+import { ApiResponse } from "@/types/global.dto";
 import bcrypt from "bcrypt";
 import { User, UserRole } from "@prisma/client";
-import pool from "@/db/mysql";
-import { hasAccess } from "@/lib/utils";
-import { Session } from "next-auth";
 import { auth } from "@/lib/auth-config";
-import { redirect } from "next/navigation";
+import { SignUpUser, UpdateProfileData } from "@/types/user";
+import pool from "@/db/mysql";
 
 class UserService {
   async signup(data: {
@@ -15,7 +12,7 @@ class UserService {
     password: string;
     userId: number;
     nickname: string;
-  }): Promise<GlobalReturn<SignUpUser>> {
+  }): Promise<ApiResponse<SignUpUser>> {
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const isSpecialAccount = [1, 2].includes(Number(data.userId));
 
@@ -24,9 +21,8 @@ class UserService {
       if (existingUser) {
         return {
           success: false,
-          message: "이미 존재하는 고유번호입니다.",
+          error: "이미 존재하는 고유번호입니다.",
           data: null,
-          error: new Error("Duplicate userId"),
         };
       }
 
@@ -45,17 +41,15 @@ class UserService {
       const { hashedPassword: omittedPassword, ...userWithoutPassword } = user;
       return {
         success: true,
-        message: "회원가입에 성공하였습니다.",
-        data: userWithoutPassword,
         error: null,
+        data: userWithoutPassword,
       };
     } catch (error) {
       console.error("Signup error:", error);
       return {
         success: false,
-        message: "회원가입에 실패하였습니다.",
+        error: "회원가입에 실패하였습니다.",
         data: null,
-        error: error,
       };
     }
   }
@@ -70,7 +64,7 @@ class UserService {
     return bcrypt.compare(password, user.hashedPassword);
   }
 
-  async getGameNicknameByUserId(userId: number): Promise<GlobalReturn<string>> {
+  async getGameNicknameByUserId(userId: number): Promise<ApiResponse<string>> {
     try {
       const [rows] = await pool.execute(
         "SELECT last_login FROM vrp_users WHERE id = ?",
@@ -82,25 +76,22 @@ class UserService {
       if (!result || !result.last_login) {
         return {
           success: false,
-          message: "닉네임을 찾을 수 없습니다.",
+          error: "닉네임을 찾을 수 없습니다.",
           data: null,
-          error: null,
         };
       }
 
       return {
         success: true,
-        message: "닉네임을 찾았습니다.",
-        data: result.last_login.split(" ")[3],
         error: null,
+        data: result.last_login.split(" ")[3],
       };
     } catch (error) {
       console.error("MySQL query error:", error);
       return {
         success: false,
-        message: "데이터베이스 조회 중 오류가 발생했습니다.",
+        error: "데이터베이스 조회 중 오류가 발생했습니다.",
         data: null,
-        error,
       };
     }
   }
@@ -113,9 +104,8 @@ class UserService {
     if (!result)
       return {
         success: false,
-        message: "아이디 또는 비밀번호가 일치하지 않습니다.",
+        error: "아이디 또는 비밀번호가 일치하지 않습니다.",
         data: null,
-        error: null,
       };
 
     const isValidPassword = await this.validatePassword(
@@ -126,84 +116,151 @@ class UserService {
     if (!isValidPassword)
       return {
         success: false,
-        message: "아이디 또는 비밀번호가 일치하지 않습니다.",
+        error: "아이디 또는 비밀번호가 일치하지 않습니다.",
         data: null,
-        error: null,
       };
 
     if (result.isPermissive)
       return {
         success: true,
-        message: "계정이 활성화되어 있습니다.",
+        error: null,
         data: true,
-        error: null,
       };
 
     return {
       success: true,
-      message: "계정이 활성화되어 있지 않습니다.",
+      error: null,
       data: false,
-      error: null,
     };
   }
 
-  async getUserById(id: string): Promise<GlobalReturn<User>> {
-    const user = await prisma.user.findFirst({
-      where: { id },
-    });
+  async getUserById(id: string): Promise<ApiResponse<User>> {
+    try {
+      const user = await prisma.user.findFirst({
+        where: { id },
+      });
 
-    if (!user)
+      if (!user) {
+        return {
+          success: false,
+          error: "유저를 찾을 수 없습니다.",
+          data: null,
+        };
+      }
+
+      const { hashedPassword, ...userWithoutPassword } = user;
+
+      return {
+        success: true,
+        error: null,
+        data: userWithoutPassword as User,
+      };
+    } catch (error) {
       return {
         success: false,
-        message: "유저를 찾을 수 없습니다.",
+        error: "유저 조회 중 오류가 발생했습니다.",
         data: null,
-        error: null,
       };
-
-    return {
-      success: true,
-      message: "유저를 찾았습니다.",
-      data: user,
-      error: null,
-    };
+    }
   }
 
-  async updateUser(id: string, data: Partial<User>) {
-    const session = await auth();
+  async updateUser(
+    id: string,
+    data: UpdateProfileData
+  ): Promise<ApiResponse<User>> {
+    try {
+      const session = await auth();
+      if (!session?.user) {
+        return {
+          success: false,
+          error: "인증되지 않은 사용자입니다.",
+          data: null,
+        };
+      }
 
-    if (!session || !session.user) return redirect("/login");
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user || user.id !== session.user.id) {
+        return {
+          success: false,
+          error: "사용자를 찾을 수 없습니다.",
+          data: null,
+        };
+      }
 
-    const user = await prisma.user.findFirst({
-      where: { id: session.user.id },
-    });
+      const updateData: any = {};
 
-    if (!user || user.id !== id)
+      if (data.image !== undefined) {
+        updateData.image = data.image;
+      }
+
+      if (data.password) {
+        updateData.hashedPassword = await bcrypt.hash(data.password, 10);
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id },
+        data: updateData,
+      });
+
+      const { hashedPassword, ...userWithoutPassword } = updatedUser;
+
+      return {
+        success: true,
+        error: null,
+        data: userWithoutPassword as User,
+      };
+    } catch (error) {
       return {
         success: false,
-        message: "유저를 찾을 수 없습니다.",
+        error: "프로필 업데이트에 실패했습니다.",
         data: null,
-        error: null,
       };
+    }
+  }
 
-    const result = await prisma.user.update({
-      where: { id },
-      data,
-    });
+  async deleteUser(id: string, nickname: string): Promise<ApiResponse<User>> {
+    try {
+      const session = await auth();
+      if (!session?.user) {
+        return {
+          success: false,
+          error: "인증되지 않은 사용자입니다.",
+          data: null,
+        };
+      }
 
-    if (!result)
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user || user.id !== session.user.id) {
+        return {
+          success: false,
+          error: "사용자를 찾을 수 없습니다.",
+          data: null,
+        };
+      }
+
+      if (user.nickname !== nickname) {
+        return {
+          success: false,
+          error: "닉네임이 일치하지 않습니다.",
+          data: null,
+        };
+      }
+
+      const deletedUser = await prisma.user.delete({ where: { id } });
+      const { hashedPassword, ...userWithoutPassword } = deletedUser;
+
+      return {
+        success: true,
+        error: null,
+        data: userWithoutPassword as User,
+      };
+    } catch (error) {
       return {
         success: false,
-        message: "유저를 수정하지 못했습니다.",
+        error: "계정 삭제에 실패했습니다.",
         data: null,
-        error: null,
       };
-
-    return {
-      success: true,
-      message: "유저를 수정하였습니다.",
-      data: result,
-      error: null,
-    };
+    }
   }
 }
 

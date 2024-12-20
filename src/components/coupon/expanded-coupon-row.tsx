@@ -38,8 +38,8 @@ export function ExpandedCouponRow({
           const result = await getCouponsByGroupIdAction(couponGroup.id, page);
           if (result.success && result.data) {
             setCoupons(result.data.coupons);
-            setTotalPages(result.data.totalPages);
-            setTotal(result.data.total);
+            setTotalPages(result.data.metadata.totalPages);
+            setTotal(result.data.metadata.totalCount);
           }
         }
       } catch (error) {

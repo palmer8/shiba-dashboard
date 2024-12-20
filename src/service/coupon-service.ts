@@ -1,60 +1,58 @@
 import { prisma } from "@/db/prisma";
-import { generateCouponCode } from "@/lib/utils";
-import { CouponGroupType, Prisma } from "@prisma/client";
-import { CouponFilter, CouponGroup } from "@/types/coupon";
+import { generateCouponCode, hasAccess } from "@/lib/utils";
+import {
+  Coupon,
+  CouponGroupStatus,
+  CouponGroupType,
+  Prisma,
+  UserRole,
+} from "@prisma/client";
+import {
+  CouponFilter,
+  CouponGroup,
+  CouponGroupList,
+  CouponList,
+} from "@/types/coupon";
 import { CouponGroupValues } from "@/components/dialog/add-coupon-dialog";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
-
+import { ApiResponse } from "@/types/global.dto";
 export class CouponService {
-  async getCouponGroupList(page: number, filter: CouponFilter) {
+  async getCouponGroupList(
+    page: number = 0,
+    filter: CouponFilter
+  ): Promise<ApiResponse<CouponGroupList>> {
     try {
-      const session = await auth();
-      if (!session?.user) return redirect("/login");
-
       const pageSize = 50;
       const skip = page * pageSize;
-      const where: Prisma.CouponGroupWhereInput = {};
 
-      if (filter.startDate || filter.endDate) {
-        where.AND = [];
-        if (filter.startDate) {
-          where.AND.push({ startDate: { gte: new Date(filter.startDate) } });
-        }
-        if (filter.endDate) {
-          where.AND.push({ endDate: { lte: new Date(filter.endDate) } });
-        }
-      }
+      // where 조건 구성
+      const where: Prisma.CouponGroupWhereInput = {
+        ...(filter.startDate &&
+          filter.endDate && {
+            startDate: {
+              gte: new Date(filter.startDate),
+            },
+            endDate: {
+              lte: new Date(filter.endDate),
+            },
+          }),
+        ...(filter.groupStatus && {
+          groupStatus: filter.groupStatus,
+        }),
+        ...(filter.groupType &&
+          filter.groupType !== "ALL" && {
+            groupType: filter.groupType,
+          }),
+        ...(filter.groupReason && {
+          groupReason: {
+            contains: filter.groupReason,
+            mode: "insensitive",
+          },
+        }),
+      };
 
-      // 상태 필터링
-      if (filter.groupStatus) {
-        const now = new Date();
-        switch (filter.groupStatus) {
-          case "ACTIVE":
-            where.AND = [
-              { startDate: { lte: now } },
-              { endDate: { gte: now } },
-            ];
-            break;
-          case "INACTIVE":
-            where.startDate = { gt: now };
-            break;
-          case "EXPIRED":
-            where.endDate = { lt: now };
-            break;
-        }
-      }
-
-      // 그룹 타입 필터링
-      if (filter.groupType && filter.groupType !== "ALL") {
-        where.groupType = filter.groupType;
-      }
-
-      // 사유 필터링
-      if (filter.groupReason) {
-        where.groupReason = { contains: filter.groupReason };
-      }
-
+      // 병렬 처리로 성능 최적화
       const [count, couponGroups] = await Promise.all([
         prisma.couponGroup.count({ where }),
         prisma.couponGroup.findMany({
@@ -62,27 +60,68 @@ export class CouponService {
           skip,
           take: pageSize,
           orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            groupName: true,
+            groupType: true,
+            groupReason: true,
+            groupStatus: true,
+            code: true,
+            rewards: true,
+            isIssued: true,
+            quantity: true,
+            usageLimit: true,
+            startDate: true,
+            endDate: true,
+            createdAt: true,
+            updatedAt: true,
+            _count: {
+              select: {
+                coupons: true,
+              },
+            },
+          },
         }),
       ]);
 
-      const totalPages = Math.ceil(count / pageSize);
-
       return {
-        couponGroups,
-        count,
-        totalPages,
+        success: true,
+        data: {
+          couponGroups,
+          metadata: {
+            currentPage: page,
+            totalPages: Math.ceil(count / pageSize),
+            totalCount: count,
+          },
+        },
+        error: null,
       };
     } catch (error) {
       console.error("Get coupon group list error:", error);
-      throw error;
+      return {
+        success: false,
+        data: {
+          couponGroups: [],
+          metadata: {
+            currentPage: page,
+            totalPages: 0,
+            totalCount: 0,
+          },
+        },
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
+      };
     }
   }
 
-  async getCouponsByGroupId(groupId: string, page: number = 0) {
+  // 쿠폰 목록 조회 with 캐싱
+  async getCouponsByGroupId(
+    groupId: string,
+    page: number = 0
+  ): Promise<ApiResponse<CouponList>> {
     try {
-      const session = await auth();
-      if (!session?.user) return redirect("/login");
-
       const pageSize = 100;
       const skip = page * pageSize;
 
@@ -98,146 +137,244 @@ export class CouponService {
         }),
       ]);
 
-      const totalPages = Math.ceil(total / pageSize);
-
       return {
         success: true,
-        message: "쿠폰 조회가 완료되었습니다.",
         data: {
-          coupons,
-          total,
-          totalPages,
-          currentPage: page,
+          coupons: coupons.map((coupon) => ({
+            ...coupon,
+            rewards: coupon.rewards as any[],
+          })),
+          metadata: {
+            currentPage: page,
+            totalPages: Math.ceil(total / pageSize),
+            totalCount: total,
+          },
         },
         error: null,
       };
     } catch (error) {
-      console.error("Get coupons by group error:", error);
+      console.error("Get coupons error:", error);
       return {
         success: false,
-        message: "쿠폰 조회에 실패하였습니다.",
         data: null,
-        error: error,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
 
-  async createCouponGroup(values: CouponGroupValues) {
+  // 쿠폰 그룹 생성
+  async createCouponGroup(
+    values: CouponGroupValues
+  ): Promise<ApiResponse<CouponGroup>> {
     try {
       const session = await auth();
-      if (!session?.user) return redirect("/login");
+      if (!session?.user)
+        return {
+          success: false,
+          data: null,
+          error: "로그인이 필요합니다.",
+        };
+      if (!hasAccess(session.user.role, UserRole.SUPERMASTER))
+        return {
+          success: false,
+          data: null,
+          error: "권한이 없습니다.",
+        };
 
       const isPublic = values.groupType === "PUBLIC";
-
       const result = await prisma.couponGroup.create({
         data: {
           ...values,
           groupType: values.groupType as CouponGroupType,
+          groupStatus: CouponGroupStatus.ACTIVE,
           isIssued: isPublic,
           quantity: isPublic ? 0 : values.quantity,
         },
       });
-      return result;
+
+      return {
+        success: true,
+        data: result,
+        error: null,
+      };
     } catch (error) {
       console.error("Create coupon group error:", error);
-      throw error;
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
+      };
     }
   }
 
-  async createCoupons(selectedGroups: CouponGroup[]) {
+  // 쿠폰 발급
+  async createCoupons(
+    selectedGroups: CouponGroup[]
+  ): Promise<ApiResponse<{ count: number }>> {
     const session = await auth();
-    if (!session?.user) return redirect("/login");
+    if (!session || !session.user)
+      return {
+        success: false,
+        data: null,
+        error: "로그인이 필요합니다.",
+      };
+
+    if (!hasAccess(session.user.role, UserRole.SUPERMASTER))
+      return {
+        success: false,
+        data: null,
+        error: "권한이 없습니다.",
+      };
 
     const hasInvalidGroup = selectedGroups.some(
-      (group) =>
-        group.groupType === "PUBLIC" ||
-        (group.groupType === "COMMON" && group.isIssued)
+      (group) => group.groupType === "PUBLIC" || group.isIssued
     );
 
     if (hasInvalidGroup) {
       return {
         success: false,
-        message: "이미 발급된 그룹이나 퍼블릭 그룹은 발급할 수 없습니다.",
         data: null,
-        error: null,
+        error: "이미 발급된 그룹이나 퍼블릭 그룹은 발급할 수 없습니다.",
       };
     }
 
-    const groups = selectedGroups.filter((group) => !group.isIssued);
-
     try {
-      return await prisma.$transaction(async (tx) => {
-        // 2. 쿠폰 생성 배치 처리
+      const result = await prisma.$transaction(async (tx) => {
         const BATCH_SIZE = 1000;
-        for (const group of groups) {
+        let totalCount = 0;
+
+        for (const group of selectedGroups) {
           const couponsForGroup = Array.from(
             { length: group.quantity },
             () => ({
               code: generateCouponCode(),
-              rewards: group.rewards as Prisma.InputJsonValue,
+              rewards: group.rewards as Prisma.JsonValue,
               couponGroupId: group.id,
             })
           );
 
-          // 배치 단위로 나누어 처리
           for (let i = 0; i < couponsForGroup.length; i += BATCH_SIZE) {
             const batch = couponsForGroup.slice(i, i + BATCH_SIZE);
             await tx.coupon.createMany({
-              data: batch,
+              data: batch.map((coupon) => ({
+                ...coupon,
+                rewards: coupon.rewards as Prisma.InputJsonValue,
+              })),
             });
           }
+          totalCount += group.quantity;
+
+          await tx.couponGroup.update({
+            where: { id: group.id },
+            data: {
+              isIssued: true,
+              groupStatus: CouponGroupStatus.ACTIVE,
+            },
+          });
         }
 
-        // 3. 그룹 상태 한번에 업데이트
-        await tx.couponGroup.updateMany({
-          where: { id: { in: groups.map((g) => g.id) } },
-          data: { isIssued: true },
-        });
-
-        // 4. 로그 기록
         await tx.accountUsingQuerylog.create({
           data: {
-            content: `쿠폰 발급: ${groups.reduce(
-              (sum, g) => sum + g.quantity,
-              0
-            )}개 생성, ${groups.length}개 그룹`,
+            content: `쿠폰 발급: ${totalCount}개 생성, ${selectedGroups.length}개 그룹`,
             registrantId: session.user!.id,
           },
         });
 
-        return {
-          success: true,
-          message: "쿠폰 발급이 완료되었습니다.",
-          data: { count: groups.reduce((sum, g) => sum + g.quantity, 0) },
-          error: null,
-        };
+        return totalCount;
       });
+
+      return {
+        success: true,
+        data: { count: result },
+        error: null,
+      };
     } catch (error) {
       console.error("Create coupons error:", error);
       return {
         success: false,
-        message: "쿠폰 발급에 실패하였습니다.",
         data: null,
-        error: error,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }
 
-  async deleteCouponGroupWithCoupons(couponGroupId: string) {
-    const session = await auth();
-    if (!session?.user) return redirect("/login");
+  // 쿠폰 그룹 삭제
+  async deleteCouponGroupWithCoupons(
+    id: string
+  ): Promise<ApiResponse<CouponGroup>> {
+    try {
+      const session = await auth();
+      if (!session || !session.user)
+        return {
+          success: false,
+          data: null,
+          error: "로그인이 필요합니다.",
+        };
 
-    const result = await prisma.couponGroup.delete({
-      where: { id: couponGroupId },
-    });
-    return result;
+      if (!hasAccess(session.user.role, UserRole.SUPERMASTER))
+        return {
+          success: false,
+          data: null,
+          error: "권한이 없습니다.",
+        };
+
+      const result = await prisma.$transaction(async (tx) => {
+        // 연관된 쿠폰들 먼저 삭제
+        await tx.coupon.deleteMany({
+          where: { couponGroupId: id },
+        });
+
+        // 쿠폰 그룹 삭제
+        const deletedGroup = await tx.couponGroup.delete({
+          where: { id },
+        });
+
+        // 로그 기록
+        await tx.accountUsingQuerylog.create({
+          data: {
+            content: `쿠폰 그룹 삭제: ${deletedGroup.groupName}`,
+            registrantId: session.user!.id,
+          },
+        });
+
+        return deletedGroup;
+      });
+
+      return {
+        success: true,
+        data: result,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Delete coupon group error:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
+      };
+    }
   }
 
-  async updateCouponGroup(id: string, data: Partial<CouponGroupValues>) {
-    const session = await auth();
-    if (!session?.user) return redirect("/login");
-
+  async updateCouponGroup(
+    id: string,
+    data: Partial<CouponGroupValues>
+  ): Promise<ApiResponse<CouponGroup>> {
     try {
+      const session = await auth();
+      if (!session?.user) return redirect("/login");
+
       const result = await prisma.couponGroup.update({
         where: { id },
         data: {
@@ -247,25 +384,66 @@ export class CouponService {
           endDate: data.endDate,
           usageLimit: data.usageLimit,
           rewards: data.rewards,
+          groupType: data.groupType as CouponGroupType,
         },
       });
-      if (result) {
-        return {
-          success: true,
-          message: "쿠폰 그룹 수정이 완료되었습니다.",
-          data: result,
-          error: null,
-        };
-      }
+
       return {
-        success: false,
-        message: "쿠폰 그룹 수정에 실패하였습니다.",
-        data: null,
+        success: true,
+        data: result,
         error: null,
       };
     } catch (error) {
       console.error("Update coupon group error:", error);
-      throw error;
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
+      };
+    }
+  }
+
+  async getCouponGroupWithCouponsAndIds(ids: string[]) {
+    const session = await auth();
+    if (!session || !session.user)
+      return {
+        success: false,
+        data: null,
+        error: "로그인이 필요합니다.",
+      };
+
+    if (!hasAccess(session.user.role, UserRole.SUPERMASTER))
+      return {
+        success: false,
+        data: null,
+        error: "권한이 없습니다.",
+      };
+
+    try {
+      const result = await prisma.couponGroup.findMany({
+        where: { id: { in: ids } },
+        include: {
+          coupons: true,
+        },
+      });
+      return {
+        success: true,
+        data: result,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get coupon group with coupons and ids error:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
+      };
     }
   }
 }

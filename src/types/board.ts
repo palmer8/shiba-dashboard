@@ -1,3 +1,4 @@
+import { UserRole } from "@prisma/client";
 import { JSONContent } from "novel";
 
 // 기본 타입들 정리
@@ -107,4 +108,11 @@ export interface BoardListResponse {
 export interface BoardTableSkeleton {
   rows: number;
   columns: number;
+}
+
+export interface CommentSectionProps {
+  boardId: string;
+  comments: CommentData[];
+  userId: string;
+  userRole: UserRole;
 }

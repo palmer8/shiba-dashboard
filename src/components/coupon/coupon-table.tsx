@@ -14,17 +14,22 @@ import {
   Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { CouponGroup } from "@/types/coupon";
+import { CouponGroup, CouponGroupList } from "@/types/coupon";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useState } from "react";
 import { ExpandedCouponRow } from "./expanded-coupon-row";
 import { Badge } from "@/components/ui/badge";
-import { formatKoreanDateTime } from "@/lib/utils";
+import {
+  formatKoreanDateTime,
+  handleDonwloadJSZip,
+  handleDownloadJson2CSV,
+} from "@/lib/utils";
 import AddCouponDialog from "@/components/dialog/add-coupon-dialog";
 import {
   createCouponsAction,
   deleteCouponGroupWithCouponsAction,
+  getCouponGroupWithCouponsAndIdsAction,
 } from "@/actions/coupon-action";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -42,11 +47,7 @@ import EditCouponDialog from "@/components/dialog/edit-coupon-dialog";
 import Empty from "@/components/ui/empty";
 
 interface CouponTableProps {
-  data: {
-    couponGroups: CouponGroup[];
-    count: number;
-    totalPages: number;
-  };
+  data: CouponGroupList;
   page: number;
 }
 
@@ -236,10 +237,27 @@ export function CouponTable({ data, page }: CouponTableProps) {
     } else {
       toast({
         title: "쿠폰 발급에 실패하였습니다.",
-        description: result.message,
+        description: result.error || "알 수 없는 에러가 발생하였습니다.",
       });
     }
   };
+
+  async function handleDownloadCSV() {
+    const ids = table.getSelectedRowModel().rows.map((row) => row.original.id);
+    const result = await getCouponGroupWithCouponsAndIdsAction(ids);
+    if (result.success) {
+      // handleDonwloadJSZip(result.data || [], "coupon-groups.zip");
+      toast({
+        title: "쿠폰 그룹/쿠폰 목록 CSV 파일을 다운로드하였습니다.",
+      });
+    } else {
+      toast({
+        title: "쿠폰 그룹/쿠폰 목록 CSV 파일 다운로드에 실패하였습니다.",
+        description: result.error || "알 수 없는 에러가 발생하였습니다.",
+        variant: "destructive",
+      });
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -253,7 +271,7 @@ export function CouponTable({ data, page }: CouponTableProps) {
         </Button>
         <Button
           disabled={table.getSelectedRowModel().rows.length === 0}
-          //   onClick={handleIssueCoupon}
+          onClick={handleDownloadCSV}
         >
           CSV 다운로드
         </Button>
@@ -329,8 +347,8 @@ export function CouponTable({ data, page }: CouponTableProps) {
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          총 {data.count.toLocaleString()}개 중 {page * 50 + 1}-
-          {Math.min((page + 1) * 50, data.count)}개 표시
+          총 {data.metadata.totalCount.toLocaleString()}개 중 {page * 50 + 1}-
+          {Math.min((page + 1) * 50, data.metadata.totalCount)}개 표시
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -355,14 +373,14 @@ export function CouponTable({ data, page }: CouponTableProps) {
               min={1}
             />
             <span className="text-sm text-muted-foreground">
-              / {data.totalPages || 1}
+              / {data.metadata.totalPages || 1}
             </span>
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={() => handlePageChange(page + 1)}
-            disabled={!data || data.couponGroups.length < 50}
+            disabled={!data || page >= data.metadata.totalPages - 1}
           >
             다음
           </Button>

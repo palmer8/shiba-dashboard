@@ -37,9 +37,8 @@ export async function createBoardAction(data: {
   isNotice: boolean;
 }): Promise<ApiResponse<Board>> {
   const result = await boardService.createBoard(data);
-  if (result.success) {
-    revalidatePath("/boards");
-  }
+  if (result.success) revalidatePath("/boards");
+
   return result;
 }
 
@@ -51,9 +50,7 @@ export async function updateBoardAction(data: {
   isNotice: boolean;
 }): Promise<ApiResponse<Board>> {
   const result = await boardService.updateBoard(data);
-  if (result.success) {
-    revalidatePath(`/board/${data.id}`);
-  }
+  if (result.success) revalidatePath(`/board/${data.id}`);
   return result;
 }
 
@@ -61,9 +58,7 @@ export async function deleteBoardAction(
   id: string
 ): Promise<ApiResponse<boolean>> {
   const result = await boardService.deleteBoard(id);
-  if (result.success) {
-    revalidatePath("/boards");
-  }
+  if (result.success) revalidatePath("/boards");
   return result;
 }
 
@@ -72,9 +67,7 @@ export async function createCommentAction(data: {
   content: string;
 }): Promise<ApiResponse<CommentData>> {
   const result = await boardService.createComment(data);
-  if (result.success) {
-    revalidatePath(`/board/${data.boardId}`);
-  }
+  if (result.success) revalidatePath(`/board/${data.boardId}`);
   return result;
 }
 
@@ -83,9 +76,7 @@ export async function updateCommentAction(data: {
   content: string;
 }): Promise<ApiResponse<BoardComment>> {
   const result = await boardService.updateComment(data);
-  if (result.success) {
-    revalidatePath("/board/[id]", "layout");
-  }
+  if (result.success) revalidatePath("/board/[id]", "layout");
   return result;
 }
 
@@ -93,9 +84,7 @@ export async function deleteCommentAction(
   commentId: string
 ): Promise<ApiResponse<boolean>> {
   const result = await boardService.deleteComment(commentId);
-  if (result.success) {
-    revalidatePath("/board/[id]", "layout");
-  }
+  if (result.success) revalidatePath("/board/[id]", "layout");
   return result;
 }
 
@@ -103,9 +92,7 @@ export async function createCategoryAction(
   data: CategoryForm
 ): Promise<ApiResponse<BoardCategory>> {
   const result = await boardService.createCategoryWithTemplate(data);
-  if (result.success) {
-    revalidatePath("/admin/board");
-  }
+  if (result.success) revalidatePath("/admin/board");
   return result;
 }
 
@@ -114,9 +101,7 @@ export async function updateCategoryAction(
   data: CategoryForm
 ): Promise<ApiResponse<BoardCategory>> {
   const result = await boardService.updateCategory(id, data);
-  if (result.success) {
-    revalidatePath("/admin/board");
-  }
+  if (result.success) revalidatePath("/admin/board");
   return result;
 }
 
@@ -124,9 +109,7 @@ export async function deleteCategoryAction(
   id: string
 ): Promise<ApiResponse<BoardCategory>> {
   const result = await boardService.deleteCategory(id);
-  if (result.success) {
-    revalidatePath("/admin/board");
-  }
+  if (result.success) revalidatePath("/admin/board");
   return result;
 }
 
@@ -140,9 +123,7 @@ export async function toggleBoardLikeAction(
   boardId: string
 ): Promise<ApiResponse<boolean>> {
   const result = await boardService.toggleBoardLike(boardId);
-  if (result.success) {
-    revalidatePath(`/board/${boardId}`);
-  }
+  if (result.success) revalidatePath(`/board/${boardId}`);
   return result;
 }
 

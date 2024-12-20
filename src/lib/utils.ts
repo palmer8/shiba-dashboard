@@ -8,6 +8,12 @@ import { GameDataType } from "@/types/game";
 import { JSONContent } from "novel";
 import { parse } from "csv-parse/sync";
 import { MarkdownNode } from "@/types/lib";
+import JSZip from "jszip";
+import {
+  MockAttendanceData,
+  WorkHours,
+  WorkHoursData,
+} from "@/types/attendance";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -428,4 +434,80 @@ export function convertMarkdownToNovel(nodes: MarkdownNode[]): JSONContent[] {
 
   // 변환된 결과를 cleanup
   return cleanupContent(converted) as JSONContent[];
+}
+
+export async function handleDonwloadJSZip(data: any[], fileName: string) {
+  console.log("test");
+
+  // const zip = new JSZip();
+  // zip.file(fileName, JSON.stringify(data));
+  // const content = await zip.generateAsync({ type: "blob" });
+  // saveAs(content, fileName);
+}
+
+// 시간을 위치값으로 변환하는 헬퍼 함수
+export function getTimePosition(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return (hours + minutes / 60) * 2.5;
+}
+
+// 시간 간격을 높이값으로 변환하는 헬퍼 함수
+export function getTimeDuration(start: string, end: string): number {
+  const [startHours, startMinutes] = start.split(":").map(Number);
+  const [endHours, endMinutes] = end.split(":").map(Number);
+  const duration = endHours - startHours + (endMinutes - startMinutes) / 60;
+  return duration * 2.5;
+}
+
+// 근무 시간 계산 함수
+export function calculateWorkHours(start: string, end: string): number {
+  const [startHours, startMinutes] = start.split(":").map(Number);
+  const [endHours, endMinutes] = end.split(":").map(Number);
+  return endHours - startHours + (endMinutes - startMinutes) / 60;
+}
+
+// 임시 데이터 생성 함수
+export function generateMockAttendanceData(
+  days: number = 7
+): MockAttendanceData {
+  const workHours: WorkHoursData = {};
+  const weeklyStats: MockAttendanceData["weeklyStats"] = [];
+
+  for (let i = 0; i < days; i++) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateStr = format(date, "yyyy-MM-dd");
+
+    // 랜덤 출근 시간 (8시~10시 사이)
+    const startHour = 8 + Math.floor(Math.random() * 2);
+    const startMin = Math.floor(Math.random() * 60);
+    // 랜덤 퇴근 시간 (17시~19시 사이)
+    const endHour = 17 + Math.floor(Math.random() * 2);
+    const endMin = Math.floor(Math.random() * 60);
+
+    const startTime = `${String(startHour).padStart(2, "0")}:${String(
+      startMin
+    ).padStart(2, "0")}`;
+    const endTime = `${String(endHour).padStart(2, "0")}:${String(
+      endMin
+    ).padStart(2, "0")}`;
+
+    workHours[dateStr] = [
+      {
+        startTime,
+        endTime,
+      },
+    ];
+
+    weeklyStats.push({
+      date: format(date, "MM/dd"),
+      hours: endHour - startHour + (endMin - startMin) / 60,
+      expected: 8,
+    });
+  }
+
+  return {
+    workHours,
+    weeklyStats: weeklyStats.reverse(),
+  };
 }

@@ -45,14 +45,14 @@ export function LoginForm() {
 
       if (isPermissive.data === false && isPermissive.success) {
         toast({
-          title: isPermissive.message,
+          title: isPermissive.error ?? "관리자에게 문의해주세요.",
           description: "관리자에게 문의해주세요.",
           variant: "destructive",
         });
         return;
       } else if (isPermissive.success === false || isPermissive.error) {
         toast({
-          title: isPermissive.message,
+          title: isPermissive.error ?? "관리자에게 문의해주세요.",
           variant: "destructive",
         });
         return;

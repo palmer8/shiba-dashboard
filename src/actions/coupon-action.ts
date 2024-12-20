@@ -4,16 +4,17 @@ import { couponService } from "@/service/coupon-service";
 import { CouponGroupValues } from "@/components/dialog/add-coupon-dialog";
 import { revalidatePath } from "next/cache";
 import { CouponGroup } from "@/types/coupon";
+import { ApiResponse } from "@/types/global.dto";
 
 export async function createCouponGroupAction(couponValues: CouponGroupValues) {
   const result = await couponService.createCouponGroup(couponValues);
-  revalidatePath("/coupon");
+  if (result.success) revalidatePath("/coupon");
   return result;
 }
 
 export async function createCouponsAction(selectedGroups: CouponGroup[]) {
   const result = await couponService.createCoupons(selectedGroups);
-  revalidatePath("/coupon");
+  if (result.success) revalidatePath("/coupon");
   return result;
 }
 
@@ -27,11 +28,11 @@ export async function getCouponsByGroupIdAction(
 
 export async function deleteCouponGroupWithCouponsAction(
   couponGroupId: string
-) {
+): Promise<ApiResponse<CouponGroup>> {
   const result = await couponService.deleteCouponGroupWithCoupons(
     couponGroupId
   );
-  revalidatePath("/coupon");
+  if (result.success) revalidatePath("/coupon");
   return result;
 }
 
@@ -41,5 +42,10 @@ export async function updateCouponGroupAction(
 ) {
   const result = await couponService.updateCouponGroup(id, data);
   revalidatePath("/coupon");
+  return result;
+}
+
+export async function getCouponGroupWithCouponsAndIdsAction(ids: string[]) {
+  const result = await couponService.getCouponGroupWithCouponsAndIds(ids);
   return result;
 }

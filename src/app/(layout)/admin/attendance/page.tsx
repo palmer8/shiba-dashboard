@@ -1,3 +1,4 @@
+import { AttendanceViewer } from "@/components/attendance/attendance-viewer";
 import { GlobalTitle } from "@/components/global/global-title";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { auth } from "@/lib/auth-config";
@@ -18,6 +19,7 @@ export default async function AdminAttendancePage() {
         title="근태 관리"
         description="SHIBA 관리자들의 근태를 조회할 수 있습니다."
       />
+      <AttendanceViewer />
     </main>
   );
 }

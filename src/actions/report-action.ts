@@ -89,7 +89,6 @@ export async function rejectBlockTicketAction(
 ): Promise<BlockTicketActionResponse> {
   const result = await reportService.rejectBlockTicketByIds(ticketIds);
   if (result.success) revalidatePath("/admin/report");
-
   return result;
 }
 

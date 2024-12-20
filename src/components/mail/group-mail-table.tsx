@@ -18,7 +18,7 @@ import {
   useReactTable,
   Row,
 } from "@tanstack/react-table";
-import { useState, useMemo, useCallback, Fragment } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { GroupMailTableData, GroupMail } from "@/types/mail";
 import { useSession } from "next-auth/react";
 import { handleDownloadJson2CSV } from "@/lib/utils";
@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Trash, Pencil } from "lucide-react";
 import EditGroupMailDialog from "@/components/dialog/edit-group-mail-dialog";
+import Empty from "@/components/ui/empty";
 
 interface GroupMailTableProps {
   data: GroupMailTableData;
@@ -203,19 +204,28 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
     router.push(`?${params.toString()}`);
   };
 
-  const handleDownloadCSV = useCallback(async () => {
+  const handleDownloadCSV = async () => {
     const selectedRows = table.getSelectedRowModel().rows;
     if (!selectedRows.length) return;
 
     const selectedIds = selectedRows.map((row) => row.original.id);
     const result = await getGroupMailsByIdsOrigin(selectedIds);
-    if (result.success && result.data) {
+    if (result.success) {
       handleDownloadJson2CSV({
-        data: result.data,
-        fileName: `${formatKoreanDateTime(new Date())}-group-mail-list.csv`,
+        data: result.data || [],
+        fileName: `group-mail-list.csv`,
+      });
+      toast({
+        title: "단체 우편 목록 CSV 파일을 다운로드하였습니다.",
+      });
+    } else {
+      toast({
+        title: "단체 우편 목록 CSV 파일 다운로드에 실패하였습니다.",
+        description: result.error || "알 수 없는 에러가 발생하였습니다.",
+        variant: "destructive",
       });
     }
-  }, [table]);
+  };
 
   return (
     <div className="space-y-4">
@@ -274,7 +284,7 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                데이터가 존재하지 않습니다.
+                <Empty description="데이터가 존재하지 않습니다." />
               </TableCell>
             </TableRow>
           )}

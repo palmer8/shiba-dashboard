@@ -94,121 +94,6 @@ const WeeklyStatsCard = memo(function WeeklyStatsCard({
   );
 });
 
-const BoardStatsCard = memo(function BoardStatsCard({
-  recentBoards,
-}: {
-  recentBoards: NonNullable<DashboardData["recentBoards"]>;
-}) {
-  return (
-    <>
-      <Card className="md:col-span-2">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-sm font-medium">공지사항</CardTitle>
-            <Link
-              href="/notices"
-              className="text-xs text-muted-foreground hover:text-primary transition-colors"
-            >
-              더보기 →
-            </Link>
-          </div>
-          <FileText className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent className="h-[200px] overflow-y-auto">
-          {recentBoards.recentNotices.length > 0 ? (
-            <div className="space-y-3">
-              {recentBoards.recentNotices.map((notice) => (
-                <div
-                  key={notice.id}
-                  className="flex items-center justify-between group hover:bg-muted/50 rounded-lg p-2 transition-colors"
-                >
-                  <Link
-                    href={`/board/${notice.id}`}
-                    className="flex items-center gap-2 text-sm flex-1"
-                  >
-                    <span className="flex-1">{notice.title}</span>
-                  </Link>
-                  <div className="flex items-center gap-3 ml-4">
-                    <span className="text-xs text-muted-foreground">
-                      {notice.registrant.nickname}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatKoreanDateTime(new Date(notice.createdAt))}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              등록된 공지사항이 없습니다.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="md:col-span-2">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-sm font-medium">최근 게시글</CardTitle>
-            <Link
-              href="/boards"
-              className="text-xs text-muted-foreground hover:text-primary transition-colors"
-            >
-              더보기 →
-            </Link>
-          </div>
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent className="h-[200px] overflow-y-auto">
-          {recentBoards.recentBoards.length > 0 ? (
-            <div className="space-y-3">
-              {recentBoards.recentBoards.map((board) => (
-                <div
-                  key={board.id}
-                  className="flex items-center justify-between group hover:bg-muted/50 rounded-lg p-2 transition-colors"
-                >
-                  <Link
-                    href={`/board/${board.id}`}
-                    className="flex items-center gap-2 text-sm flex-1"
-                  >
-                    <span className="flex-1">{board.title}</span>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {board.commentCount > 0 && (
-                        <span className="text-blue-500 font-medium">
-                          [{board.commentCount}]
-                        </span>
-                      )}
-                      {board.likeCount > 0 && (
-                        <span className="flex items-center gap-1 text-rose-500">
-                          <Heart className="h-3 w-3" />
-                          {board.likeCount}
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                  <div className="flex items-center gap-3 ml-4">
-                    <span className="text-xs text-muted-foreground">
-                      {board.registrant.nickname}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatKoreanDateTime(new Date(board.createdAt))}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              등록된 게시글이 없습니다.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </>
-  );
-});
-
 export default function DashboardClientContent() {
   const { data, error, isLoading } = useDashboard();
 
@@ -228,11 +113,131 @@ export default function DashboardClientContent() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <UserStatsCard userCount={data.userCount} />
-      <AdminStatsCard adminData={data.adminData} />
-      <WeeklyStatsCard weeklyStats={data.weeklyStats} />
-      <BoardStatsCard recentBoards={data.recentBoards} />
+    <div className="space-y-6">
+      {/* 상단 통계 카드 섹션 */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <UserStatsCard userCount={data.userCount} />
+        <AdminStatsCard adminData={data.adminData} />
+        <WeeklyStatsCard weeklyStats={data.weeklyStats} />
+      </div>
+
+      {/* 게시판 섹션 */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* 공지사항 */}
+        <Card className="h-[500px] flex flex-col">
+          <CardHeader className="flex-none">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-lg font-medium">공지사항</CardTitle>
+              </div>
+              <Link
+                href="/notices"
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                더보기 →
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-y-auto">
+            {data.recentBoards.recentNotices.length > 0 ? (
+              <div className="space-y-3">
+                {data.recentBoards.recentNotices.map((notice) => (
+                  <Link
+                    key={notice.id}
+                    href={`/board/${notice.id}`}
+                    className="block p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <h3 className="text-sm font-medium line-clamp-1">
+                        {notice.title}
+                      </h3>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-muted-foreground">
+                          {notice.registrant.nickname}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatKoreanDateTime(new Date(notice.createdAt))}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                등록된 공지사항이 없습니다.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 최근 게시글 */}
+        <Card className="h-[500px] flex flex-col">
+          <CardHeader className="flex-none">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-lg font-medium">
+                  최근 게시글
+                </CardTitle>
+              </div>
+              <Link
+                href="/boards"
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                더보기 →
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-y-auto">
+            {data.recentBoards.recentBoards.length > 0 ? (
+              <div className="space-y-3">
+                {data.recentBoards.recentBoards.map((board) => (
+                  <Link
+                    key={board.id}
+                    href={`/board/${board.id}`}
+                    className="block p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <h3 className="text-sm font-medium line-clamp-1">
+                          {board.title}
+                        </h3>
+                        <div className="flex items-center gap-2">
+                          {board.commentCount > 0 && (
+                            <span className="text-xs text-blue-500 font-medium">
+                              [{board.commentCount}]
+                            </span>
+                          )}
+                          {board.likeCount > 0 && (
+                            <span className="flex items-center gap-1 text-xs text-rose-500">
+                              <Heart className="h-3 w-3" />
+                              {board.likeCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-muted-foreground">
+                          {board.registrant.nickname}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatKoreanDateTime(new Date(board.createdAt))}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                등록된 게시글이 없습니다.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

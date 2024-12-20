@@ -208,4 +208,7 @@ export const GAME_DATA_TYPE = {
   ACCUMULATED_CASH: "누적 캐시",
 };
 
+export const FIVEMANAGE_API_URL =
+  process.env.NEXT_PUBLIC_FIVEMANAGE_API_URL + "/api/image";
+export const FIVEMANAGE_API_KEY = process.env.NEXT_PUBLIC_FIVEMANAGE_API_KEY;
 export { ROLE_LINKS, PENALTY_TYPE, reasonOptions, WHITELIST_STATUS };

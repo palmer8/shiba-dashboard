@@ -10,20 +10,20 @@ import { GlobalReturn } from "@/types/global-return";
 import { UpdateUserData } from "@/types/user";
 import { userService } from "./user-service";
 import { UserRole } from "@prisma/client";
-import { hasAccess, ROLE_HIERARCHY } from "@/lib/utils";
+import { hasAccess } from "@/lib/utils";
+import { ApiResponse } from "@/types/global.dto";
 
 class RealtimeUpdateService {
   async updateUserInventory(
     data: UpdateUserData
-  ): Promise<GlobalReturn<UpdateUserDataDto>> {
+  ): Promise<ApiResponse<UpdateUserDataDto>> {
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
       return {
         data: null,
         success: false,
-        message: "세션 정보가 없습니다",
-        error: null,
+        error: "세션 정보가 없습니다",
       };
     }
 
@@ -33,8 +33,7 @@ class RealtimeUpdateService {
       return {
         data: null,
         success: false,
-        message: "유저 정보를 찾을 수 없습니다",
-        error: null,
+        error: "유저 정보를 찾을 수 없습니다",
       };
     }
 
@@ -42,8 +41,7 @@ class RealtimeUpdateService {
       return {
         data: null,
         success: false,
-        message: "권한이 없습니다",
-        error: null,
+        error: "권한이 없습니다",
       };
     }
 
@@ -72,15 +70,13 @@ class RealtimeUpdateService {
       return {
         data: result,
         success: true,
-        message: "유저 아이템 업데이트 성공",
         error: null,
       };
     } else {
       return {
         data: null,
         success: false,
-        message: "유저 아이템 업데이트 실패",
-        error: null,
+        error: "유저 아이템 업데이트 실패",
       };
     }
   }
@@ -121,15 +117,16 @@ class RealtimeUpdateService {
     return result;
   }
 
-  async removeUserVehicle(data: RemoveUserVehicleDto) {
+  async removeUserVehicle(
+    data: RemoveUserVehicleDto
+  ): Promise<ApiResponse<RemoveUserVehicleDto>> {
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
       return {
         data: null,
         success: false,
-        message: "세션 정보가 없습니다",
-        error: null,
+        error: "세션 정보가 없습니다",
       };
     }
 
@@ -228,7 +225,6 @@ class RealtimeUpdateService {
         },
       }),
     ]);
-
     return result;
   }
 }

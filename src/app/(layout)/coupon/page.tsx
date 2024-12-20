@@ -49,7 +49,19 @@ export default async function CouponPage({ searchParams }: PageProps) {
         />
       </div>
       <CouponFilters filters={filters} />
-      <CouponTable data={data} page={page} />
+      <CouponTable
+        data={
+          data.data || {
+            couponGroups: [],
+            metadata: {
+              currentPage: 0,
+              totalPages: 0,
+              totalCount: 0,
+            },
+          }
+        }
+        page={page}
+      />
     </main>
   );
 }

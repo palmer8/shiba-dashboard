@@ -23,14 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CommentData } from "@/types/board";
-
-interface CommentSectionProps {
-  boardId: string;
-  comments: CommentData[];
-  userId: string;
-  userRole: UserRole;
-}
+import { CommentData, CommentSectionProps } from "@/types/board";
 
 export function CommentSection({
   boardId,

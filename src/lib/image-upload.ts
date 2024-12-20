@@ -1,9 +1,10 @@
 import imageCompression from "browser-image-compression";
 import { createImageUpload } from "novel/plugins";
 import { toast } from "@/hooks/use-toast";
+import { FIVEMANAGE_API_URL, FIVEMANAGE_API_KEY } from "@/constant/constant";
 
-const API_URL = process.env.NEXT_PUBLIC_FIVEMANAGE_API_URL + "/api/image";
-const API_KEY = process.env.NEXT_PUBLIC_FIVEMANAGE_API_KEY;
+const API_URL = FIVEMANAGE_API_URL;
+const API_KEY = FIVEMANAGE_API_KEY;
 
 const compressImage = async (file: File) => {
   const options = {

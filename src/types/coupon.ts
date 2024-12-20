@@ -6,6 +6,7 @@ export interface CouponFilter {
   groupStatus?: CouponGroupStatus;
   groupType?: CouponGroupType | "ALL";
   groupReason?: string;
+  page?: number;
 }
 
 export interface CouponGroup {
@@ -33,4 +34,22 @@ export interface Coupon {
   couponGroupId: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface CouponGroupList {
+  couponGroups: CouponGroup[];
+  metadata: {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+  };
+}
+
+export interface CouponList {
+  coupons: Coupon[];
+  metadata: {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+  };
 }

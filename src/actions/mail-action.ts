@@ -76,7 +76,6 @@ export async function uploadPersonalMailCSVAction(formData: FormData) {
     if (result.success) {
       revalidatePath("/game/personal-mail");
     }
-
     return result;
   } catch (error) {
     return {

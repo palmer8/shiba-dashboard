@@ -54,6 +54,11 @@ type RealtimeAdminData = {
   users: RealtimeGroupData[];
 };
 
+type UpdateProfileData = {
+  image?: string | null;
+  password?: string | null;
+};
+
 export type {
   SignUpUser,
   RealtimeGameUserData,
@@ -61,4 +66,5 @@ export type {
   AdminUser,
   RealtimeGroupData,
   RealtimeAdminData,
+  UpdateProfileData,
 };
