@@ -7,7 +7,7 @@ import {
   BoardCategory,
 } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
-import { hasAccess } from "@/lib/utils";
+import { extractTextFromJSON, hasAccess } from "@/lib/utils";
 import { CategoryForm } from "@/components/dialog/add-category-dialog";
 import { JSONContent } from "novel";
 import { redirect } from "next/navigation";
@@ -192,7 +192,7 @@ class BoardService {
         },
         include: {
           registrant: {
-            select: { id: true, nickname: true },
+            select: { id: true, nickname: true, image: true },
           },
           category: {
             select: { id: true, name: true },
@@ -290,6 +290,7 @@ class BoardService {
             select: {
               id: true,
               nickname: true,
+              image: true,
             },
           },
         },
@@ -335,6 +336,7 @@ class BoardService {
             select: {
               id: true,
               nickname: true,
+              image: true,
             },
           },
         },
@@ -413,7 +415,7 @@ class BoardService {
         where: { id },
         include: {
           registrant: {
-            select: { id: true, nickname: true },
+            select: { id: true, nickname: true, image: true },
           },
           category: {
             select: { id: true, name: true },
@@ -421,7 +423,7 @@ class BoardService {
           comments: {
             include: {
               registrant: {
-                select: { id: true, nickname: true },
+                select: { id: true, nickname: true, image: true },
               },
             },
             orderBy: { createdAt: "desc" },
@@ -453,14 +455,22 @@ class BoardService {
         updatedAt: board.updatedAt,
         views: board.views,
         isNotice: board.isNotice,
-        registrant: board.registrant || { id: "", nickname: "정보없음" },
+        registrant: board.registrant || {
+          id: "",
+          nickname: "정보없음",
+          image: null,
+        },
         category: board.category || { id: "", name: "정보없음" },
         comments: board.comments.map((comment) => ({
           id: comment.id,
           content: comment.content,
           createdAt: comment.createdAt,
           updatedAt: comment.updatedAt,
-          registrant: comment.registrant,
+          registrant: comment.registrant || {
+            id: "",
+            nickname: "정보없음",
+            image: null,
+          },
         })),
         isLiked: board.likes.some((like) => like.user.id === session.user!.id),
         likes: board.likes.map((like) => ({
@@ -490,13 +500,10 @@ class BoardService {
     }
   }
 
-  async getBoardList({
-    page = 1,
-    ...filters
-  }: BoardFilter): Promise<ApiResponse<BoardList>> {
+  async getBoardList(filters: BoardFilter): Promise<ApiResponse<BoardList>> {
     try {
       const itemsPerPage = 20;
-      const skip = (page - 1) * itemsPerPage;
+      const skip = ((filters.page || 1) - 1) * itemsPerPage;
 
       // 필터 조건 설정
       const where: Prisma.BoardWhereInput = {};
@@ -538,17 +545,23 @@ class BoardService {
 
       // 최근 공지사항 5개와 일반 게시글 목록을 동시에 조회
       const [recentNotices, totalCount, boards] = await Promise.all([
-        // 최근 공지사항 5개
         prisma.board.findMany({
           where: { isNotice: true },
           take: 5,
           orderBy: { createdAt: "desc" },
           include: {
             registrant: {
-              select: { id: true, nickname: true },
+              select: {
+                id: true,
+                nickname: true,
+                image: true,
+              },
             },
             category: {
-              select: { id: true, name: true },
+              select: {
+                id: true,
+                name: true,
+              },
             },
             _count: {
               select: {
@@ -584,40 +597,28 @@ class BoardService {
             ],
           },
         }),
-        // 페이지네이션된 게시글 목록 (최근 공지 5개 제외)
+        // 페이지네이션된 게시글 목록
         prisma.board.findMany({
           where: {
             ...where,
-            AND: [
-              {
-                OR: [
-                  { isNotice: false },
-                  {
-                    isNotice: true,
-                    id: {
-                      notIn: (
-                        await prisma.board.findMany({
-                          where: { isNotice: true },
-                          take: 5,
-                          orderBy: { createdAt: "desc" },
-                          select: { id: true },
-                        })
-                      ).map((notice) => notice.id),
-                    },
-                  },
-                ],
-              },
-            ],
+            isNotice: false, // 공지사항 제외
           },
           skip,
           take: itemsPerPage,
           orderBy: { createdAt: "desc" },
           include: {
             registrant: {
-              select: { id: true, nickname: true },
+              select: {
+                id: true,
+                nickname: true,
+                image: true,
+              },
             },
             category: {
-              select: { id: true, name: true },
+              select: {
+                id: true,
+                name: true,
+              },
             },
             _count: {
               select: {
@@ -631,34 +632,51 @@ class BoardService {
 
       const totalPages = Math.ceil(totalCount / itemsPerPage);
 
-      const processedBoards = boards.map((board) => ({
+      // content에서 텍스트 추출하여 excerpt 생성
+      const boardsWithExcerpt = boards.map((board) => ({
         ...board,
-        registrant: board.registrant || { id: "", nickname: "정보없음" },
-        category: board.category || { id: "", name: "정보없음" },
+        excerpt: extractTextFromJSON(board.content as JSONContent).slice(
+          0,
+          100
+        ),
         commentCount: board._count.comments,
-        _count: {
-          likes: board._count.likes,
+        registrant: board.registrant || {
+          id: "deleted",
+          nickname: "삭제된 사용자",
+          image: null,
+        },
+        category: board.category || {
+          id: "deleted",
+          name: "삭제된 카테고리",
         },
       }));
 
       const processedNotices = recentNotices.map((notice) => ({
         ...notice,
-        registrant: notice.registrant || { id: "", nickname: "정보없음" },
-        category: notice.category || { id: "", name: "정보없음" },
+        excerpt: extractTextFromJSON(notice.content as JSONContent).slice(
+          0,
+          100
+        ),
         commentCount: notice._count.comments,
-        _count: {
-          likes: notice._count.likes,
+        registrant: notice.registrant || {
+          id: "deleted",
+          nickname: "삭제된 사용자",
+          image: null,
+        },
+        category: notice.category || {
+          id: "deleted",
+          name: "삭제된 카테고리",
         },
       }));
 
       return {
         success: true,
         data: {
-          boards: processedBoards,
+          boards: boardsWithExcerpt,
           notices: processedNotices,
           metadata: {
-            currentPage: page,
-            totalPages,
+            currentPage: filters.page || 1,
+            totalPages: Math.ceil(totalCount / itemsPerPage),
             totalCount,
           },
         },
@@ -867,6 +885,7 @@ class BoardService {
               select: {
                 id: true,
                 nickname: true,
+                image: true,
               },
             },
             _count: {
@@ -886,6 +905,7 @@ class BoardService {
               select: {
                 id: true,
                 nickname: true,
+                image: true,
               },
             },
             _count: {
@@ -911,6 +931,7 @@ class BoardService {
             registrant: board.registrant || {
               id: "",
               nickname: "정보없음",
+              image: null,
             },
           })),
           recentNotices: recentNotices.map((notice) => ({
@@ -922,6 +943,7 @@ class BoardService {
             registrant: notice.registrant || {
               id: "",
               nickname: "정보없음",
+              image: null,
             },
           })),
         },
@@ -1125,6 +1147,7 @@ class BoardService {
             select: {
               id: true,
               nickname: true,
+              image: true,
             },
           },
         },
@@ -1136,7 +1159,11 @@ class BoardService {
         content: comment.content,
         createdAt: comment.createdAt,
         updatedAt: comment.updatedAt,
-        registrant: comment.registrant,
+        registrant: comment.registrant || {
+          id: "",
+          nickname: "정보없음",
+          image: null,
+        },
       }));
 
       return {

@@ -21,3 +21,26 @@ export type AdminLogListResponse = {
   page: number;
   totalPages: number;
 };
+
+export interface GameLogFilters {
+  type?: string;
+  level?: string;
+  startDate?: Date;
+  endDate?: Date;
+  page?: number;
+  limit?: number;
+}
+
+export interface GameLogResponse {
+  records: Array<{
+    id: number;
+    timestamp: Date;
+    level: string;
+    type: string;
+    message: string;
+    metadata?: any;
+  }>;
+  total: number;
+  page: number;
+  totalPages: number;
+}

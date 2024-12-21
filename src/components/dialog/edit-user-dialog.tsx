@@ -44,16 +44,35 @@ import {
   AlertDialogHeader,
 } from "@/components/ui/alert-dialog";
 import { formatRole } from "@/lib/utils";
+import { signOut } from "next-auth/react";
 
 const schema = z
   .object({
     image: z.string().url("올바른 URL을 입력해주세요").nullable().optional(),
-    password: z.string().min(6, "비밀번호는 6자 이상이어야 합니다").optional(),
+    currentPassword: z.string().optional(),
+    password: z
+      .string()
+      .min(6, "비밀번호는 6자 이상이어야 합니다")
+      .max(20, "비밀번호는 20자를 초과할 수 없습니다")
+      .optional(),
     confirmPassword: z
       .string()
       .min(6, "비밀번호는 6자 이상이어야 합니다")
+      .max(20, "비밀번호는 20자를 초과할 수 없습니다")
       .optional(),
   })
+  .refine(
+    (data) => {
+      if (data.password || data.confirmPassword) {
+        return !!data.currentPassword;
+      }
+      return true;
+    },
+    {
+      message: "현재 비밀번호를 입력해주세요",
+      path: ["currentPassword"],
+    }
+  )
   .refine(
     (data) => {
       if (data.password || data.confirmPassword) {
@@ -113,25 +132,29 @@ export default function EditUserDialog({
     try {
       const result = await updateUserAction(session.user.id, {
         image: data.image,
-        ...(data.password ? { password: data.password } : {}),
+        ...(data.password && data.currentPassword
+          ? {
+              password: data.password,
+              currentPassword: data.currentPassword,
+            }
+          : {}),
       });
 
       if (result.success) {
-        toast({
-          title: "프로필이 수정되었습니다.",
-        });
+        signOut({ callbackUrl: "/login" });
+        alert("프로필 수정이 완료되었습니다\n동기화를 위해 로그아웃 합니다.");
         setIsOpen && setIsOpen(false);
       } else {
         toast({
-          title: "프로필 수정에 실패했습니다.",
+          title: "프로필 수정 실패",
           description: result.error || "잠시 후 다시 시도해주세요",
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
-        title: "프로필 수정에 실패했습니다.",
-        description: "서버 오류가 발생했습니다",
+        title: "프로필 수정 실패",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }
@@ -153,21 +176,21 @@ export default function EditUserDialog({
       );
       if (result.success) {
         toast({
-          title: "계정이 삭제되었습니다.",
+          title: "계정 삭제 완료",
         });
         setDeleteDialogOpen(false);
         setIsOpen && setIsOpen(false);
       } else {
         toast({
-          title: "계정 삭제에 실패했습니다.",
-          description: "잠시 후에 다시 시도해주세요",
+          title: "계정 삭제 실패",
+          description: result.error || "잠시 후 다시 시도해주세요",
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
-        title: "계정 삭제에 실패했습니다.",
-        description: "서버 오류가 발생했습니다",
+        title: "계정 삭제 실패",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }
@@ -251,13 +274,32 @@ export default function EditUserDialog({
                 <h4 className="text-sm font-medium">비밀번호 변경</h4>
                 <FormField
                   control={form.control}
+                  name="currentPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>현재 비밀번호</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="현재 비밀번호를 입력해주세요"
+                          type="password"
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="password"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>새 비밀번호</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="비밀번호를 입력해주세요"
+                          placeholder="변경할 비밀번호를 입력해주세요"
                           type="password"
                           {...field}
                           value={field.value || ""}
@@ -276,7 +318,7 @@ export default function EditUserDialog({
                       <FormLabel>새 비밀번호 확인</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="비밀번호를 한번 더 입력해주세요"
+                          placeholder="변경할 비밀번호를 한번 더 입력해주세요"
                           type="password"
                           {...field}
                           value={field.value || ""}
@@ -304,7 +346,10 @@ export default function EditUserDialog({
                   >
                     취소
                   </Button>
-                  <Button type="submit" disabled={isUploading}>
+                  <Button
+                    type="submit"
+                    disabled={isUploading || !form.formState.isDirty}
+                  >
                     저장
                   </Button>
                 </div>

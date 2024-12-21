@@ -247,13 +247,13 @@ export default function EditPersonalMailDialog({
 
       const result = await updatePersonalMailAction(initialData.id, submitData);
       if (result.success) {
-        toast({ title: "개인 우편이 수정되었습니다." });
+        toast({ title: "개인 우편 수정 완료" });
         handleOpenChange(false);
       }
     } catch (error) {
       toast({
-        title: "개인 우편을 수정하지 못했습니다",
-        description: "개인 우편을 수정하는 도중 오류가 발생했습니다.",
+        title: "개인 우편 수정 실패",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

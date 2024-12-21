@@ -106,14 +106,14 @@ export default function AddCreditDialog({
     try {
       const result = await createCreditAction(data);
       if (result.success) {
-        toast({ title: "재화 지급/회수 티켓이 추가되었습니다." });
+        toast({ title: "재화 지급/회수 티켓 추가 완료" });
         setOpen(false);
         form.reset();
       }
     } catch (error) {
       toast({
-        title: "재화 지급/회수 티켓을 추가하지 못했습니다",
-        description: "재화 지급/회수 티켓을 추가하는 도중 오류가 발생했습니다.",
+        title: "재화 지급/회수 티켓 추가 실패",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

@@ -14,6 +14,7 @@ import { NavUser } from "./nav-user";
 import { getUserByIdAction } from "@/actions/user-action";
 import { User, UserRole } from "@prisma/client";
 import { hasAccess } from "@/lib/utils";
+import { useEffect } from "react";
 
 export function ShibaSidebar({
   ...props
@@ -25,9 +26,10 @@ export function ShibaSidebar({
     "hashedPassword" | "isPermissive"
   > | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const getUser = async () => {
-      const result = await getUserByIdAction(session?.user?.id || "");
+      if (!session || !session.user || !session.user.id) return;
+      const result = await getUserByIdAction(session.user.id);
       if (result.success) {
         setUser(result.data);
       }

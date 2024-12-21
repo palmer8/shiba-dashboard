@@ -110,14 +110,14 @@ export default function AddItemQuantityDialog({
     try {
       const result = await createItemQuantityAction(data);
       if (result.success) {
-        toast({ title: "아이템 지급/회수 티켓이 생성되었습니다." });
+        toast({ title: "아이템 지급/회수 티켓 생성 완료" });
         setOpen(false);
         form.reset();
       }
     } catch (error) {
       toast({
-        title: "아이템 지급/회수 티켓을 생성하지 못했습니다",
-        description: "티켓을 생성하는 도중 오류가 발생했습니다.",
+        title: "아이템 지급/회수 티켓 생성 실패",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

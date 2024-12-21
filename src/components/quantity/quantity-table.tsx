@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSession } from "next-auth/react";
 import Empty from "../ui/empty";
+import { ConfirmDialog } from "@/components/dialog/confirm-dialog";
 
 interface ItemQuantityTableProps {
   data: ItemQuantityTableData;
@@ -74,6 +75,11 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
   const [columnVisibility, setColumnVisibility] = useState({
     status: false,
   });
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [targetId, setTargetId] = useState<string>("");
 
   const columns = useMemo<ColumnDef<ItemQuantity>[]>(
     () => [
@@ -172,14 +178,8 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
                     <DropdownMenuContent align="end" className="w-[160px]">
                       <DropdownMenuItem
                         onClick={async () => {
-                          if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
-                            const result = await deleteItemQuantityAction(
-                              row.original.id
-                            );
-                            if (result && result.success) {
-                              handleSuccess(result.message);
-                            }
-                          }
+                          setTargetId(row.original.id);
+                          setIsDeleteDialogOpen(true);
                         }}
                         className="text-red-600"
                       >
@@ -206,21 +206,6 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  const handleSuccess = useCallback((message: string) => {
-    toast({
-      title: "정상적으로 처리되었습니다.",
-      description: message,
-    });
-  }, []);
-
-  const handleError = useCallback((error: any) => {
-    toast({
-      title: "처리 중 오류가 발생하였습니다.",
-      description: error.message,
-      variant: "destructive",
-    });
-  }, []);
-
   const handlePageChange = useCallback(
     (page: number) => {
       const params = new URLSearchParams(searchParams);
@@ -230,7 +215,7 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
     [router, searchParams]
   );
 
-  const handleApprove = useCallback(async () => {
+  const handleApprove = async () => {
     try {
       setIsLoading(true);
       const selectedRows = table.getSelectedRowModel().rows;
@@ -238,19 +223,30 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
 
       const result = await approveItemQuantitiesAction(selectedIds);
       if (result.success) {
-        handleSuccess(result.message);
+        toast({
+          title: "승인 완료",
+          description: "선택한 아이템이 성공적으로 승인되었습니다.",
+        });
         table.toggleAllPageRowsSelected(false);
       } else {
-        handleError(result);
+        toast({
+          title: "승인 실패",
+          description: result.error || "아이템 승인 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      handleError(error);
+      toast({
+        title: "승인 실패",
+        description: "아이템 승인 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [table, handleSuccess, handleError]);
+  };
 
-  const handleCancel = useCallback(async () => {
+  const handleCancel = async () => {
     try {
       setIsLoading(true);
       const selectedRows = table.getSelectedRowModel().rows;
@@ -258,19 +254,30 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
 
       const result = await cancelItemQuantityAction(selectedIds);
       if (result.success) {
-        handleSuccess(result.message);
+        toast({
+          title: "취소 완료",
+          description: "선택한 아이템이 성공적으로 취소되었습니다.",
+        });
         table.toggleAllPageRowsSelected(false);
       } else {
-        handleError(result);
+        toast({
+          title: "취소 실패",
+          description: result.error || "아이템 취소 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      handleError(error);
+      toast({
+        title: "취소 실패",
+        description: "아이템 취소 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [table, handleSuccess, handleError]);
+  };
 
-  const handleReject = useCallback(async () => {
+  const handleReject = async () => {
     try {
       setIsLoading(true);
       const selectedRows = table.getSelectedRowModel().rows;
@@ -278,53 +285,84 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
 
       const result = await rejectItemQuantitiesAction(selectedIds);
       if (result.success) {
-        handleSuccess(result.message);
+        toast({
+          title: "거절 완료",
+          description: "선택한 아이템이 성공적으로 거절되었습니다.",
+        });
         table.toggleAllPageRowsSelected(false);
       } else {
-        handleError(result);
+        toast({
+          title: "거절 실패",
+          description: result.error || "아이템 거절 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      handleError(error);
+      toast({
+        title: "거절 실패",
+        description: "아이템 거절 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [table, handleSuccess, handleError]);
+  };
 
-  const handleApproveAll = useCallback(async () => {
-    if (confirm("정말로 모든 대기중인 항목을 승인하시겠습니까?")) {
-      try {
-        setIsLoading(true);
-        const result = await approveAllItemQuantitiesAction();
-        if (result.success) {
-          handleSuccess(result.message);
-        } else {
-          handleError(result);
-        }
-      } catch (error) {
-        handleError(error);
-      } finally {
-        setIsLoading(false);
+  const handleApproveAll = async () => {
+    try {
+      setIsLoading(true);
+      const result = await approveAllItemQuantitiesAction();
+      if (result.success) {
+        toast({
+          title: "일괄 승인 완료",
+          description: "모든 대기중인 아이템이 성공적으로 승인되었습니다.",
+        });
+      } else {
+        toast({
+          title: "일괄 승인 실패",
+          description:
+            result.error || "아이템 일괄 승인 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
       }
+    } catch (error) {
+      toast({
+        title: "일괄 승인 실패",
+        description: "아이템 일괄 승인 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [handleSuccess, handleError]);
+  };
 
-  const handleRejectAll = useCallback(async () => {
-    if (confirm("정말로 모든 대기중인 항목을 거절하시겠습니까?")) {
-      try {
-        setIsLoading(true);
-        const result = await rejectAllItemQuantitiesAction();
-        if (result.success) {
-          handleSuccess(result.message);
-        } else {
-          handleError(result);
-        }
-      } catch (error) {
-        handleError(error);
-      } finally {
-        setIsLoading(false);
+  const handleRejectAll = async () => {
+    try {
+      setIsLoading(true);
+      const result = await rejectAllItemQuantitiesAction();
+      if (result.success) {
+        toast({
+          title: "일괄 거절 완료",
+          description: "모든 대기중인 아이템이 성공적으로 거절되었습니다.",
+        });
+      } else {
+        toast({
+          title: "일괄 거절 실패",
+          description:
+            result.error || "아이템 일괄 거절 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
       }
+    } catch (error) {
+      toast({
+        title: "일괄 거절 실패",
+        description: "아이템 일괄 거절 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [handleSuccess, handleError]);
+  };
 
   const handleDownloadCSV = useCallback(async () => {
     try {
@@ -340,14 +378,23 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
         });
         table.toggleAllPageRowsSelected(false);
       } else {
-        handleError(result);
+        toast({
+          title: "CSV 다운로드 실패",
+          description:
+            result.error || "아이템 다운로드 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      handleError(error);
+      toast({
+        title: "CSV 다운로드 실패",
+        description: "아이템 다운로드 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [table, handleSuccess, handleError]);
+  }, [table]);
 
   const isPending = useMemo(
     () =>
@@ -359,6 +406,31 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
     () => hasAccess(session?.user?.role, "MASTER"),
     [session]
   );
+
+  const handleDelete = async () => {
+    try {
+      const result = await deleteItemQuantityAction(targetId);
+      if (result.success) {
+        toast({
+          title: "삭제 완료",
+          description: "아이템이 성공적으로 삭제되었습니다.",
+        });
+      } else {
+        toast({
+          title: "삭제 실패",
+          description: result.error || "아이템 삭제 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "삭제 실패",
+        description: "아이템 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+    setIsDeleteDialogOpen(false);
+  };
 
   return (
     <div className="space-y-4">
@@ -491,6 +563,31 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
           </Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={isApproveDialogOpen}
+        onClose={() => setIsApproveDialogOpen(false)}
+        onConfirm={handleApprove}
+        title="아이템 승인"
+        description="선택한 아이템을 승인하시겠습니까?"
+      />
+
+      <ConfirmDialog
+        isOpen={isRejectDialogOpen}
+        onClose={() => setIsRejectDialogOpen(false)}
+        onConfirm={handleReject}
+        title="아이템 거절"
+        description="선택한 아이템을 거절하시겠습니까?"
+      />
+
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={handleDelete}
+        title="아이템 삭제"
+        description="정말로 이 아이템을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        confirmText="삭제"
+      />
     </div>
   );
 }

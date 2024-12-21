@@ -94,14 +94,39 @@ const WeeklyStatsCard = memo(function WeeklyStatsCard({
   );
 });
 
+const RealtimeUsersCard = memo(function RealtimeUsersCard() {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+        <CardTitle className="text-sm font-medium">
+          실시간 대시보드 이용자
+        </CardTitle>
+        <Users className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="text-2xl font-bold">-</div>
+        <div className="text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            실시간 연결 대기중
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
+
 export default function DashboardClientContent() {
   const { data, error, isLoading } = useDashboard();
 
-  if (isLoading) {
+  if (isLoading || !data) {
     return <DashboardSkeleton />;
   }
 
-  if (error || !data) {
+  if (error) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
@@ -119,6 +144,7 @@ export default function DashboardClientContent() {
         <UserStatsCard userCount={data.userCount} />
         <AdminStatsCard adminData={data.adminData} />
         <WeeklyStatsCard weeklyStats={data.weeklyStats} />
+        <RealtimeUsersCard />
       </div>
 
       {/* 게시판 섹션 */}

@@ -226,14 +226,14 @@ export function AddPersonalMailDialog({
 
       const result = await createPersonalMailAction(submitData);
       if (result.success) {
-        toast({ title: "개인 우편이 생성되었습니다." });
+        toast({ title: "개인 우편 생성 완료" });
         setOpen(false);
         form.reset();
       }
     } catch (error) {
       toast({
-        title: "개인 우편을 생성하지 못했습니다",
-        description: "개인 우편을 생성하는 도중 오류가 발생했습니다.",
+        title: "개인 우편 생성 실패",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

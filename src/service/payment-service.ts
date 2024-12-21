@@ -2,13 +2,13 @@ import pool from "@/db/mysql";
 import { auth } from "@/lib/auth-config";
 import { hasAccess } from "@/lib/utils";
 import { PaymentFilter } from "@/types/filters/payment-filter";
-import { GlobalReturn } from "@/types/global-return";
+import { ApiResponse } from "@/types/global.dto";
 import { Payment, PaymentDto } from "@/types/payment";
 import { UserRole } from "@prisma/client";
 import { RowDataPacket } from "mysql2";
 
 class PaymentService {
-  async getPayment(params: PaymentFilter): Promise<GlobalReturn<PaymentDto>> {
+  async getPayment(params: PaymentFilter): Promise<ApiResponse<PaymentDto>> {
     const page = params.page || 1;
     const pageSize = 50;
     const offset = (page - 1) * pageSize;
@@ -64,7 +64,6 @@ class PaymentService {
 
       return {
         success: true,
-        message: "결제 내역 조회 성공",
         data: {
           items: (records as Payment[]).map((record) => ({
             ...record,
@@ -80,12 +79,8 @@ class PaymentService {
       console.error("Payment query error:", error);
       return {
         success: false,
-        message: "결제 내역 조회 실패",
+        error: "결제 내역 조회 실패",
         data: null,
-        error:
-          error instanceof Error
-            ? error.message
-            : "알 수 없는 에러가 발생하였습니다",
       };
     }
   }

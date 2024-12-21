@@ -76,7 +76,7 @@ export const BoardDetail = memo(function BoardDetail({
     startTransition(async () => {
       if (!session?.user) {
         toast({
-          title: "로그인이 필요합니다.",
+          title: "로그인이 필요합니다",
           variant: "destructive",
         });
         return;
@@ -88,7 +88,7 @@ export const BoardDetail = memo(function BoardDetail({
       } else {
         toast({
           title: "좋아요 처리 실패",
-          description: result.error,
+          description: result.error || "잠시 후 다시 시도해주세요",
           variant: "destructive",
         });
       }
@@ -98,12 +98,12 @@ export const BoardDetail = memo(function BoardDetail({
   const handleDelete = async () => {
     const result = await deleteBoardAction(board.id);
     if (result.success) {
-      toast({ title: "게시글이 삭제되었습니다." });
-      router.push("/boards");
+      toast({ title: "게시글 삭제 성공" });
+      router.replace("/boards");
     } else {
       toast({
         title: "게시글 삭제 실패",
-        description: result.error,
+        description: result.error || "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

@@ -1,38 +1,20 @@
 import { prisma } from "@/db/prisma";
 import db from "@/db/pg";
-import { AdminLogFilters, AdminLogListResponse } from "@/types/log";
-import { GlobalReturn } from "@/types/global-return";
+import {
+  AdminLogFilters,
+  AdminLogListResponse,
+  GameLogFilters,
+  GameLogResponse,
+} from "@/types/log";
 import { auth } from "@/lib/auth-config";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
-
-interface GameLogFilters {
-  type?: string;
-  level?: string;
-  startDate?: Date;
-  endDate?: Date;
-  page?: number;
-  limit?: number;
-}
-
-interface GameLogResponse {
-  records: Array<{
-    id: number;
-    timestamp: Date;
-    level: string;
-    type: string;
-    message: string;
-    metadata?: any;
-  }>;
-  total: number;
-  page: number;
-  totalPages: number;
-}
+import { ApiResponse } from "@/types/global.dto";
 
 export class LogService {
   async getAdminLogs(
     filters: AdminLogFilters
-  ): Promise<GlobalReturn<AdminLogListResponse>> {
+  ): Promise<ApiResponse<AdminLogListResponse>> {
     try {
       const pageSize = 50;
       const page = filters.page || 1;
@@ -78,7 +60,6 @@ export class LogService {
 
       return {
         success: true,
-        message: "어드민 로그 조회 성공",
         data: {
           records: records.map((record) => ({
             id: record.id,
@@ -99,21 +80,20 @@ export class LogService {
       console.error("Get admin logs error:", error);
       return {
         success: false,
-        message: "어드민 로그 조회 실패",
         data: {
           records: [],
           total: 0,
           page: 1,
           totalPages: 1,
         },
-        error,
+        error: "어드민 로그 조회 실패",
       };
     }
   }
 
   async getGameLogs(
     filters: GameLogFilters
-  ): Promise<GlobalReturn<GameLogResponse>> {
+  ): Promise<ApiResponse<GameLogResponse>> {
     try {
       const limit = filters.limit || 50;
       const offset = ((filters.page || 1) - 1) * limit;
@@ -129,7 +109,6 @@ export class LogService {
 
       return {
         success: true,
-        message: "게임 로그 조회 성공",
         data: {
           records: result.map((row: any) => ({
             ...row,
@@ -145,14 +124,13 @@ export class LogService {
       console.error("게임 로그 조회 실패:", error);
       return {
         success: false,
-        message: "게임 로그 조회 실패",
+        error: "게임 로그 조회 실패",
         data: {
           records: [],
           total: 0,
           page: 1,
           totalPages: 1,
         },
-        error,
       };
     }
   }

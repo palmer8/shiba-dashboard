@@ -114,20 +114,21 @@ export default function AddIncidentReportDialog() {
     if (result.success) {
       if (isStaff && isPermanentBan) {
         toast({
-          title: "영구정지 요청이 등록되었습니다.",
+          title: "영구정지 요청 등록 완료",
           description: "관리자 승인 후 처리됩니다.",
         });
       } else {
         toast({
-          title: "사건 처리 보고서가 등록되었습니다.",
+          title: "사건 처리 보고서 등록 완료",
         });
       }
       setOpen(false);
       form.reset();
     } else {
       toast({
-        title: "사건 처리 보고서 등록에 실패했습니다.",
-        description: "잠시 후에 다시 시도해주세요",
+        title: "사건 처리 보고서 등록 실패",
+        description: result.error || "잠시 후 다시 시도해주세요",
+        variant: "destructive",
       });
     }
   };

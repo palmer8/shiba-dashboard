@@ -1,11 +1,10 @@
 "use server";
 
-import { SignUpFormValues } from "@/components/form/signup-form";
 import { userService } from "@/service/user-service";
-import { GlobalReturn } from "@/types/global-return";
 import { ApiResponse } from "@/types/global.dto";
 import { SignUpUser, UpdateProfileData } from "@/types/user";
 import { User } from "@prisma/client";
+import { SignUpFormValues } from "@/lib/validations/auth";
 
 export async function signUpAction(
   data: SignUpFormValues

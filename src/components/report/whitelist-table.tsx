@@ -104,12 +104,13 @@ export default function WhitelistTable({ data }: WhitelistTableProps) {
                     if (result.success) {
                       toast({
                         title: "IP 관리 항목 삭제 성공",
-                        description: "IP 관리 항목이 삭제되었습니다.",
                       });
                     } else {
                       toast({
                         title: "IP 관리 항목 삭제 실패",
-                        description: "IP 관리 항목 삭제에 실패했습니다.",
+                        description:
+                          result.error || "잠시 후 다시 시도해주세요",
+                        variant: "destructive",
                       });
                     }
                   }

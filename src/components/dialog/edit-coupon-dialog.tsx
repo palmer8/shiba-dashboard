@@ -175,14 +175,14 @@ export default function EditCouponDialog({
       });
       if (result) {
         toast({
-          title: "쿠폰 그룹이 수정되었습니다.",
+          title: "쿠폰 그룹 수정 완료",
         });
         setOpen(false);
       }
     } catch (error) {
       toast({
-        title: "쿠폰 그룹 수정에 실패했습니다.",
-        description: "잠시 후에 다시 시도해주세요",
+        title: "쿠폰 그룹 수정 실패",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

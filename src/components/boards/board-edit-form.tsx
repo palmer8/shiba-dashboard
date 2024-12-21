@@ -80,7 +80,7 @@ export default function BoardEditForm({
       } else {
         toast({
           title: "카테고리 로드 실패",
-          description: "카테고리 목록을 불러오는데 실패했습니다.",
+          description: result.error || "잠시 후 다시 시도해주세요",
           variant: "destructive",
         });
       }
@@ -112,8 +112,8 @@ export default function BoardEditForm({
   const handleSubmit = async () => {
     if (!session?.user?.id) {
       toast({
-        title: "오류가 발생했습니다.",
-        description: "로그인이 필요합니다.",
+        title: "오류 발생",
+        description: "로그인이 필요합니다",
         variant: "destructive",
       });
       return;
@@ -121,8 +121,8 @@ export default function BoardEditForm({
 
     if (!title.trim()) {
       toast({
-        title: "오류가 발생했습니다.",
-        description: "제목을 알맞게 입력해주세요.",
+        title: "오류 발생",
+        description: "제목을 알맞게 입력해주세요",
         variant: "destructive",
       });
       return;
@@ -130,8 +130,8 @@ export default function BoardEditForm({
 
     if (!categoryId) {
       toast({
-        title: "오류가 발생했습니다.",
-        description: "카테고리를 선택해주세요.",
+        title: "오류 발생",
+        description: "카테고리를 선택해주세요",
         variant: "destructive",
       });
       return;
@@ -157,7 +157,7 @@ export default function BoardEditForm({
 
       if (result.success) {
         toast({
-          title: "게시글이 수정되었습니다.",
+          title: "게시글 수정 성공",
         });
         router.push(`/board/${result.data?.id}`);
       } else {

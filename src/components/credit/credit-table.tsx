@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "@/hooks/use-toast";
 import {
   formatKoreanDateTime,
   formatKoreanNumber,
@@ -36,22 +37,21 @@ import {
   getRewardRevokeByIdsOrigin,
   deleteCreditAction,
 } from "@/actions/credit-action";
-import { toast } from "@/hooks/use-toast";
 import { Status, UserRole } from "@prisma/client";
-import { GlobalReturn } from "@/types/global-return";
 import { Badge } from "@/components/ui/badge";
-import { Edit, MoreHorizontal, Trash } from "lucide-react";
+import { MoreHorizontal, Trash } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSession } from "next-auth/react";
-import Empty from "../ui/empty";
+import Empty from "@/components/ui/empty";
+import { Session } from "next-auth";
 
 interface CreditTableProps {
   data: CreditTableData;
+  session: Session;
 }
 
 // 상수 분리
@@ -70,7 +70,7 @@ const CREDIT_TYPE_MAP: Record<string, string> = {
   CURRENT_COIN: "마일리지",
 } as const;
 
-export function CreditTable({ data }: CreditTableProps) {
+export function CreditTable({ data, session }: CreditTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
@@ -79,8 +79,6 @@ export function CreditTable({ data }: CreditTableProps) {
     id: false,
     status: false,
   });
-  const { data: session } = useSession();
-
   // columns 정의를 useMemo로 최적화
   const columns = useMemo<ColumnDef<RewardRevoke>[]>(
     () => [
@@ -201,7 +199,9 @@ export function CreditTable({ data }: CreditTableProps) {
                           row.original.id
                         );
                         if (result && result.success) {
-                          handleSuccess(result.message);
+                          toast({
+                            title: "삭제 성공",
+                          });
                         }
                       }
                     }}
@@ -238,21 +238,6 @@ export function CreditTable({ data }: CreditTableProps) {
     [searchParams]
   );
 
-  // 공통 에러 처리 함수
-  const handleError = useCallback((error: unknown, action: string) => {
-    console.error(`${action} error:`, error);
-    toast({
-      title: `${action} 처리 중 오류가 발생했습니다.`,
-      variant: "destructive",
-    });
-  }, []);
-
-  // 공통 성공 처리 함수
-  const handleSuccess = useCallback((message: string) => {
-    toast({ title: message });
-    table.toggleAllPageRowsSelected(false);
-  }, []);
-
   // 선택된 ID 가져오기 함수
   const getSelectedIds = useCallback(() => {
     const selectedIds = table
@@ -266,111 +251,158 @@ export function CreditTable({ data }: CreditTableProps) {
     return selectedIds;
   }, [table]);
 
-  // 액션 핸들러 최적화
-  const handleAction = useCallback(
-    async (
-      action: (ids: string[]) => Promise<GlobalReturn<boolean>>,
-      successMessage: string,
-      actionName: string
-    ) => {
-      const selectedIds = getSelectedIds();
-      if (!selectedIds) return;
+  const handleApprove = async () => {
+    const selectedIds = table
+      .getSelectedRowModel()
+      .rows.map((row) => row.original.id);
+    if (!selectedIds.length) {
+      toast({ title: "선택된 항목이 없습니다." });
+      return;
+    }
 
-      setIsLoading(true);
-      try {
-        const result = await action(selectedIds);
-        if (result.success) {
-          handleSuccess(successMessage);
-        } else {
-          toast({
-            title: result.message,
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        handleError(error, actionName);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [getSelectedIds, handleSuccess, handleError]
-  );
-
-  const handleApprove = useCallback(
-    () =>
-      handleAction(
-        approveCreditAction,
-        "선택된 항목이 승인되었습니다.",
-        "승인"
-      ),
-    [handleAction]
-  );
-
-  const handleReject = useCallback(
-    () =>
-      handleAction(rejectCreditAction, "선택된 항목이 거절되었습니다.", "거절"),
-    [handleAction]
-  );
-
-  const handleCancel = useCallback(
-    () =>
-      handleAction(cancelCreditAction, "선택된 항목이 취소되었습니다.", "취소"),
-    [handleAction]
-  );
-
-  // 전체 처리 ���들러
-  const handleBulkAction = useCallback(
-    async (
-      action: () => Promise<GlobalReturn<boolean>>,
-      successMessage: string,
-      actionName: string,
-      checkStatus: Status = "PENDING"
-    ) => {
-      const pendingRows = table
-        .getRowModel()
-        .rows.filter((row) => row.original.status === checkStatus);
-
-      if (!pendingRows.length) {
+    setIsLoading(true);
+    try {
+      const result = await approveCreditAction(selectedIds);
+      if (result.success) {
+        toast({ title: "승인 성공" });
+      } else {
         toast({
-          title: `${actionName}할 항목이 없습니다.`,
+          title: "승인 실패",
+          description: result.error || "승인 처리 중 오류가 발생했습니다.",
           variant: "destructive",
         });
-        return;
       }
+    } catch (error) {
+      toast({
+        title: "승인 실패",
+        description: "승인 처리 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      setIsLoading(true);
-      try {
-        const result = await action();
-        if (result.success) {
-          handleSuccess(successMessage);
-        } else {
-          toast({
-            title: result.message,
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        handleError(error, `전체 ${actionName}`);
-      } finally {
-        setIsLoading(false);
+  const handleReject = async () => {
+    const selectedIds = table
+      .getSelectedRowModel()
+      .rows.map((row) => row.original.id);
+    if (!selectedIds.length) {
+      toast({ title: "선택된 항목이 없습니다." });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await rejectCreditAction(selectedIds);
+      if (result.success) {
+        toast({ title: "거절 성공" });
+      } else {
+        toast({
+          title: "거절 실패",
+          description: result.error || "거절 처리 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
       }
-    },
-    [table, handleSuccess, handleError]
-  );
+    } catch (error) {
+      toast({
+        title: "거절 실패",
+        description: "거절 처리 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // 페이지 변경 핸들러 최적화
-  const handlePageChange = useCallback(
-    (newPage: number) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("page", newPage.toString());
-      router.push(`?${params.toString()}`);
-    },
-    [router, searchParams]
-  );
+  const handleCancel = async () => {
+    const selectedIds = table
+      .getSelectedRowModel()
+      .rows.map((row) => row.original.id);
+    if (!selectedIds.length) {
+      toast({ title: "선택된 항목이 없습니다." });
+      return;
+    }
 
-  const handleDownloadCSV = useCallback(async () => {
-    const selectedIds = getSelectedIds();
-    if (!selectedIds) return;
+    setIsLoading(true);
+    try {
+      const result = await cancelCreditAction(selectedIds);
+      if (result.success) {
+        toast({ title: "취소 성공" });
+      } else {
+        toast({
+          title: "취소 실패",
+          description: result.error || "취소 처리 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "취소 실패",
+        description: "취소 처리 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    setIsLoading(true);
+    try {
+      const result = await approveAllCreditAction();
+      if (result.success) {
+        toast({ title: "전체 승인 성공" });
+      } else {
+        toast({
+          title: "전체 승인 실패",
+          description: result.error || "전체 승인 처리 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "전체 승인 실패",
+        description: "전체 승인 처리 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBulkReject = async () => {
+    setIsLoading(true);
+    try {
+      const result = await rejectAllCreditAction();
+      if (result.success) {
+        toast({ title: "전체 거절 성공" });
+      } else {
+        toast({
+          title: "전체 거절 실패",
+          description: result.error || "전체 거절 처리 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "전체 거절 실패",
+        description: "전체 거절 처리 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDownloadCSV = async () => {
+    const selectedIds = table
+      .getSelectedRowModel()
+      .rows.map((row) => row.original.id);
+    if (!selectedIds.length) {
+      toast({ title: "선택된 항목이 없습니다." });
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -380,20 +412,30 @@ export function CreditTable({ data }: CreditTableProps) {
           data: result.data,
           fileName: "reward_revoke_data",
         });
-        toast({ title: "재화 지급/회수 CSV 파일을 다운로드하였습니다." });
+        toast({ title: "CSV 다운로드 성공" });
       } else {
         toast({
-          title: "재화 지급/회수 CSV 파일을 다운로드 실패하였습니다.",
-          description: result.message || "잠시 후에 다시 시도해주세요",
+          title: "CSV 다운로드 실패",
+          description: result.error || "다운로드 중 오류가 발생했습니다.",
           variant: "destructive",
         });
       }
     } catch (error) {
-      handleError(error, "CSV 다운로드");
+      toast({
+        title: "CSV 다운로드 실패",
+        description: "다운로드 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [getSelectedIds, handleError]);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", newPage.toString());
+    router.push(`?${params.toString()}`);
+  };
 
   return (
     <div className="space-y-4">
@@ -408,16 +450,7 @@ export function CreditTable({ data }: CreditTableProps) {
             >
               승인
             </Button>
-            <Button
-              onClick={() =>
-                handleBulkAction(
-                  approveAllCreditAction,
-                  "전체 항목이 승인되었습니다.",
-                  "전체 승인"
-                )
-              }
-              disabled={isLoading}
-            >
+            <Button onClick={handleBulkApprove} disabled={isLoading}>
               전체 승인
             </Button>
             <Button
@@ -431,13 +464,7 @@ export function CreditTable({ data }: CreditTableProps) {
             </Button>
             <Button
               variant="destructive"
-              onClick={() =>
-                handleBulkAction(
-                  rejectAllCreditAction,
-                  "전체 항목이 거절되었습니다.",
-                  "전체 거절"
-                )
-              }
+              onClick={handleBulkReject}
               disabled={isLoading}
             >
               전체 거절

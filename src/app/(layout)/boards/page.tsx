@@ -7,10 +7,8 @@ import { GlobalTitle } from "@/components/global/global-title";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
 import { getBoardListAction } from "@/actions/board-action";
-import { TableSkeleton } from "@/components/ui/table-skeleton";
+import BoardTableSkeleton from "@/components/boards/board-table-skeleton";
 import { Session } from "next-auth";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
@@ -52,7 +50,7 @@ export default async function BoardsPage({ searchParams }: PageProps) {
       />
       <div className="space-y-4">
         <BoardFilters filters={filters} />
-        <Suspense fallback={<TableSkeleton />}>
+        <Suspense fallback={<BoardTableSkeleton />}>
           <BoardContent session={session} filters={filters} page={page} />
         </Suspense>
       </div>

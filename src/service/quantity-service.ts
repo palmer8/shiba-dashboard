@@ -1,6 +1,5 @@
 import prisma from "@/db/prisma";
 import { ItemQuantityFilter } from "@/types/filters/quantity-filter";
-import { GlobalReturn } from "@/types/global-return";
 import {
   CreateItemQuantityData,
   ItemQuantityTableData,
@@ -9,9 +8,8 @@ import {
 import { Prisma, ItemQuantity as ItemQuantityOrigin } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
-import { creditService } from "./credit-service";
-import { ItemQuantityValues } from "@/components/dialog/add-item-quantity-dialog";
 import { UpdateUserData } from "@/types/user";
+import { ApiResponse } from "@/types/global.dto";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -19,9 +17,9 @@ class ItemQuantityService {
   async getItemQuantities(
     page: number,
     filter: ItemQuantityFilter
-  ): Promise<GlobalReturn<ItemQuantityTableData>> {
+  ): Promise<ApiResponse<ItemQuantityTableData>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session || !session.user) return redirect("/login");
 
     try {
       const where: Prisma.ItemQuantityWhereInput = {
@@ -80,7 +78,6 @@ class ItemQuantityService {
 
       return {
         success: true,
-        message: "아이템 지급/회수 내역 조회 성공",
         data: {
           records: records as ItemQuantity[],
           metadata: {
@@ -95,18 +92,17 @@ class ItemQuantityService {
       console.error("Get item quantities error:", error);
       return {
         success: false,
-        message: "아이템 지급/회수 내역 조회 실패",
+        error: "아이템 지급/회수 내역 조회 실패",
         data: null,
-        error,
       };
     }
   }
 
   async createItemQuantity(
     data: CreateItemQuantityData
-  ): Promise<GlobalReturn<ItemQuantity>> {
+  ): Promise<ApiResponse<ItemQuantity>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
       const record = await prisma.itemQuantity.create({
@@ -135,17 +131,15 @@ class ItemQuantityService {
 
       return {
         success: true,
-        message: "아이템 지급/회수 티켓이 생성되었습니다.",
-        data: record as ItemQuantity,
+        data: record,
         error: null,
       };
     } catch (error) {
       console.error("Create item quantity error:", error);
       return {
         success: false,
-        message: "아이템 지급/회수 티켓 생성에 실패했습니다.",
+        error: "아이템 지급/회수 티켓 생성에 실패했습니다.",
         data: null,
-        error,
       };
     }
   }
@@ -171,9 +165,9 @@ class ItemQuantityService {
     return result;
   }
 
-  async approveItemQuantities(ids: string[]): Promise<GlobalReturn<boolean>> {
+  async approveItemQuantities(ids: string[]): Promise<ApiResponse<boolean>> {
     const session = await auth();
-    if (!session?.user) return redirect("/login");
+    if (!session || !session.user) return redirect("/login");
 
     const itemQuantities = await prisma.itemQuantity.findMany({
       where: {
@@ -235,7 +229,6 @@ class ItemQuantityService {
 
       return {
         success: true,
-        message: "아이템 지급/회수 승인 성공",
         data: true,
         error: null,
       };
@@ -243,16 +236,15 @@ class ItemQuantityService {
       console.error("Approve item quantities error:", error);
       return {
         success: false,
-        message: "아이템 지급/회수 승인 실패",
+        error: "아이템 지급/회수 승인 실패",
         data: null,
-        error,
       };
     }
   }
 
-  async approveAllItemQuantities(): Promise<GlobalReturn<boolean>> {
+  async approveAllItemQuantities(): Promise<ApiResponse<boolean>> {
     const session = await auth();
-    if (!session?.user) return redirect("/login");
+    if (!session || !session.user) return redirect("/login");
 
     try {
       const itemQuantities = await prisma.itemQuantity.findMany({
@@ -262,9 +254,8 @@ class ItemQuantityService {
       if (itemQuantities.length === 0) {
         return {
           success: false,
-          message: "승인할 티켓이 없습니다.",
+          error: "승인할 티켓이 없습니다.",
           data: null,
-          error: new Error("No tickets to approve"),
         };
       }
 
@@ -306,7 +297,6 @@ class ItemQuantityService {
 
       return {
         success: true,
-        message: "아이템 지급/회수 승인 성공",
         data: true,
         error: null,
       };
@@ -314,16 +304,15 @@ class ItemQuantityService {
       console.error("Approve all item quantities error:", error);
       return {
         success: false,
-        message: "아이템 지급/회수 승인 실패",
+        error: "아이템 지급/회수 승인 실패",
         data: null,
-        error,
       };
     }
   }
 
-  async rejectItemQuantities(ids: string[]): Promise<GlobalReturn<boolean>> {
+  async rejectItemQuantities(ids: string[]): Promise<ApiResponse<boolean>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session || !session.user) return redirect("/login");
 
     try {
       await prisma.$transaction(async (prisma) => {
@@ -349,7 +338,6 @@ class ItemQuantityService {
 
       return {
         success: true,
-        message: "아이템 지급/회수 거절 성공",
         data: true,
         error: null,
       };
@@ -357,16 +345,15 @@ class ItemQuantityService {
       console.error("Reject item quantities error:", error);
       return {
         success: false,
-        message: "아이템 지급/회수 거절 실패",
+        error: "아이템 지급/회수 거절 실패",
         data: null,
-        error,
       };
     }
   }
 
-  async cancelItemQuantity(ids: string[]): Promise<GlobalReturn<boolean>> {
+  async cancelItemQuantity(ids: string[]): Promise<ApiResponse<boolean>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session || !session.user) return redirect("/login");
 
     try {
       await prisma.itemQuantity.updateMany({
@@ -389,7 +376,6 @@ class ItemQuantityService {
 
       return {
         success: true,
-        message: "아이템 지급/회수 취소 성공",
         data: true,
         error: null,
       };
@@ -397,16 +383,15 @@ class ItemQuantityService {
       console.error("Cancel item quantity error:", error);
       return {
         success: false,
-        message: "아이템 지급/회수 취소 실패",
+        error: "아이템 지급/회수 취소 실패",
         data: null,
-        error,
       };
     }
   }
 
-  async deleteItemQuantity(id: string): Promise<GlobalReturn<boolean>> {
+  async deleteItemQuantity(id: string): Promise<ApiResponse<boolean>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session || !session.user) return redirect("/login");
 
     try {
       const user = await prisma.user.findUnique({
@@ -417,9 +402,8 @@ class ItemQuantityService {
       if (!user || user.role !== "SUPERMASTER") {
         return {
           success: false,
-          message: "삭제 권한이 없습니다.",
+          error: "삭제 권한이 없습니다.",
           data: null,
-          error: new Error("Unauthorized"),
         };
       }
 
@@ -444,7 +428,6 @@ class ItemQuantityService {
 
       return {
         success: true,
-        message: "아이템 지급/회수 기록이 삭제되었습니다.",
         data: true,
         error: null,
       };
@@ -452,9 +435,8 @@ class ItemQuantityService {
       console.error("Delete item quantity error:", error);
       return {
         success: false,
-        message: "아이템 지급/회수 기록 삭제에 실패했습니다.",
+        error: "아이템 지급/회수 기록 삭제에 실패했습니다.",
         data: null,
-        error,
       };
     }
   }
@@ -469,9 +451,9 @@ class ItemQuantityService {
       type: "ADD" | "REMOVE";
       reason: string;
     }
-  ): Promise<GlobalReturn<ItemQuantity>> {
+  ): Promise<ApiResponse<ItemQuantity>> {
     const session = await auth();
-    if (!session?.user) redirect("/login");
+    if (!session || !session.user) redirect("/login");
 
     try {
       const user = await prisma.user.findUnique({
@@ -482,9 +464,8 @@ class ItemQuantityService {
       if (!user || user.role !== "SUPERMASTER") {
         return {
           success: false,
-          message: "수정 권한이 없습니다.",
+          error: "수정 권한이 없습니다.",
           data: null,
-          error: new Error("Unauthorized"),
         };
       }
 
@@ -518,7 +499,6 @@ class ItemQuantityService {
 
       return {
         success: true,
-        message: "아이템 지급/회수 정보가 수정되었습니다.",
         data: result.updateResult as ItemQuantity,
         error: null,
       };
@@ -526,14 +506,13 @@ class ItemQuantityService {
       console.error("Update item quantity error:", error);
       return {
         success: false,
-        message: "아이템 지급/회수 정보 수정에 실패했습니다.",
+        error: "아이템 지급/회수 정보 수정에 실패했습니다.",
         data: null,
-        error,
       };
     }
   }
 
-  async rejectAllItemQuantities(): Promise<GlobalReturn<boolean>> {
+  async rejectAllItemQuantities(): Promise<ApiResponse<boolean>> {
     const session = await auth();
     if (!session?.user) redirect("/login");
 
@@ -545,9 +524,8 @@ class ItemQuantityService {
       if (itemQuantities.length === 0) {
         return {
           success: false,
-          message: "거절할 티켓이 없습니다.",
+          error: "거절할 티켓이 없습니다.",
           data: null,
-          error: new Error("No tickets to reject"),
         };
       }
 
@@ -569,7 +547,6 @@ class ItemQuantityService {
 
       return {
         success: true,
-        message: "아이템 지급/회수 거절 성공",
         data: true,
         error: null,
       };
@@ -577,16 +554,15 @@ class ItemQuantityService {
       console.error("Reject all item quantities error:", error);
       return {
         success: false,
-        message: "아이템 지급/회수 거절 실패",
+        error: "아이템 지급/회수 거절 실패",
         data: null,
-        error,
       };
     }
   }
 
   async getItemQuantitiesByIdsOrigin(
     ids: string[]
-  ): Promise<GlobalReturn<ItemQuantityOrigin[]>> {
+  ): Promise<ApiResponse<ItemQuantityOrigin[]>> {
     try {
       const records = await prisma.itemQuantity.findMany({
         where: {
@@ -596,7 +572,6 @@ class ItemQuantityService {
 
       return {
         success: true,
-        message: "선택된 아이템 지급/회수 내역 조회 성공",
         data: records as ItemQuantityOrigin[],
         error: null,
       };
@@ -604,9 +579,8 @@ class ItemQuantityService {
       console.error("Get Item Quantity by IDs error:", error);
       return {
         success: false,
-        message: "선택된 아이템 지급/회수 내역 조회 실패",
+        error: "선택된 아이템 지급/회수 내역 조회 실패",
         data: null,
-        error,
       };
     }
   }

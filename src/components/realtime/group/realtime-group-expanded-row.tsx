@@ -25,7 +25,8 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
+import { handleDownloadJson2CSV } from "@/lib/utils";
+import Empty from "@/components/ui/empty";
 
 interface RealtimeGroupExpandedRowProps {
   userId: string;
@@ -85,19 +86,20 @@ export function RealtimeGroupExpandedRow({
                 });
                 if (result.success) {
                   toast({
-                    title: "해당 그룹에서 성공적으로 추방하였습니다.",
+                    title: "그룹 추방 성공",
                   });
                   fetchUserGroups();
                 } else {
                   toast({
-                    title: "그룹 삭제에 실패하였습니다",
-                    description: result.message,
+                    title: "그룹 추방 실패",
+                    description: result.error || "잠시 후 다시 시도해주세요",
                     variant: "destructive",
                   });
                 }
               } catch (error) {
                 toast({
-                  title: "그룹 제거 실패",
+                  title: "그룹 추방 실패",
+                  description: "잠시 후 다시 시도해주세요",
                   variant: "destructive",
                 });
               }
@@ -134,7 +136,7 @@ export function RealtimeGroupExpandedRow({
     });
 
     toast({
-      title: "그룹 목록 CSV 다운로드가 완료되었습니다.",
+      title: "CSV 다운로드 성공",
     });
   };
 
@@ -146,14 +148,14 @@ export function RealtimeGroupExpandedRow({
         setData(result.data);
       } else {
         toast({
-          title: "해당 유저의 그룹 정보를 조회하는데에 실패했습니다",
-          description: result.message,
+          title: "그룹 정보 조회 실패",
+          description: result.error || "잠시 후 다시 시도해주세요",
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
-        title: "그룹 정보를 조회하는데에 오류가 발생했습니다",
+        title: "그룹 정보 조회 실패",
         description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
@@ -194,7 +196,7 @@ export function RealtimeGroupExpandedRow({
   if (!data) {
     return (
       <div className="p-4 text-center text-muted-foreground">
-        데이터를 불러올 수 없습니다.
+        <Empty description="데이터를 불러올 수 없습니다" />
       </div>
     );
   }

@@ -1,6 +1,5 @@
 import prisma from "@/db/prisma";
 import { CreditFilter } from "@/types/filters/credit-filter";
-import { GlobalReturn } from "@/types/global-return";
 import {
   RewardRevoke,
   CreditTableData,
@@ -13,6 +12,7 @@ import { Prisma, RewardRevokeCreditType, ActionType } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
 import { formatKoreanNumber } from "@/lib/utils";
+import { ApiResponse } from "@/types/global.dto";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -20,7 +20,7 @@ class CreditService {
   async getRewardRevokes(
     page: number,
     filter: CreditFilter
-  ): Promise<GlobalReturn<CreditTableData>> {
+  ): Promise<ApiResponse<CreditTableData>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -89,7 +89,6 @@ class CreditService {
 
       return {
         success: true,
-        message: "재화 지급/회수 내역 조회 성공",
         data: {
           records: records as RewardRevoke[],
           metadata: {
@@ -104,9 +103,8 @@ class CreditService {
       console.error("Get reward revokes error:", error);
       return {
         success: false,
-        message: "재화 지급/회수 내역 조회 실패",
+        error: "재화 지급/회수 내역 조회 실패",
         data: null,
-        error,
       };
     }
   }
@@ -165,7 +163,7 @@ class CreditService {
     return result;
   }
 
-  async approveRewardRevokes(ids: string[]): Promise<GlobalReturn<boolean>> {
+  async approveRewardRevokes(ids: string[]): Promise<ApiResponse<boolean>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -229,7 +227,6 @@ class CreditService {
 
       return {
         success: true,
-        message: "재화 지급/회수 승인 성공",
         data: true,
         error: null,
       };
@@ -237,14 +234,13 @@ class CreditService {
       console.error("Approve reward revokes error:", error);
       return {
         success: false,
-        message: "재화 지급/회수 승인 실패",
+        error: "재화 지급/회수 승인 실패",
         data: null,
-        error,
       };
     }
   }
 
-  async rejectRewardRevokes(ids: string[]): Promise<GlobalReturn<boolean>> {
+  async rejectRewardRevokes(ids: string[]): Promise<ApiResponse<boolean>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -272,22 +268,20 @@ class CreditService {
 
       return {
         success: true,
-        message: "재화 지급/회수 거절 성공",
-        data: true,
         error: null,
+        data: true,
       };
     } catch (error) {
       console.error("Reject reward revokes error:", error);
       return {
         success: false,
-        message: "재화 지급/회수 거절 실패",
+        error: "재화 지급/회수 거절 실패",
         data: null,
-        error,
       };
     }
   }
 
-  async cancelRewardRevokes(ids: string[]): Promise<GlobalReturn<boolean>> {
+  async cancelRewardRevokes(ids: string[]): Promise<ApiResponse<boolean>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -312,24 +306,22 @@ class CreditService {
 
       return {
         success: true,
-        message: "재화 지급/회수 취소 성공",
-        data: true,
         error: null,
+        data: true,
       };
     } catch (error) {
       console.error("Cancel reward revokes error:", error);
       return {
         success: false,
-        message: "재화 지급/회수 취소 실패",
+        error: "재화 지급/회수 취소 실패",
         data: null,
-        error,
       };
     }
   }
 
   async createRewardRevoke(
     data: CreateRewardRevokeData
-  ): Promise<GlobalReturn<RewardRevoke>> {
+  ): Promise<ApiResponse<RewardRevoke>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -359,22 +351,20 @@ class CreditService {
 
       return {
         success: true,
-        message: "재화 지급/회수 티켓이 생성되었습니다.",
-        data: record as RewardRevoke,
         error: null,
+        data: record as RewardRevoke,
       };
     } catch (error) {
       console.error("Create reward revoke error:", error);
       return {
         success: false,
-        message: "재화 지급/회수 티켓 생성에 실패했습니다.",
+        error: "재화 지급/회수 티켓 생성에 실패했습니다.",
         data: null,
-        error,
       };
     }
   }
 
-  async deleteRewardRevoke(id: string): Promise<GlobalReturn<boolean>> {
+  async deleteRewardRevoke(id: string): Promise<ApiResponse<boolean>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -387,9 +377,8 @@ class CreditService {
       if (!user || user.role !== "SUPERMASTER") {
         return {
           success: false,
-          message: "삭제 권한이 없습니다.",
+          error: "삭제 권한이 없습니다.",
           data: null,
-          error: new Error("Unauthorized"),
         };
       }
 
@@ -414,17 +403,15 @@ class CreditService {
 
       return {
         success: true,
-        message: "재화 지급/회수 기록이 삭제되었습니다.",
-        data: true,
         error: null,
+        data: true,
       };
     } catch (error) {
       console.error("Delete reward revoke error:", error);
       return {
         success: false,
-        message: "재화 지급/회수 기록 삭제에 실패했습니다.",
+        error: "재화 지급/회수 기록 삭제에 실패했습니다.",
         data: null,
-        error,
       };
     }
   }
@@ -432,7 +419,7 @@ class CreditService {
   async updateRewardRevoke(
     id: string,
     data: UpdateRewardRevokeData
-  ): Promise<GlobalReturn<RewardRevoke>> {
+  ): Promise<ApiResponse<RewardRevoke>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -445,9 +432,8 @@ class CreditService {
       if (!user || user.role !== "SUPERMASTER") {
         return {
           success: false,
-          message: "수정 권한이 없습니다.",
+          error: "수정 권한이 없습니다.",
           data: null,
-          error: new Error("Unauthorized"),
         };
       }
 
@@ -480,22 +466,20 @@ class CreditService {
 
       return {
         success: true,
-        message: "재화 지급/회수 정보가 수정되었습니다.",
-        data: result.updateResult as RewardRevoke,
         error: null,
+        data: result.updateResult as RewardRevoke,
       };
     } catch (error) {
       console.error("Update reward revoke error:", error);
       return {
         success: false,
-        message: "재화 지급/회수 정보 수정에 실패했습니다.",
+        error: "재화 지급/회수 정보 수정에 실패했습니다.",
         data: null,
-        error,
       };
     }
   }
 
-  async approveAllRewardRevokes(): Promise<GlobalReturn<boolean>> {
+  async approveAllRewardRevokes(): Promise<ApiResponse<boolean>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -548,22 +532,20 @@ class CreditService {
 
       return {
         success: true,
-        message: "재화 지급/회수 승인 성공",
-        data: true,
         error: null,
+        data: true,
       };
     } catch (error) {
       console.error("Approve all reward revokes error:", error);
       return {
         success: false,
-        message: "재화 지급/회수 승인 실패",
+        error: "재화 지급/회수 승인 실패",
         data: null,
-        error,
       };
     }
   }
 
-  async rejectAllRewardRevokes(): Promise<GlobalReturn<boolean>> {
+  async rejectAllRewardRevokes(): Promise<ApiResponse<boolean>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -590,24 +572,22 @@ class CreditService {
 
       return {
         success: true,
-        message: "재화 지급/회수 거절 성공",
-        data: true,
         error: null,
+        data: true,
       };
     } catch (error) {
       console.error("Reject all reward revokes error:", error);
       return {
         success: false,
-        message: "재화 지급/회수 거절 실패",
+        error: "재화 지급/회수 거절 실패",
         data: null,
-        error,
       };
     }
   }
 
   async getRewardRevokeByIdsOrigin(
     ids: string[]
-  ): Promise<GlobalReturn<RewardRevokeOrigin[]>> {
+  ): Promise<ApiResponse<RewardRevokeOrigin[]>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -620,24 +600,22 @@ class CreditService {
 
       return {
         success: true,
-        message: "선택된 재화 지급/회수 내역 조회 성공",
-        data: records as RewardRevokeOrigin[],
         error: null,
+        data: records as RewardRevokeOrigin[],
       };
     } catch (error) {
       console.error("Get reward revoke by IDs error:", error);
       return {
         success: false,
-        message: "선택된 재화 지급/회수 내역 조회 실패",
+        error: "선택된 재화 지급/회수 내역 조회 실패",
         data: null,
-        error,
       };
     }
   }
 
   async getRewardRevokeByIds(
     ids: string[]
-  ): Promise<GlobalReturn<RewardRevoke[]>> {
+  ): Promise<ApiResponse<RewardRevoke[]>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -648,17 +626,15 @@ class CreditService {
 
       return {
         success: true,
-        message: "선택된 재화 지급/회수 내역 조회 성공",
-        data: records as RewardRevoke[],
         error: null,
+        data: records as RewardRevoke[],
       };
     } catch (error) {
       console.error("Get reward revoke by IDs error:", error);
       return {
         success: false,
-        message: "선택된 재화 지급/회수 내역 조회 실패",
+        error: "선택된 재화 지급/회수 내역 조회 실패",
         data: null,
-        error,
       };
     }
   }

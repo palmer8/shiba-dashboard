@@ -165,7 +165,11 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
                               row.original.id
                             );
                             if (result && result.success) {
-                              toast({ title: result.message });
+                              toast({
+                                title: "제거 성공",
+                                description:
+                                  "해당 항목을 성공적으로 제거했습니다.",
+                              });
                             }
                           }
                         }}

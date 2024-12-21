@@ -1,15 +1,13 @@
 import prisma from "@/db/prisma";
-import { AdminDto } from "@/dto/admin.dto";
 import { auth } from "@/lib/auth-config";
 import { hasAccess } from "@/lib/utils";
 import { AdminFilter } from "@/types/filters/admin-filter";
-import { GlobalReturn } from "@/types/global-return";
 import { User, UserRole } from "@prisma/client";
+import { AdminDto } from "@/types/user";
+import { ApiResponse } from "@/types/global.dto";
 
 class AdminService {
-  async getDashboardUsers(
-    params: AdminFilter
-  ): Promise<GlobalReturn<AdminDto>> {
+  async getDashboardUsers(params: AdminFilter): Promise<ApiResponse<AdminDto>> {
     const page = params.page || 1;
     const take = 20;
 
@@ -29,15 +27,6 @@ class AdminService {
           ...(params.role && {
             role: params.role as UserRole,
           }),
-        },
-        select: {
-          id: true,
-          name: true,
-          nickname: true,
-          role: true,
-          userId: true,
-          isPermissive: true,
-          createdAt: true,
         },
         orderBy: {
           createdAt: "desc",
@@ -66,12 +55,11 @@ class AdminService {
 
     return {
       success: true,
-      message: "어드민 유저 조회 성공",
       data: {
         items: accounts,
-        total,
         page,
         totalPages: Math.ceil(total / take),
+        totalCount: total,
       },
       error: null,
     };
@@ -80,15 +68,14 @@ class AdminService {
   async updateDashboardUserRole(
     id: string,
     role: UserRole
-  ): Promise<GlobalReturn<Pick<User, "id" | "role">>> {
+  ): Promise<ApiResponse<Pick<User, "id" | "role">>> {
     const session = await auth();
 
     if (!session) {
       return {
         success: false,
-        message: "로그인이 필요합니다.",
+        error: "로그인이 필요합니다.",
         data: null,
-        error: null,
       };
     }
 
@@ -103,18 +90,16 @@ class AdminService {
     if (!registrant) {
       return {
         success: false,
-        message: "유저를 찾을 수 없습니다.",
+        error: "유저를 찾을 수 없습니다.",
         data: null,
-        error: null,
       };
     }
 
     if (!hasAccess(registrant.role, UserRole.SUPERMASTER)) {
       return {
         success: false,
-        message: "권한이 없습니다.",
+        error: "권한이 없습니다.",
         data: null,
-        error: null,
       };
     }
 
@@ -129,21 +114,19 @@ class AdminService {
 
     return {
       success: true,
-      message: "유저 권한 수정 성공",
       data: user,
       error: null,
     };
   }
 
-  async removeDashboardUser(id: string): Promise<GlobalReturn<User>> {
+  async removeDashboardUser(id: string): Promise<ApiResponse<User>> {
     const session = await auth();
 
     if (!session) {
       return {
         success: false,
-        message: "로그인이 필요합니다.",
+        error: "로그인이 필요합니다.",
         data: null,
-        error: null,
       };
     }
 
@@ -158,9 +141,8 @@ class AdminService {
     if (!registrant || !hasAccess(registrant.role, UserRole.SUPERMASTER)) {
       return {
         success: false,
-        message: "권한이 없습니다.",
+        error: "권한이 없습니다.",
         data: null,
-        error: null,
       };
     }
 
@@ -169,7 +151,6 @@ class AdminService {
     });
     return {
       success: true,
-      message: "유저 삭제 성공",
       data: user,
       error: null,
     };
@@ -178,15 +159,14 @@ class AdminService {
   async toggleDashboardUserPermission(
     id: string,
     value: boolean
-  ): Promise<GlobalReturn<User>> {
+  ): Promise<ApiResponse<User>> {
     const session = await auth();
 
     if (!session) {
       return {
         success: false,
-        message: "로그인이 필요합니다.",
+        error: "로그인이 필요합니다.",
         data: null,
-        error: null,
       };
     }
 
@@ -201,9 +181,8 @@ class AdminService {
     if (!registrant || !hasAccess(registrant.role, UserRole.SUPERMASTER)) {
       return {
         success: false,
-        message: "권한이 없습니다.",
+        error: "권한이 없습니다.",
         data: null,
-        error: null,
       };
     }
 
@@ -214,7 +193,6 @@ class AdminService {
 
     return {
       success: true,
-      message: "유저 권한 수정 성공",
       data: result,
       error: null,
     };

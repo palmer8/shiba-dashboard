@@ -25,7 +25,7 @@ import {
   RemoveUserVehicleDto,
   RemoveUserWeaponDto,
   UpdateUserInventoryDto,
-} from "@/dto/realtime.dto";
+} from "@/types/realtime";
 
 interface RealtimeUserItemProps {
   data: {
@@ -53,12 +53,12 @@ export default function RealtimeUserItem({
     const result = await updateUserItemAction(data);
     if (result.success) {
       toast({
-        title: "해당 유저의 아이템을 성공적으로 업데이트했습니다.",
+        title: "아이템 업데이트 성공",
       });
     } else {
       toast({
-        title: "해당 유저의 아이템 업데이트에 실패했습니다.",
-        description: "양식을 확인하거나 잠시 후에 시도해주세요.",
+        title: "아이템 업데이트 실패",
+        description: result.error || "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }
@@ -83,12 +83,12 @@ export default function RealtimeUserItem({
     const result = await removeUserWeaponAction(data);
     if (result.success) {
       toast({
-        title: "해당 유저의 무기를 성공적으로 제거했습니다.",
+        title: "무기 제거 성공",
       });
     } else {
       toast({
-        title: "해당 유저의 무기 제거에 실패했습니다.",
-        description: "양식을 확인하거나 잠시 후에 시도해주세요.",
+        title: "무기 제거 실패",
+        description: result.error || "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }
@@ -98,12 +98,12 @@ export default function RealtimeUserItem({
     const result = await removeUserVehicleAction(data);
     if (result.success) {
       toast({
-        title: "해당 유저의 차량을 성공적으로 제거했습니다.",
+        title: "차량 제거 성공",
       });
     } else {
       toast({
-        title: "해당 유저의 차량 제거에 실패했습니다.",
-        description: "양식을 확인하거나 잠시 후에 시도해주세요.",
+        title: "차량 제거 실패",
+        description: result.error || "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

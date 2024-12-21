@@ -53,11 +53,12 @@ export default function RealtimeUserGroup({
 
     if (result.success) {
       toast({
-        title: "해당 그룹에서 성공적으로 추방하였습니다.",
+        title: "그룹 추방 성공",
       });
     } else {
       toast({
-        title: "그룹 삭제 중 오류가 발생했습니다.",
+        title: "그룹 추방 실패",
+        description: result.error || "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }
@@ -137,7 +138,7 @@ export default function RealtimeUserGroup({
     });
 
     toast({
-      title: "그룹 목록 CSV 다운로드가 완료되었습니다.",
+      title: "CSV 다운로드 성공",
     });
   };
 

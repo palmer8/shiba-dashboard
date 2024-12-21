@@ -6,18 +6,9 @@ import { auth } from "@/lib/auth-config";
 import { hasAccess } from "@/lib/utils";
 import { paymentService } from "@/service/payment-service";
 import { PaymentFilter } from "@/types/filters/payment-filter";
-import { PaymentDto } from "@/types/payment";
+import { Payment, PaymentDto } from "@/types/payment";
 import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
-
-interface SearchParams {
-  page?: string;
-  ip?: string;
-  email?: string;
-  price?: string;
-  fromDate?: string;
-  toDate?: string;
-}
 
 export default async function PaymentPage({
   searchParams,
@@ -67,7 +58,7 @@ export default async function PaymentPage({
       {result.success ? (
         <PaymentTable data={data} />
       ) : (
-        <div className="text-center text-red-500">{result.message}</div>
+        <div className="text-center text-red-500">{result.error}</div>
       )}
     </main>
   );

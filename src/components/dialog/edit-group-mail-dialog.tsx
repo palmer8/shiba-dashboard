@@ -162,14 +162,14 @@ export default function EditGroupMailDialog({
       submitData.rewards = withOutNoneIdRewards;
       const result = await updateGroupMailAction(initialData.id, submitData);
       if (result.success) {
-        toast({ title: "단체 우편이 수정되었습니다." });
+        toast({ title: "단체 우편 수정 완료" });
         setOpen(false);
         form.reset();
       }
     } catch (error) {
       toast({
-        title: "단체 우편을 수정하지 못했습니다",
-        description: "단체 우편을 수정하는 도중 오류가 발생했습니다.",
+        title: "단체 우편 수정 실패",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

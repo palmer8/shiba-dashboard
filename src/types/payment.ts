@@ -1,4 +1,9 @@
-import { Dto } from "./global-return";
+type PaymentDto = {
+  items: Payment[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
 
 type Payment = {
   id: string;
@@ -9,7 +14,5 @@ type Payment = {
   packagename: string;
   date: Date;
 };
-
-type PaymentDto = Dto<Payment>;
 
 export type { Payment, PaymentDto };

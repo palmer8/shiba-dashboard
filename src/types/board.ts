@@ -14,6 +14,7 @@ export interface BoardBase {
 export interface BoardAuthor {
   id: string;
   nickname: string;
+  image?: string | null;
 }
 
 export interface BoardCategory {
@@ -29,6 +30,7 @@ export interface BoardData extends BoardBase {
   _count: {
     likes: number;
   };
+  excerpt?: string; // 내용 미리보기
 }
 
 // 게시글 상세 조회용 타입

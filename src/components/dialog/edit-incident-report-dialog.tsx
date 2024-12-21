@@ -142,20 +142,20 @@ export default function EditIncidentReportDialog({
 
       if (result.success) {
         toast({
-          title: "사건 처리 보고서가 수정되었습니다.",
+          title: "사건 처리 보고서 수정 완료",
         });
         setOpen(false);
       } else {
         toast({
-          title: "사건 처리 보고서 수정에 실패했습니다.",
-          description: "잠시 후에 다시 시도해주세요",
+          title: "사건 처리 보고서 수정 실패",
+          description: result.error || "잠시 후 다시 시도해주세요",
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
-        title: "사건 처리 보고서 수정에 실패했습니다.",
-        description: "잠시 후에 다시 시도해주세요",
+        title: "사건 처리 보고서 수정 실패",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

@@ -63,14 +63,14 @@ export default function AddCategoryDialog() {
 
     if (result.success) {
       toast({
-        title: "카테고리를 성공적으로 등록하였습니다.",
+        title: "카테고리 등록 완료",
       });
       setOpen(false);
       form.reset();
     } else {
       toast({
-        title: "카테고리를 등록하는데 실패하였습니다.",
-        description: result.error || "잠시 후에 다시 시도해주세요",
+        title: "카테고리 등록 실패",
+        description: result.error || "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

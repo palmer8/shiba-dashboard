@@ -176,13 +176,14 @@ export default function IncidentReportTable({
                             );
                             if (result.success) {
                               toast({
-                                title:
-                                  "해당 사건 처리 보고서가 삭제되었습니다.",
+                                title: "사건 처리 보고서 삭제 성공",
                               });
                             } else {
                               toast({
-                                title: "사건 처리 보고서 삭제에 실패했습니다.",
-                                description: result.error,
+                                title: "사건 처리 보고서 삭제 실패",
+                                description:
+                                  result.error || "잠시 후 다시 시도해주세요",
+                                variant: "destructive",
                               });
                             }
                           }

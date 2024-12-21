@@ -6,7 +6,7 @@ import {
   GroupMailFilter,
   PersonalMailFilter,
 } from "@/types/filters/mail-filter";
-import { GlobalReturn } from "@/types/global-return";
+import { ApiResponse } from "@/types/global.dto";
 import {
   GroupMailReward,
   GroupMailTableData,
@@ -21,7 +21,7 @@ class MailService {
   async getGroupMails(
     page: number,
     filter: GroupMailFilter
-  ): Promise<GlobalReturn<GroupMailTableData>> {
+  ): Promise<ApiResponse<GroupMailTableData>> {
     try {
       const session = await auth();
       if (!session?.user) return redirect("/login");
@@ -74,7 +74,6 @@ class MailService {
 
       return {
         success: true,
-        message: "단체 우편 내역 조회 성공",
         data: {
           records: records.map((record) => ({
             ...record,
@@ -93,14 +92,15 @@ class MailService {
       console.error("Get group mails error:", error);
       return {
         success: false,
-        message: "단체 우편 내역 조회 실패",
+        error: "단체 우편 내역 조회 실패",
         data: null,
-        error,
       };
     }
   }
 
-  async createGroupMail(data: GroupMailValues) {
+  async createGroupMail(
+    data: GroupMailValues
+  ): Promise<ApiResponse<GroupMail>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -118,7 +118,6 @@ class MailService {
 
       return {
         success: true,
-        message: "단체 우편 생성 성공",
         data: newGroupMail,
         error: null,
       };
@@ -126,9 +125,8 @@ class MailService {
       console.error("Create group mail error:", error);
       return {
         success: false,
-        message: "단체 우편 생성 실패",
+        error: "단체 우편 생성 실패",
         data: null,
-        error,
       };
     }
   }
@@ -151,7 +149,6 @@ class MailService {
 
       return {
         success: true,
-        message: "단체 우편 수정 성공",
         data: updatedMail,
         error: null,
       };
@@ -159,14 +156,13 @@ class MailService {
       console.error("Update group mail error:", error);
       return {
         success: false,
-        message: "단체 우편 수정 실패",
+        error: "단체 우편 수정 실패",
         data: null,
-        error,
       };
     }
   }
 
-  async deleteGroupMail(id: string) {
+  async deleteGroupMail(id: string): Promise<ApiResponse<null>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -177,7 +173,6 @@ class MailService {
 
       return {
         success: true,
-        message: "단체 우편 삭제 성공",
         data: null,
         error: null,
       };
@@ -185,9 +180,8 @@ class MailService {
       console.error("Delete group mail error:", error);
       return {
         success: false,
-        message: "단체 우편 삭제 실패",
         data: null,
-        error,
+        error: "단체 우편 삭제 실패",
       };
     }
   }
@@ -195,7 +189,7 @@ class MailService {
   async getPersonalMails(
     page: number,
     filter: PersonalMailFilter
-  ): Promise<GlobalReturn<PersonalMailTableData>> {
+  ): Promise<ApiResponse<PersonalMailTableData>> {
     try {
       const session = await auth();
       if (!session?.user) return redirect("/login");
@@ -242,7 +236,6 @@ class MailService {
 
       return {
         success: true,
-        message: "개인 우편 내역 조회 성공",
         data: {
           records: records.map((record) => ({
             ...record,
@@ -262,9 +255,8 @@ class MailService {
       console.error("Get personal mails error:", error);
       return {
         success: false,
-        message: "개인 우편 내역 조회 실패",
+        error: "개인 우편 내역 조회 실패",
         data: null,
-        error,
       };
     }
   }
@@ -287,7 +279,6 @@ class MailService {
 
       return {
         success: true,
-        message: "개인 우편 생성 성공",
         data: newPersonalMail,
         error: null,
       };
@@ -295,9 +286,8 @@ class MailService {
       console.error("Create personal mail error:", error);
       return {
         success: false,
-        message: "개인 우편 생성 실패",
+        error: "개인 우편 생성 실패",
         data: null,
-        error,
       };
     }
   }
@@ -320,7 +310,6 @@ class MailService {
 
       return {
         success: true,
-        message: "개인 우편 수정 성공",
         data: updatedMail,
         error: null,
       };
@@ -328,9 +317,8 @@ class MailService {
       console.error("Update personal mail error:", error);
       return {
         success: false,
-        message: "개인 우편 수정 실패",
+        error: "개인 우편 수정 실패",
         data: null,
-        error,
       };
     }
   }
@@ -346,7 +334,6 @@ class MailService {
 
       return {
         success: true,
-        message: "개인 우편 삭제 성공",
         data: null,
         error: null,
       };
@@ -354,9 +341,8 @@ class MailService {
       console.error("Delete personal mail error:", error);
       return {
         success: false,
-        message: "개인 우편 삭제 실패",
+        error: "개인 우편 삭제 실패",
         data: null,
-        error,
       };
     }
   }
@@ -371,22 +357,20 @@ class MailService {
     if (records.length) {
       return {
         success: true,
-        message: "선택된 단체 우편 내역 조회 성공",
         data: records,
         error: null,
       };
     }
     return {
       success: false,
-      message: "선택된 단체 우편 내역이 존재하지 않습니다",
+      error: "선택된 단체 우편 내역이 존재하지 않습니다",
       data: null,
-      error: null,
     };
   }
 
   async getGroupMailsByIdsOrigin(
     ids: string[]
-  ): Promise<GlobalReturn<GroupMail[]>> {
+  ): Promise<ApiResponse<GroupMail[]>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -399,7 +383,6 @@ class MailService {
 
       return {
         success: true,
-        message: "선택된 단체 우편 내역 조회 성공",
         data: records,
         error: null,
       };
@@ -407,16 +390,15 @@ class MailService {
       console.error("Get group mails by IDs error:", error);
       return {
         success: false,
-        message: "선택된 단체 우편 내역 조회 실패",
+        error: "선택된 단체 우편 내역 조회 실패",
         data: null,
-        error,
       };
     }
   }
 
   async getPersonalMailsByIdsOrigin(
     ids: string[]
-  ): Promise<GlobalReturn<PersonalMail[]>> {
+  ): Promise<ApiResponse<PersonalMail[]>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -429,7 +411,6 @@ class MailService {
 
       return {
         success: true,
-        message: "선택된 개인 우편 내역 조회 성공",
         data: records,
         error: null,
       };
@@ -437,9 +418,8 @@ class MailService {
       console.error("Get personal mails by IDs error:", error);
       return {
         success: false,
-        message: "선택된 개인 우편 내역 조회 실패",
+        error: "선택된 개인 우편 내역 조회 실패",
         data: null,
-        error,
       };
     }
   }
@@ -461,9 +441,8 @@ class MailService {
       if (validRecords.length === 0) {
         return {
           success: false,
-          message: "유효한 데이터가 없습니다.",
+          error: "유효한 데이터가 없습니다.",
           data: null,
-          error: "No valid data",
         };
       }
 
@@ -480,7 +459,6 @@ class MailService {
 
       return {
         success: true,
-        message: `${createdMails.count}개의 개인 우편이 생성되었습니다.`,
         data: createdMails,
         error: null,
       };
@@ -488,9 +466,8 @@ class MailService {
       console.error("Create personal mails from CSV error:", error);
       return {
         success: false,
-        message: "CSV 파일로부터 개인 우편 생성 실패",
+        error: "CSV 파일로부터 개인 우편 생성 실패",
         data: null,
-        error,
       };
     }
   }

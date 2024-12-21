@@ -64,7 +64,7 @@ export default function AddGroupDialog({
       });
       if (result.success) {
         toast({
-          title: "그룹이 추가되었습니다.",
+          title: "그룹 추가 완료",
         });
         setOpen(false);
         form.reset();
@@ -72,7 +72,8 @@ export default function AddGroupDialog({
         return;
       } else {
         toast({
-          title: "그룹 추가에 실패했습니다.",
+          title: "그룹 추가 실패",
+          description: result.error || "잠시 후 다시 시도해주세요",
           variant: "destructive",
         });
       }
@@ -86,13 +87,14 @@ export default function AddGroupDialog({
 
     if (result.success) {
       toast({
-        title: "그룹이 추가되었습니다.",
+        title: "그룹 추가 완료",
       });
       setOpen(false);
       form.reset();
     } else {
       toast({
-        title: "그룹 추가에 실패했습니다.",
+        title: "그룹 추가 실패",
+        description: result.error || "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

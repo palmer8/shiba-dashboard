@@ -119,11 +119,11 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
         fileName: `account_using_logs.csv`,
       });
       toast({
-        title: "운영툴 조회 로그 CSV 파일을 다운로드하였습니다.",
+        title: "CSV 다운로드 성공",
       });
     } else {
       toast({
-        title: "운영툴 조회 로그 CSV 파일 다운로드에 실패했습니다.",
+        title: "CSV 다운로드 실패",
         description: result.error || "잠시 후에 다시 시도해주세요",
         variant: "destructive",
       });

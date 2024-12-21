@@ -155,7 +155,11 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
                               row.original.id
                             );
                             if (result && result.success) {
-                              toast({ title: result.message });
+                              toast({
+                                title: "제거 성공",
+                                description:
+                                  "해당 항목을 성공적으로 제거했습니다.",
+                              });
                             }
                           }
                         }}
@@ -220,21 +224,21 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
 
       const result = await uploadPersonalMailCSVAction(formData);
 
-      if (result.success) {
+      if (result.success && result.data) {
         toast({
-          title: "CSV가 성공적으로 업로드되었습니다.",
-          description: result.message,
+          title: "CSV 업로드 성공",
+          description: `${result.data.count}개의 개인 우편이 생성되었습니다.`,
         });
       } else {
         toast({
-          title: "CSV 업로드를 실패하였습니다.",
-          description: result.message,
+          title: "CSV 업로드 실패",
+          description: result.error,
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
-        title: "CSV 업로드를 실패하였습니다.",
+        title: "CSV 업로드 실패",
         description: "파일 처리 중 오류가 발생했습니다.",
         variant: "destructive",
       });
@@ -252,12 +256,13 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
         fileName: `personal_mails.csv`,
       });
       toast({
-        title: "게시글 목록 CSV 파일을 다운로드하였습니다.",
+        title: "CSV 다운로드 성공",
+        description: "해당 항목을 성공적으로 제거했습니다.",
       });
     } else {
       toast({
-        title: "게시글 목록 CSV 파일을 다운로드하였습니다.",
-        description: csvData.message || "잠시 후에 다시 시도해주세요",
+        title: "CSV 다운로드 실패",
+        description: csvData.error || "잠시 후에 다시 시도해주세요",
         variant: "destructive",
       });
     }

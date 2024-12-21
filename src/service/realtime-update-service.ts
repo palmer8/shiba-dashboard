@@ -1,22 +1,20 @@
 import prisma from "@/db/prisma";
-import {
-  RemoveUserVehicleDto,
-  RemoveUserWeaponDto,
-  UpdateUserDataDto,
-  UpdateUserGroupDto,
-} from "@/dto/realtime.dto";
 import { auth } from "@/lib/auth-config";
-import { GlobalReturn } from "@/types/global-return";
 import { UpdateUserData } from "@/types/user";
 import { userService } from "./user-service";
 import { UserRole } from "@prisma/client";
 import { hasAccess } from "@/lib/utils";
 import { ApiResponse } from "@/types/global.dto";
+import {
+  RemoveUserVehicleDto,
+  RemoveUserWeaponDto,
+  UpdateUserGroupDto,
+} from "@/types/realtime";
 
 class RealtimeUpdateService {
   async updateUserInventory(
     data: UpdateUserData
-  ): Promise<ApiResponse<UpdateUserDataDto>> {
+  ): Promise<ApiResponse<UpdateUserData>> {
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
@@ -81,15 +79,16 @@ class RealtimeUpdateService {
     }
   }
 
-  async removeUserWeapon(data: RemoveUserWeaponDto) {
+  async removeUserWeapon(
+    data: RemoveUserWeaponDto
+  ): Promise<ApiResponse<RemoveUserWeaponDto>> {
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
       return {
         data: null,
         success: false,
-        message: "세션 정보가 없습니다",
-        error: null,
+        error: "세션 정보가 없습니다",
       };
     }
 
@@ -122,7 +121,7 @@ class RealtimeUpdateService {
   ): Promise<ApiResponse<RemoveUserVehicleDto>> {
     const session = await auth();
 
-    if (!session || !session.user || !session.user.id) {
+    if (!session || !session.user) {
       return {
         data: null,
         success: false,
@@ -154,15 +153,16 @@ class RealtimeUpdateService {
     return result;
   }
 
-  async updateUserGroup(data: UpdateUserGroupDto) {
+  async updateUserGroup(
+    data: UpdateUserGroupDto
+  ): Promise<ApiResponse<UpdateUserGroupDto>> {
     const session = await auth();
 
     if (!session?.user?.id || !session.user.role) {
       return {
         data: null,
         success: false,
-        message: "세션 정보가 없습니다",
-        error: null,
+        error: "세션 정보가 없습니다",
       };
     }
 
@@ -175,8 +175,7 @@ class RealtimeUpdateService {
       return {
         data: null,
         success: false,
-        message: "유저 정보를 찾을 수 없습니다",
-        error: null,
+        error: "유저 정보를 찾을 수 없습니다",
       };
     }
 
@@ -190,8 +189,7 @@ class RealtimeUpdateService {
       return {
         data: null,
         success: false,
-        message: "존재하지 않는 그룹입니다",
-        error: null,
+        error: "존재하지 않는 그룹입니다",
       };
     }
 
@@ -200,8 +198,7 @@ class RealtimeUpdateService {
       return {
         data: null,
         success: false,
-        message: "해당 그룹을 수정할 권한이 없습니다",
-        error: null,
+        error: "해당 그룹을 수정할 권한이 없습니다",
       };
     }
 

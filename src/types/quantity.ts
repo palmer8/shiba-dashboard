@@ -4,6 +4,7 @@ import {
   Status,
 } from "@prisma/client";
 
+// 기본 아이템 수량 타입
 export interface ItemQuantity extends ItemQuantityModel {
   registrant?: {
     nickname: string;
@@ -13,26 +14,30 @@ export interface ItemQuantity extends ItemQuantityModel {
   } | null;
 }
 
-export type ItemQuantityTableData = {
+// 테이블 데이터 타입
+export interface ItemQuantityTableData {
   records: ItemQuantity[];
   metadata: {
     total: number;
     page: number;
     totalPages: number;
   };
-};
+}
 
-export type CreateItemQuantityData = {
+// 생성 요청 데이터 타입
+export interface CreateItemQuantityData {
   userId: string;
   itemId: string;
   itemName: string;
   amount: string;
   type: ActionType;
   reason: string;
-};
+}
 
-export type UpdateItemQuantityData = {
-  id: string;
-  status: Status;
-  approverId?: string;
-};
+// 게임 업데이트 요청 데이터 타입
+export interface UpdateUserGameData {
+  user_id: string;
+  itemcode: string;
+  amount: number;
+  type: "add" | "remove";
+}

@@ -5,40 +5,72 @@ import { User, UserRole } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
 import { SignUpUser, UpdateProfileData } from "@/types/user";
 import pool from "@/db/mysql";
+import { SignUpFormValues, signUpSchema } from "@/lib/validations/auth";
 
 class UserService {
-  async signup(data: {
-    name: string;
-    password: string;
-    userId: number;
-    nickname: string;
-  }): Promise<ApiResponse<SignUpUser>> {
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-    const isSpecialAccount = [1, 2].includes(Number(data.userId));
-
+  async signup(data: SignUpFormValues): Promise<ApiResponse<SignUpUser>> {
     try {
-      const existingUser = await this.findByUserId(data.userId);
-      if (existingUser) {
+      // 1. 입력값 검증
+      const validationResult = signUpSchema.safeParse(data);
+      if (!validationResult.success) {
         return {
           success: false,
-          error: "이미 존재하는 고유번호입니다.",
+          error: validationResult.error.errors[0].message,
           data: null,
         };
       }
 
+      // 2. 아이디 중복 검사
+      const existingUserByName = await prisma.user.findFirst({
+        where: { name: data.name },
+      });
+
+      if (existingUserByName) {
+        return {
+          success: false,
+          error: "이미 사용중인 아이디입니다.",
+          data: null,
+        };
+      }
+
+      // 3. userId 중복 검사
+      const existingUser = await this.findByUserId(data.userId);
+      if (existingUser) {
+        return {
+          success: false,
+          error: "이미 등록된 게임 계정입니다.",
+          data: null,
+        };
+      }
+
+      // 4. 게임 닉네임 조회 및 검증
+      const gameNickname = await this.getGameNicknameByUserId(data.userId);
+      if (!gameNickname.success || !gameNickname.data) {
+        return {
+          success: false,
+          error: "계정을 찾을 수 없습니다.",
+          data: null,
+        };
+      }
+
+      // 5. 비밀번호 해싱
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+      const isSpecialAccount = [1, 2].includes(data.userId);
+
+      // 6. 유저 생성
       const user = await prisma.user.create({
         data: {
           name: data.name,
           hashedPassword,
           userId: data.userId,
-          nickname: data.nickname,
+          nickname: gameNickname.data,
           role: isSpecialAccount ? UserRole.SUPERMASTER : UserRole.STAFF,
           isPermissive: isSpecialAccount,
           email: null,
         },
       });
 
-      const { hashedPassword: omittedPassword, ...userWithoutPassword } = user;
+      const { hashedPassword: _, ...userWithoutPassword } = user;
       return {
         success: true,
         error: null,
@@ -48,20 +80,51 @@ class UserService {
       console.error("Signup error:", error);
       return {
         success: false,
-        error: "회원가입에 실패하였습니다.",
+        error:
+          error instanceof Error ? error.message : "회원가입에 실패하였습니다.",
         data: null,
       };
     }
   }
 
-  async findByUserId(userId: number) {
-    return prisma.user.findFirst({
-      where: { userId },
-    });
+  async findByUserId(userId: number): Promise<ApiResponse<User>> {
+    try {
+      const user = await prisma.user.findFirst({
+        where: { userId },
+      });
+
+      return {
+        success: true,
+        error: null,
+        data: user,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: "사용자 조회에 실패했습니다.",
+        data: null,
+      };
+    }
   }
 
-  async validatePassword(user: { hashedPassword: string }, password: string) {
-    return bcrypt.compare(password, user.hashedPassword);
+  async validatePassword(
+    user: { hashedPassword: string },
+    password: string
+  ): Promise<ApiResponse<boolean>> {
+    try {
+      const isValid = await bcrypt.compare(password, user.hashedPassword);
+      return {
+        success: true,
+        error: null,
+        data: isValid,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: "비밀번호 검증에 실패했습니다.",
+        data: null,
+      };
+    }
   }
 
   async getGameNicknameByUserId(userId: number): Promise<ApiResponse<string>> {
@@ -137,7 +200,7 @@ class UserService {
   async getUserById(id: string): Promise<ApiResponse<User>> {
     try {
       const user = await prisma.user.findFirst({
-        where: { id },
+        where: { id: id },
       });
 
       if (!user) {
@@ -193,8 +256,30 @@ class UserService {
         updateData.image = data.image;
       }
 
-      if (data.password) {
+      if (data.password && data.currentPassword) {
+        const isValidPassword = await this.validatePassword(
+          { hashedPassword: user.hashedPassword as string },
+          data.currentPassword
+        );
+
+        if (!isValidPassword) {
+          return {
+            success: false,
+            error: "현재 비밀번호가 일치하지 않습니다.",
+            data: null,
+          };
+        }
+
         updateData.hashedPassword = await bcrypt.hash(data.password, 10);
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        const { hashedPassword, ...userWithoutPassword } = user;
+        return {
+          success: true,
+          error: null,
+          data: userWithoutPassword as User,
+        };
       }
 
       const updatedUser = await prisma.user.update({

@@ -57,10 +57,8 @@ export function NavUser({ session }: NavUserProps) {
           className="w-full justify-start gap-2 px-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <Avatar className="h-8 w-8">
-            <AvatarImage src={session.user?.image || ""} />
-            <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-500 text-white">
-              {session.user?.nickname?.[0]?.toUpperCase() || "U"}
-            </AvatarFallback>
+            <AvatarImage src={session.user?.image || undefined} />
+            <AvatarFallback>{session.user?.nickname?.[0]}</AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden text-left">
             <p className="truncate text-sm font-medium">
@@ -81,10 +79,8 @@ export function NavUser({ session }: NavUserProps) {
         <DropdownMenuLabel className="font-normal">
           <div className="flex items-center gap-2 p-2">
             <Avatar className="h-12 w-12">
-              <AvatarImage src={session.user?.image || ""} />
-              <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-500 text-white text-lg">
-                {session.user?.nickname?.[0]?.toUpperCase() || "U"}
-              </AvatarFallback>
+              <AvatarImage src={session.user?.image || undefined} />
+              <AvatarFallback>{session.user?.nickname?.[0]}</AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-0.5">
               <p className="text-sm font-medium">{session.user?.nickname}</p>

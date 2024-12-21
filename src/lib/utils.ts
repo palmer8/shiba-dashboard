@@ -437,8 +437,6 @@ export function convertMarkdownToNovel(nodes: MarkdownNode[]): JSONContent[] {
 }
 
 export async function handleDonwloadJSZip(data: any[], fileName: string) {
-  console.log("test");
-
   // const zip = new JSZip();
   // zip.file(fileName, JSON.stringify(data));
   // const content = await zip.generateAsync({ type: "blob" });
@@ -510,4 +508,20 @@ export function generateMockAttendanceData(
     workHours,
     weeklyStats: weeklyStats.reverse(),
   };
+}
+
+export function extractTextFromJSON(json: JSONContent): string {
+  let text = "";
+
+  if (json.content) {
+    json.content.forEach((node) => {
+      if (node.type === "text" && node.text) {
+        text += node.text + " ";
+      } else if (node.content) {
+        text += extractTextFromJSON(node) + " ";
+      }
+    });
+  }
+
+  return text.trim();
 }

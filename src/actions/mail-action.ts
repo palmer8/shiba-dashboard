@@ -64,9 +64,8 @@ export async function uploadPersonalMailCSVAction(formData: FormData) {
     if (!file) {
       return {
         success: false,
-        message: "파일이 선택되지 않았습니다.",
         data: null,
-        error: "No file selected",
+        error: "파일이 선택되지 않았습니다.",
       };
     }
 

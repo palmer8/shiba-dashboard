@@ -5,6 +5,7 @@ import { ROLE_HIERARCHY } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { RowDataPacket } from "mysql2";
 import { ApiResponse } from "@/types/global.dto";
+import { RealtimeGroupResponse } from "@/types/realtime";
 
 type ComparisonOperator = "gt" | "gte" | "lt" | "lte" | "eq";
 type PaginationParams = { page: number };
@@ -164,20 +165,25 @@ class RealtimeService {
 
     return {
       success: true,
-      message: "유저 그룹 조회 성공",
       data: userGroups,
       error: null,
     };
   }
 
-  async getGroupsByGroupId(groupId: string) {
+  async getGroupsByGroupId(groupId: string): Promise<
+    ApiResponse<
+      {
+        groupId: string;
+        groupBoolean: boolean;
+      }[]
+    >
+  > {
     const session = await auth();
 
-    if (!session?.user?.role) {
+    if (!session || !session.user) {
       return {
         success: false,
-        message: "권한이 없습니다.",
-        data: [],
+        data: null,
         error: "Unauthorized",
       };
     }
@@ -215,7 +221,6 @@ class RealtimeService {
 
     return {
       success: true,
-      message: "그룹 조회 성공",
       data: groups,
       error: null,
     };

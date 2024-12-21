@@ -187,13 +187,12 @@ export function CouponTable({ data, page }: CouponTableProps) {
                             );
                           if (result) {
                             toast({
-                              title:
-                                "쿠폰 그룹과 쿠폰이 성공적으로 삭제되었습니다.",
+                              title: "쿠폰 그룹 삭제 완료",
                             });
                           } else {
                             toast({
-                              title: "쿠폰 그룹과 쿠폰 삭제에 실패하였습니다.",
-                              description: "잠시 후에 다시 시도해주세요",
+                              title: "쿠폰 그룹 삭제 실패",
+                              description: "잠시 후 다시 시도해주세요",
                               variant: "destructive",
                             });
                           }
@@ -232,12 +231,13 @@ export function CouponTable({ data, page }: CouponTableProps) {
     const result = await createCouponsAction(selectedGroups);
     if (result.success) {
       toast({
-        title: `${selectedGroups.length}개의 그룹에 쿠폰이 발급되었습니다.`,
+        title: `${selectedGroups.length}개의 그룹에 쿠폰 발급 완료`,
       });
     } else {
       toast({
-        title: "쿠폰 발급에 실패하였습니다.",
-        description: result.error || "알 수 없는 에러가 발생하였습니다.",
+        title: "쿠폰 발급 실패",
+        description: result.error || "잠시 후 다시 시도해주세요",
+        variant: "destructive",
       });
     }
   };
@@ -248,12 +248,12 @@ export function CouponTable({ data, page }: CouponTableProps) {
     if (result.success) {
       // handleDonwloadJSZip(result.data || [], "coupon-groups.zip");
       toast({
-        title: "쿠폰 그룹/쿠폰 목록 CSV 파일을 다운로드하였습니다.",
+        title: "CSV 다운로드 완료",
       });
     } else {
       toast({
-        title: "쿠폰 그룹/쿠폰 목록 CSV 파일 다운로드에 실패하였습니다.",
-        description: result.error || "알 수 없는 에러가 발생하였습니다.",
+        title: "CSV 다운로드 실패",
+        description: result.error || "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

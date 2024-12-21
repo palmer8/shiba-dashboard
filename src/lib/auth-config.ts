@@ -39,6 +39,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.nickname = token.nickname;
       session.user.role = token.role;
       session.user.isPermissive = token.isPermissive;
+      session.user.userId = token.userId;
       return session;
     },
     async jwt({ token, user }) {
@@ -47,6 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.nickname = user.nickname;
         token.role = user.role;
         token.isPermissive = user.isPermissive;
+        token.userId = user.userId;
       }
       return token;
     },

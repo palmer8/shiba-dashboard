@@ -167,7 +167,7 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
                         );
                         if (result && result.success) {
                           toast({
-                            title: "해당 항목을 성공적으로 삭제하였습니다.",
+                            title: "삭제 성공",
                           });
                         }
                       }
@@ -220,12 +220,12 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
 
       if (result.success) {
         toast({
-          title: "정상적으로 승인하였습니다.",
+          title: "승인 성공",
         });
       } else {
         toast({
-          title: "일부 티켓을 승인하는데 실패하였습니다.",
-          description: result.error,
+          title: "승인 실패",
+          description: result.error || "잠시 후 다시 시도해주세요",
           variant: "destructive",
         });
       }
@@ -252,13 +252,12 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
 
       if (result.success) {
         toast({
-          title: "정상적으로 거절하였습니다.",
-          description: "선택한 티켓이 거절되었습니다.",
+          title: "거절 성공",
         });
       } else {
         toast({
-          title: "일부 티켓을 거절하는데 실패했습니다.",
-          description: result.error,
+          title: "거절 실패",
+          description: result.error || "잠시 후 다시 시도해주세요",
           variant: "destructive",
         });
       }
@@ -282,12 +281,11 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
       if (result.success) {
         toast({
           title: "전체 승인 완료",
-          description: "전체 티켓이 승인되었습니다.",
         });
       } else {
         toast({
           title: "전체 승인 실패",
-          description: result.error,
+          description: result.error || "잠시 후 다시 시도해주세요",
           variant: "destructive",
         });
       }
@@ -311,12 +309,11 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
       if (result.success) {
         toast({
           title: "전체 거절 완료",
-          description: "전체 티켓이 거절되었습니다.",
         });
       } else {
         toast({
           title: "전체 거절 실패",
-          description: result.error,
+          description: result.error || "잠시 후 다시 시도해주세요",
           variant: "destructive",
         });
       }

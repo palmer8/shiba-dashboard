@@ -1,11 +1,11 @@
-import AdminManagementFilter from "@/components/admin/admin-management-filter";
+// import AdminManagementFilter from "@/components/admin/admin-management-filter";
 import AdminManagementTable from "@/components/admin/admin-management-table";
 import { GlobalTitle } from "@/components/global/global-title";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
-import { AdminDto } from "@/dto/admin.dto";
 import { auth } from "@/lib/auth-config";
 import { hasAccess } from "@/lib/utils";
 import { adminService } from "@/service/admin-service";
+import { AdminDto } from "@/types/user";
 import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 
@@ -20,15 +20,15 @@ export default async function AdminPage({
   if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/");
 
   const params = await searchParams;
+
   let data: AdminDto = {
     items: [],
-    total: 0,
     page: 0,
     totalPages: 0,
+    totalCount: 0,
   };
 
   const result = await adminService.getDashboardUsers(params);
-
   if (result.success && result.data) {
     data = result.data;
   }
@@ -40,8 +40,8 @@ export default async function AdminPage({
         title="어드민 관리"
         description="대시보드 사용자들을 관리할 수 있습니다."
       />
-      <AdminManagementFilter filter={params} />
-      <AdminManagementTable data={data} />
+      {/* <AdminManagementFilter filter={params} /> */}
+      <AdminManagementTable data={data} session={session} />
     </main>
   );
 }

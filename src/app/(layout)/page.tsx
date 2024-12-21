@@ -4,26 +4,20 @@ import DashboardClientContent from "@/components/dashboard/dashboard-client-cont
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
 import DashboardSkeleton from "@/components/dashboard/dashboard-skeleton";
-import { hasAccess } from "@/lib/utils";
-import { UserRole } from "@prisma/client";
 
 export default async function Home() {
   const session = await auth();
 
-  if (!session?.user) {
+  if (!session || !session.user) {
     return redirect("/login");
   }
 
   if (!session.user.isPermissive) {
-    return redirect("/pending");
-  }
-
-  if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) {
-    return redirect("/");
+    return redirect("/404");
   }
 
   return (
-    <main className="container mx-auto px-4 py-8">
+    <main>
       <GlobalTitle
         title="대시보드"
         description="SHIBA의 실시간 정보를 한 눈에 확인하세요."

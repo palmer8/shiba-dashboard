@@ -48,7 +48,7 @@ export function CommentSection({
 
       if (result.success) {
         setNewComment("");
-        toast({ title: "댓글이 작성되었습니다." });
+        toast({ title: "댓글 작성 완료" });
       }
     } finally {
       setIsSubmitting(false);
@@ -67,7 +67,7 @@ export function CommentSection({
 
       if (result.success) {
         setEditingId(null);
-        toast({ title: "댓글이 수정되었습니다." });
+        toast({ title: "댓글 수정 완료" });
       }
     } finally {
       setIsSubmitting(false);
@@ -78,12 +78,12 @@ export function CommentSection({
     try {
       const result = await deleteCommentAction(commentId);
       if (result.success) {
-        toast({ title: "댓글이 삭제되었습니다." });
+        toast({ title: "댓글 삭제 완료" });
       }
     } catch (error) {
       toast({
         title: "댓글 삭제 실패",
-        description: "알 수 없는 오류가 발생했습니다.",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

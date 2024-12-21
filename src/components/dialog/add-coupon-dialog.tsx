@@ -146,15 +146,15 @@ export default function AddCouponDialog({
       const result = await createCouponGroupAction(data);
       if (result) {
         toast({
-          title: "쿠폰 그룹이 생성되었습니다.",
+          title: "쿠폰 그룹 생성 완료",
         });
         setOpen(false);
         form.reset();
       }
     } catch (error) {
       toast({
-        title: "쿠폰 그룹 생성에 실패했습니다.",
-        description: "쿠폰 그룹을 생성하는 도중 오류가 발생했습니다.",
+        title: "쿠폰 그룹 생성 실패",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }

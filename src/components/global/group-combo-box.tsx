@@ -50,7 +50,7 @@ export function GroupComboBox({
       try {
         const result = await getGroupsByGroupIdAction(debouncedSearch);
         if (result.success) {
-          setGroups(result.data);
+          setGroups(result.data ?? []);
         }
       } catch (error) {
         console.error("Error fetching groups:", error);

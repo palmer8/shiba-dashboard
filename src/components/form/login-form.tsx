@@ -1,9 +1,7 @@
 "use client";
 
-import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -17,73 +15,42 @@ import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { toast } from "@/hooks/use-toast";
-import { isAccountPermissiveAction } from "@/actions/user-action";
-
-const formSchema = z.object({
-  name: z.string().min(1, "아이디를 입력해주세요."),
-  password: z.string().min(1, "비밀번호를 입력해주세요."),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+import { LoginFormValues, loginSchema } from "@/lib/validations/auth";
 
 export function LoginForm() {
   const router = useRouter();
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
     defaultValues: {
       name: "",
       password: "",
     },
   });
 
-  async function onSubmit(data: FormValues) {
+  async function onSubmit(data: LoginFormValues) {
     try {
-      const isPermissive = await isAccountPermissiveAction(
-        data.name,
-        data.password
-      );
+      const result = await signIn("credentials", {
+        name: data.name,
+        password: data.password,
+        redirect: false,
+      });
 
-      if (isPermissive.data === false && isPermissive.success) {
+      if (result?.error) {
         toast({
-          title: isPermissive.error ?? "관리자에게 문의해주세요.",
-          description: "관리자에게 문의해주세요.",
-          variant: "destructive",
-        });
-        return;
-      } else if (isPermissive.success === false || isPermissive.error) {
-        toast({
-          title: isPermissive.error ?? "관리자에게 문의해주세요.",
+          title: "로그인 실패",
+          description: "계정이 존재하지 않습니다, 다시 한번 확인해주세요.",
           variant: "destructive",
         });
         return;
       }
-
-      if (isPermissive.data === true && isPermissive.success) {
-        const result = await signIn("credentials", {
-          name: data.name,
-          password: data.password,
-          redirect: false,
-          redirectTo: "/",
-        });
-
-        if (result?.error) {
-          toast({
-            title: "로그인 중 에러가 발생하였습니다",
-            description: "잠시 후에 다시 시도해주세요",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        router.push("/");
-      }
+      router.replace("/");
     } catch (error) {
+      console.error(error);
       toast({
-        title: "로그인 중 에러가 발생하였습니다",
-        description: "잠시 후에 다시 시도해주세요",
+        title: "시스템 오류",
+        description: "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
         variant: "destructive",
       });
-      console.error(error);
     }
   }
 
@@ -97,7 +64,7 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>아이디</FormLabel>
               <FormControl>
-                <Input placeholder="아이디" type="text" {...field} />
+                <Input placeholder="아이디" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -111,7 +78,7 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>비밀번호</FormLabel>
               <FormControl>
-                <Input placeholder="********" type="password" {...field} />
+                <Input type="password" placeholder="********" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -1,23 +1,5 @@
 "use client";
 
-import { AdminUser } from "@/types/user";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  Row,
-  useReactTable,
-} from "@tanstack/react-table";
-import { useMemo, useState, useCallback } from "react";
-import { useSession } from "next-auth/react";
 import { formatKoreanDateTime, formatRole } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -34,290 +16,372 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Ban, CheckCircle, MoreHorizontal, Trash } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  Ban,
+  CheckCircle,
+  MoreHorizontal,
+  Search,
+  Trash,
+  ChevronDown,
+} from "lucide-react";
 import {
   removeDashboardUserAction,
   toggleDashboardUserPermissionAction,
   updateDashboardUserRoleAction,
 } from "@/actions/admin-action";
 import { UserRole } from "@prisma/client";
-import { AdminDto } from "@/dto/admin.dto";
 import { useRouter, useSearchParams } from "next/navigation";
 import Empty from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Session } from "next-auth";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { AdminDto } from "@/types/user";
 
 interface AdminManagementTableProps {
   data: AdminDto;
+  session: Session;
 }
+
+const ROLE_OPTIONS = [
+  { label: "전체", value: "ALL" },
+  { label: "스태프", value: "STAFF" },
+  { label: "인게임 관리자", value: "INGAME_ADMIN" },
+  { label: "마스터", value: "MASTER" },
+  { label: "슈퍼 마스터", value: "SUPERMASTER" },
+];
+
+const SORT_OPTIONS = [
+  { label: "가입일", value: "createdAt" },
+  { label: "이름", value: "nickname" },
+  { label: "권한", value: "role" },
+] as const;
 
 export default function AdminManagementTable({
   data,
+  session,
 }: AdminManagementTableProps) {
-  const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortDirection, setSortDirection] = useState("desc");
 
-  const [columnVisibility, setColumnVisibility] = useState<
-    Record<string, boolean>
-  >({
-    id: false,
-  });
+  const filteredItems = data.items
+    .filter((item: AdminDto["items"][number]) => {
+      const matchesSearch =
+        !searchTerm ||
+        item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.nickname?.toLowerCase().includes(searchTerm.toLowerCase());
 
-  const columns: ColumnDef<AdminUser>[] = useMemo(
-    () => [
-      {
-        header: "id",
-        accessorKey: "id",
-        cell: ({ row }) => {
-          return <div>{row.original.id}</div>;
-        },
-      },
-      {
-        header: "고유번호",
-        accessorKey: "userId",
-        cell: ({ row }) => {
-          return <div>{row.original.userId}</div>;
-        },
-      },
-      {
-        header: "아이디",
-        accessorKey: "name",
-        cell: ({ row }) => {
-          return <div>{row.original.name}</div>;
-        },
-      },
-      {
-        header: "이름",
-        accessorKey: "nickname",
-        cell: ({ row }) => {
-          return <div>{row.original.nickname}</div>;
-        },
-      },
-      {
-        accessorKey: "role",
-        header: "권한",
-        cell: ({ row }) => {
-          const isSuperMaster = session?.user?.role === "SUPERMASTER";
-          const isCurrentUser = session?.user?.id === row.original.id;
+      const matchesRole = roleFilter === "ALL" || item.role === roleFilter;
 
-          if (!isSuperMaster || isCurrentUser) {
-            return (
-              <div className="font-medium">
-                {formatRole(row.getValue("role"))}
-              </div>
-            );
-          }
+      return matchesSearch && matchesRole;
+    })
+    .sort((a: AdminDto["items"][number], b: AdminDto["items"][number]) => {
+      if (sortBy === "createdAt") {
+        return sortDirection === "desc"
+          ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      if (sortBy === "nickname") {
+        return sortDirection === "desc"
+          ? b.nickname.localeCompare(a.nickname)
+          : a.nickname.localeCompare(b.nickname);
+      }
+      if (sortBy === "role") {
+        return sortDirection === "desc"
+          ? b.role.localeCompare(a.role)
+          : a.role.localeCompare(b.role);
+      }
+      return 0;
+    });
 
-          return (
-            <Select
-              defaultValue={row.getValue("role")}
-              onValueChange={async (value) => {
-                await updateDashboardUserRoleAction(
-                  row.original.id,
-                  value as UserRole
-                );
-              }}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="STAFF">스태프</SelectItem>
-                <SelectItem value="INGAME_ADMIN">인게임 관리자</SelectItem>
-                <SelectItem value="MASTER">마스터</SelectItem>
-                <SelectItem value="SUPERMASTER">슈퍼 마스터</SelectItem>
-              </SelectContent>
-            </Select>
-          );
-        },
-      },
-      {
-        accessorKey: "isPermissive",
-        header: "상태",
-        cell: ({ row }) => (
-          <div
-            className={cn(
-              "font-medium",
-              row.getValue("isPermissive") ? "text-green-600" : "text-red-600"
-            )}
-          >
-            {row.getValue("isPermissive") ? "활성" : "비활성"}
-          </div>
-        ),
-      },
-      {
-        header: "생성일",
-        accessorKey: "createdAt",
-        cell: ({ row }) => {
-          return <div>{formatKoreanDateTime(row.original.createdAt)}</div>;
-        },
-      },
-      ...(session?.user?.role === "SUPERMASTER"
-        ? [
-            {
-              id: "actions",
-              header: "관리",
-              cell: ({ row }: { row: Row<AdminUser> }) => {
-                const isCurrentUser = session?.user?.id === row.original.id;
-
-                if (isCurrentUser) {
-                  return null;
-                }
-
-                return (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost">
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[160px]">
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          await toggleDashboardUserPermissionAction(
-                            row.original.id,
-                            !row.original.isPermissive
-                          );
-                        }}
-                      >
-                        {row.original.isPermissive ? (
-                          <>
-                            <Ban className="mr-2 h-4 w-4" />
-                            <span>계정 비활성화</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            <span>계정 활성화</span>
-                          </>
-                        )}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          if (confirm("정말로 이 계정을 탈퇴시키겠습니까?")) {
-                            await removeDashboardUserAction(row.original.id);
-                          }
-                        }}
-                        className="text-red-600"
-                      >
-                        <Trash className="mr-2 h-4 w-4" />
-                        <span>탈퇴</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              },
-            },
-          ]
-        : []),
-    ],
-    [session]
-  );
-
-  const table = useReactTable({
-    data: data.items,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    state: {
-      columnVisibility,
-    },
-    onColumnVisibilityChange: setColumnVisibility,
-  });
-
-  const handlePageChange = useCallback(
-    (newPage: number) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("page", newPage.toString());
-      router.replace(`?${params.toString()}`);
-    },
-    [router, searchParams]
-  );
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", newPage.toString());
+    router.replace(`?${params.toString()}`);
+  };
 
   return (
-    <div className="space-y-4">
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((column) => (
-                <TableHead key={column.id}>
-                  {column.isPlaceholder
-                    ? null
-                    : flexRender(
-                        column.column.columnDef.header,
-                        column.getContext()
-                      )}
-                </TableHead>
+    <div className="container mx-auto max-w-7xl space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="relative w-[180px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="검색"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select
+            value={roleFilter}
+            onValueChange={setRoleFilter}
+            defaultValue="ALL"
+          >
+            <SelectTrigger className="w-[100px]">
+              <SelectValue placeholder="권한" />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
               ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                className="cursor-pointer"
-                data-state={row.getIsSelected() && "selected"}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                <Empty description="데이터가 존재하지 않습니다." />
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-      <div className="flex items-center justify-between py-2">
-        <div className="text-sm text-muted-foreground">
-          총 {data.total}개 중 {(data.page - 1) * 10 + 1}-
-          {Math.min(data.page * 10, data.total)}개 표시
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(data.page - 1)}
-            disabled={data.page <= 1}
-          >
-            이전
-          </Button>
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              value={data.page}
-              onChange={(e) => {
-                const page = parseInt(e.target.value);
-                if (page > 0 && page <= data.totalPages) {
-                  handlePageChange(page);
-                }
-              }}
-              className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              min={1}
-              max={data.totalPages}
-            />
-            <span className="text-sm text-muted-foreground">
-              / {data.totalPages}
-            </span>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(data.page + 1)}
-            disabled={data.page >= data.totalPages}
-          >
-            다음
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-[100px]">
+                정렬
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[160px]">
+              {SORT_OPTIONS.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  onClick={() => {
+                    if (sortBy === option.value) {
+                      setSortDirection(
+                        sortDirection === "desc" ? "asc" : "desc"
+                      );
+                    } else {
+                      setSortBy(option.value);
+                      setSortDirection("desc");
+                    }
+                  }}
+                >
+                  <span>{option.label}</span>
+                  {sortBy === option.value && (
+                    <span className="ml-auto">
+                      {sortDirection === "desc" ? "↓" : "↑"}
+                    </span>
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span className="text-sm text-muted-foreground">
+            {filteredItems.length}명
+          </span>
         </div>
+      </div>
+
+      {filteredItems.length > 0 ? (
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredItems.map((admin: AdminDto["items"][number]) => (
+            <Card key={admin.id} className="relative">
+              <CardContent className="p-3">
+                <div className="absolute top-2 right-2 z-10">
+                  {session?.user?.role === "SUPERMASTER" && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-[200px]">
+                        <Select
+                          defaultValue={admin.role}
+                          onValueChange={async (value) => {
+                            await updateDashboardUserRoleAction(
+                              admin.id,
+                              value as UserRole
+                            );
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="권한 변경" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLE_OPTIONS.filter((option) => option.value).map(
+                              (option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              )
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            await toggleDashboardUserPermissionAction(
+                              admin.id,
+                              !admin.isPermissive
+                            );
+                          }}
+                        >
+                          {admin.isPermissive ? (
+                            <>
+                              <Ban className="mr-2 h-4 w-4" />
+                              <span>비활성화</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              <span>활성화</span>
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem
+                              onSelect={(e) => e.preventDefault()}
+                              className="text-destructive"
+                            >
+                              <Trash className="mr-2 h-4 w-4" />
+                              <span>탈퇴</span>
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                정말 탈퇴시키시겠습니까?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                계정을 삭제하면 모든 데이터가 영구적으로
+                                삭제되며 복구할 수 없습니다.
+                                <div className="mt-2 font-medium">
+                                  닉네임: {admin.nickname}
+                                  <br />
+                                  이디: {admin.name}
+                                  <br />
+                                  고유번호: {admin.userId}
+                                </div>
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>취소</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={async () => {
+                                  await removeDashboardUserAction(admin.id);
+                                }}
+                                className="bg-destructive hover:bg-destructive/90"
+                              >
+                                탈퇴
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={admin.image || undefined} />
+                      <AvatarFallback>{admin.nickname?.[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium truncate text-sm">
+                        {admin.nickname}
+                      </h3>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {admin.name}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground text-xs">
+                        고유번호
+                      </span>
+                      <span className="truncate ml-2 text-xs">
+                        {admin.userId}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground text-xs">
+                        권한
+                      </span>
+                      <span className="truncate ml-2 text-xs">
+                        {formatRole(admin.role)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground text-xs">
+                        상태
+                      </span>
+                      <span
+                        className={cn(
+                          "truncate ml-2 text-xs",
+                          admin.isPermissive
+                            ? "text-primary"
+                            : "text-destructive"
+                        )}
+                      >
+                        {admin.isPermissive ? "활성" : "비활성"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground text-xs">
+                        가입일
+                      </span>
+                      <span className="truncate ml-2 text-xs">
+                        {formatKoreanDateTime(admin.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-center justify-center py-8">
+          <Empty description="데이터가 존재하지 않습니다." />
+        </div>
+      )}
+
+      <div className="flex items-center justify-center gap-2 py-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(data.page - 1)}
+          disabled={data.page <= 1}
+        >
+          이전
+        </Button>
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-medium">
+            {data.page} / {data.totalPages}
+          </span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(data.page + 1)}
+          disabled={data.page >= data.totalPages}
+        >
+          다음
+        </Button>
       </div>
     </div>
   );

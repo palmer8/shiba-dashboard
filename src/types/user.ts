@@ -1,4 +1,6 @@
 import { Prisma, User } from "@prisma/client";
+import { z } from "zod";
+import { UserRole } from "@prisma/client";
 
 type SignUpUser = Omit<Prisma.UserCreateInput, "hashedPassword">;
 type RealtimeGameUserData = {
@@ -39,10 +41,7 @@ type UpdateUserData = {
   type: "add" | "remove";
 };
 
-type AdminUser = Pick<
-  User,
-  "id" | "nickname" | "role" | "createdAt" | "name" | "userId" | "isPermissive"
->;
+type AdminUser = Omit<User, "hashedPassword">;
 
 type RealtimeGroupData = {
   user_id: string;
@@ -56,7 +55,27 @@ type RealtimeAdminData = {
 
 type UpdateProfileData = {
   image?: string | null;
-  password?: string | null;
+  password?: string;
+  currentPassword?: string;
+};
+
+type AdminDto = {
+  items: AdminUser[];
+  page: number;
+  totalPages: number;
+  totalCount: number;
+};
+
+export type SignUpResponse = {
+  user: {
+    id: string;
+    name: string;
+    nickname: string;
+    role: UserRole;
+    isPermissive: boolean;
+    userId: number;
+  } | null;
+  error?: string;
 };
 
 export type {
@@ -67,4 +86,5 @@ export type {
   RealtimeGroupData,
   RealtimeAdminData,
   UpdateProfileData,
+  AdminDto,
 };
