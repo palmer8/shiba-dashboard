@@ -17,6 +17,7 @@ import { DashboardData } from "@/types/dashboard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import DashboardSkeleton from "./dashboard-skeleton";
+import { ServerMetricsChart } from "./server-metrics-chart";
 
 const UserStatsCard = memo(function UserStatsCard({
   userCount,
@@ -53,7 +54,9 @@ const AdminStatsCard = memo(function AdminStatsCard({
         <div className="text-2xl font-bold">{adminData.count}명</div>
         {adminData.users.length > 0 && (
           <div className="text-xs text-muted-foreground">
-            {adminData.users.map((admin) => admin.name).join(", ")}
+            {adminData.users
+              .map((admin) => admin.name + `(${admin.user_id})`)
+              .join(", ")}
           </div>
         )}
       </CardContent>
@@ -264,6 +267,7 @@ export default function DashboardClientContent() {
           </CardContent>
         </Card>
       </div>
+      <ServerMetricsChart />
     </div>
   );
 }

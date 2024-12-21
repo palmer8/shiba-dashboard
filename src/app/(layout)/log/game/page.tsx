@@ -24,7 +24,7 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
   if (!session || !session.user) return redirect("/login");
 
   if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN))
-    return redirect("/");
+    return redirect("/404");
 
   const params = await searchParams;
 

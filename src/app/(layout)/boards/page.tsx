@@ -28,8 +28,8 @@ export default async function BoardsPage({ searchParams }: PageProps) {
   const session = await auth();
   const params = await searchParams;
 
-  if (!session?.user) return redirect("/login");
-  if (!session.user.isPermissive) return redirect("/pending");
+  if (!session || !session.user) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/pending");
 
   const page = parseInt(params.page || "1");
   const filters: BoardFilter = {

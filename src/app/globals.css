@@ -116,3 +116,85 @@
     @apply resize-none;
   }
 }
+
+@layer components {
+  .animate-shine {
+    @apply relative overflow-hidden;
+  }
+
+  .animate-shine::before {
+    @apply absolute top-0 -left-full w-[200%] h-full;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(50, 14, 254, 0.2) 25%,
+      rgba(21, 179, 227, 0.2) 50%,
+      transparent 100%
+    );
+    content: "";
+    animation: shine 1.5s infinite;
+  }
+
+  .animate-gradient {
+    @apply relative overflow-hidden transition-all duration-300;
+    background: linear-gradient(
+      90deg,
+      theme("colors.blue.500"),
+      theme("colors.purple.500"),
+      theme("colors.pink.500")
+    );
+    background-size: 200% 100%;
+    animation: gradient 8s linear infinite;
+  }
+
+  .animate-pulse-border {
+    @apply relative;
+  }
+
+  .animate-pulse-border::before {
+    @apply absolute inset-0 rounded-[inherit] transition-all duration-300;
+    content: "";
+    background: conic-gradient(
+      from 0deg,
+      theme("colors.blue.500"),
+      theme("colors.purple.500"),
+      theme("colors.pink.500"),
+      theme("colors.blue.500")
+    );
+    animation: rotate 4s linear infinite;
+    z-index: -1;
+  }
+
+  .animate-pulse-border::after {
+    @apply absolute inset-[1px] rounded-[inherit] bg-background;
+    content: "";
+    z-index: -1;
+  }
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

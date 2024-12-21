@@ -13,7 +13,7 @@ export default async function Home() {
   }
 
   if (!session.user.isPermissive) {
-    return redirect("/404");
+    return redirect("/pending");
   }
 
   return (

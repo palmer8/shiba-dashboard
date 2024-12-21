@@ -3,8 +3,16 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { SignUpForm } from "@/components/form/signup-form";
+import { auth } from "@/lib/auth-config";
+import { redirect } from "next/navigation";
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  const session = await auth();
+  if (session && session.user && session.user.isPermissive)
+    return redirect("/");
+  else if (session && session.user && !session.user.isPermissive)
+    return redirect("/pending");
+
   return (
     <div className="container relative h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
       <Link

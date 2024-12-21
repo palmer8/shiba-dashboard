@@ -86,7 +86,7 @@ const MOCK_ADMINS: Admin[] = [
   },
   {
     id: "3",
-    name: "담도",
+    name: "담",
     role: "스태프",
     todayAttendance: {
       startTime: "09:15",

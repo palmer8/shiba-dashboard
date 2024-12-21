@@ -35,7 +35,9 @@ class UserService {
 
       // 3. userId 중복 검사
       const existingUser = await this.findByUserId(data.userId);
-      if (existingUser) {
+      console.log(existingUser);
+
+      if (existingUser.success) {
         return {
           success: false,
           error: "이미 등록된 게임 계정입니다.",
@@ -93,12 +95,23 @@ class UserService {
         where: { userId },
       });
 
+      console.log(user);
+
+      if (!user) {
+        return {
+          success: false,
+          error: "사용자를 찾을 수 없습니다.",
+          data: null,
+        };
+      }
+
       return {
         success: true,
         error: null,
         data: user,
       };
     } catch (error) {
+      console.error("User find error:", error);
       return {
         success: false,
         error: "사용자 조회에 실패했습니다.",

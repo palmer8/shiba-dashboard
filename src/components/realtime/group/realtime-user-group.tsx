@@ -23,6 +23,15 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatKoreanDateTime } from "@/lib/utils";
 import { handleDownloadJson2CSV } from "@/lib/utils";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Download } from "lucide-react";
 
 interface RealtimeUserGroupProps {
   data: RealtimeGameUserData;
@@ -143,57 +152,81 @@ export default function RealtimeUserGroup({
   };
 
   return (
-    <div className="grid gap-4">
-      <h1 className="text-xl font-bold mt-2">
-        {data.last_nickname}({userId})님의 그룹 목록
-      </h1>
-      <div className="flex justify-end gap-2 items-center">
-        <Button
-          disabled={table.getSelectedRowModel().rows.length === 0}
-          onClick={handleCSVDownload}
-          size="sm"
-        >
-          CSV 다운로드
-        </Button>
-        <AddGroupDialog userId={userId} page="user" />
-      </div>
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
+    <Card className="mt-6">
+      <CardHeader className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <CardTitle>그룹 관리</CardTitle>
+            <CardDescription>
+              {data.last_nickname}({userId})님이 소속된 그룹 목록입니다.
+            </CardDescription>
+          </div>
+          <Badge variant="secondary" className="h-7">
+            총 {groups.length}개 그룹
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2 justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={table.getSelectedRowModel().rows.length === 0}
+            onClick={handleCSVDownload}
+            className="h-8"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            CSV 내보내기
+          </Button>
+          <AddGroupDialog userId={userId} page="user" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="bg-muted/50">
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
                 ))}
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                데이터가 존재하지 않습니다.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </div>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  className={row.getIsSelected() ? "bg-muted/50" : undefined}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  소속된 그룹이 없습니다.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }

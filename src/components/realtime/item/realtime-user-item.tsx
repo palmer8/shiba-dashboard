@@ -1,12 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useSession } from "next-auth/react";
-import { UserRole } from "@prisma/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
   TableHeader,
@@ -15,17 +12,30 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Search, Trash2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import {
   removeUserVehicleAction,
   removeUserWeaponAction,
   updateUserItemAction,
 } from "@/actions/realtime/realtime-user-item-action";
-import { toast } from "@/hooks/use-toast";
 import {
   RemoveUserVehicleDto,
   RemoveUserWeaponDto,
   UpdateUserInventoryDto,
 } from "@/types/realtime";
+import { formatKoreanNumber } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface RealtimeUserItemProps {
   data: {
@@ -34,20 +44,37 @@ interface RealtimeUserItemProps {
     vehicles: Record<string, string>;
   };
   userId: number;
+  isAdmin: boolean;
 }
 
 export default function RealtimeUserItem({
   data,
   userId,
+  isAdmin,
 }: RealtimeUserItemProps) {
-  const { data: session } = useSession();
-  const isStaff = session?.user?.role === UserRole.STAFF;
-
+  const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [tempAmount, setTempAmount] = useState<number | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<{
+    id: string;
+    originalAmount: number;
+    newAmount: number;
+  } | null>(null);
   const [filters, setFilters] = useState({
     inventory: "",
     weapons: "",
     vehicles: "",
   });
+  const [showWeaponDialog, setShowWeaponDialog] = useState(false);
+  const [showVehicleDialog, setShowVehicleDialog] = useState(false);
+  const [selectedWeapon, setSelectedWeapon] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   async function handleUpdateInventory(data: UpdateUserInventoryDto) {
     const result = await updateUserItemAction(data);
@@ -64,30 +91,50 @@ export default function RealtimeUserItem({
     }
   }
 
-  const handleAmountBlur = (
+  const handleAmountChange = (
     itemId: string,
     newAmount: number,
     originalAmount: number
   ) => {
-    if (newAmount === originalAmount) return;
+    setSelectedItem({
+      id: itemId,
+      originalAmount,
+      newAmount,
+    });
+    setShowConfirmDialog(true);
+  };
 
-    handleUpdateInventory({
+  const handleConfirmUpdate = async () => {
+    if (!selectedItem) return;
+
+    const { id, originalAmount, newAmount } = selectedItem;
+    await handleUpdateInventory({
       user_id: userId.toString(),
-      itemcode: itemId,
+      itemcode: id,
       amount: Math.abs(newAmount - originalAmount),
       type: newAmount < originalAmount ? "remove" : "add",
     });
+
+    setShowConfirmDialog(false);
+    setEditingItem(null);
+    setSelectedItem(null);
+  };
+
+  const handleCancelUpdate = () => {
+    setShowConfirmDialog(false);
+    setEditingItem(null);
+    setSelectedItem(null);
   };
 
   async function handleRemoveUserWeapon(data: RemoveUserWeaponDto) {
     const result = await removeUserWeaponAction(data);
     if (result.success) {
       toast({
-        title: "무기 제거 성공",
+        title: "무기 회수 성공",
       });
     } else {
       toast({
-        title: "무기 제거 실패",
+        title: "무기 회수 실패",
         description: result.error || "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
@@ -109,222 +156,364 @@ export default function RealtimeUserItem({
     }
   }
 
+  const handleWeaponRemove = async () => {
+    if (!selectedWeapon) return;
+
+    await handleRemoveUserWeapon({
+      user_id: userId,
+      weapon: selectedWeapon.id,
+    });
+
+    setShowWeaponDialog(false);
+    setSelectedWeapon(null);
+  };
+
+  const handleVehicleRemove = async () => {
+    if (!selectedVehicle) return;
+
+    await handleRemoveUserVehicle({
+      user_id: userId,
+      vehicle: selectedVehicle.id,
+    });
+
+    setShowVehicleDialog(false);
+    setSelectedVehicle(null);
+  };
+
   const items = useMemo(
     () => ({
-      weapons: Object.entries(data.weapons)
-        .map(([key, value]) => ({
-          id: key,
-          name: value,
-        }))
-        .filter(
-          (weapon) =>
-            weapon.id.toLowerCase().includes(filters.weapons.toLowerCase()) ||
-            weapon.name.toLowerCase().includes(filters.weapons.toLowerCase())
-        )
-        .sort((a, b) => a.name.localeCompare(b.name)),
-      inventory: Object.entries(data.inventory)
-        .map(([key, value]) => ({
-          id: key,
-          name: value.name,
-          amount: value.amount,
+      inventory: Object.entries(data.inventory || {})
+        .map(([id, item]) => ({
+          id,
+          name: item.name,
+          amount: item.amount,
         }))
         .filter(
           (item) =>
-            item.id.toLowerCase().includes(filters.inventory.toLowerCase()) ||
-            item.name.toLowerCase().includes(filters.inventory.toLowerCase())
+            item.name.toLowerCase().includes(filters.inventory.toLowerCase()) ||
+            item.id.toLowerCase().includes(filters.inventory.toLowerCase())
         )
         .sort((a, b) => a.name.localeCompare(b.name)),
-      vehicles: Object.entries(data.vehicles)
-        .map(([key, value]) => ({ id: key, name: value }))
+      weapons: Object.entries(data.weapons || {})
+        .map(([id, name]) => ({
+          id,
+          name,
+        }))
+        .filter(
+          (weapon) =>
+            weapon.name.toLowerCase().includes(filters.weapons.toLowerCase()) ||
+            weapon.id.toLowerCase().includes(filters.weapons.toLowerCase())
+        )
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      vehicles: Object.entries(data.vehicles || {})
+        .map(([id, name]) => ({
+          id,
+          name,
+        }))
         .filter(
           (vehicle) =>
-            vehicle.id.toLowerCase().includes(filters.vehicles.toLowerCase()) ||
-            vehicle.name.toLowerCase().includes(filters.vehicles.toLowerCase())
+            vehicle.name
+              .toLowerCase()
+              .includes(filters.vehicles.toLowerCase()) ||
+            vehicle.id.toLowerCase().includes(filters.vehicles.toLowerCase())
         )
         .sort((a, b) => a.name.localeCompare(b.name)),
     }),
     [data, filters]
   );
 
-  const renderSearchInput = (
-    category: "inventory" | "weapons" | "vehicles"
-  ) => (
-    <Input
-      placeholder="아이디 또는 이름으로 검색..."
-      value={filters[category]}
-      onChange={(e) =>
-        setFilters((prev) => ({
-          ...prev,
-          [category]: e.target.value,
-        }))
-      }
-      className="mb-4"
-    />
-  );
-
-  const renderInventoryTable = () => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>아이디</TableHead>
-          <TableHead>이름</TableHead>
-          <TableHead>수량</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.inventory.map((item) => (
-          <TableRow key={item.id}>
-            <TableCell>{item.id}</TableCell>
-            <TableCell>{item.name}</TableCell>
-            <TableCell>
-              {isStaff ? (
-                <span>{item.amount}개</span>
-              ) : (
-                <Input
-                  type="number"
-                  defaultValue={item.amount}
-                  className="w-[100px]"
-                  onBlur={(e) => {
-                    const newValue = parseInt(e.target.value);
-                    handleAmountBlur(item.id, newValue, item.amount);
-                  }}
-                />
-              )}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-
-  const renderWeaponsTable = () => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>아이디</TableHead>
-          <TableHead>이름</TableHead>
-          {!isStaff && <TableHead>회수</TableHead>}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.weapons.map((weapon) => (
-          <TableRow key={weapon.id}>
-            <TableCell>{weapon.id}</TableCell>
-            <TableCell>{weapon.name}</TableCell>
-            {!isStaff && (
-              <TableCell>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    handleRemoveUserWeapon({
-                      user_id: userId,
-                      weapon: weapon.id,
-                    });
-                  }}
-                >
-                  회수
-                </Button>
-              </TableCell>
-            )}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-
-  const renderVehiclesTable = () => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>아이디</TableHead>
-          <TableHead>이름</TableHead>
-          {!isStaff && <TableHead>회수</TableHead>}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.vehicles.map((vehicle) => (
-          <TableRow key={vehicle.id}>
-            <TableCell>{vehicle.id}</TableCell>
-            <TableCell>{vehicle.name}</TableCell>
-            {!isStaff && (
-              <TableCell>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    handleRemoveUserVehicle({
-                      user_id: userId,
-                      vehicle: vehicle.id,
-                    });
-                  }}
-                >
-                  회수
-                </Button>
-              </TableCell>
-            )}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+  const renderSearchInput = (type: keyof typeof filters) => (
+    <div className="relative">
+      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+      <Input
+        placeholder={`${
+          type === "inventory" ? "아이템" : type === "weapons" ? "무기" : "차량"
+        } 검색...`}
+        value={filters[type]}
+        onChange={(e) =>
+          setFilters((prev) => ({ ...prev, [type]: e.target.value }))
+        }
+        className="pl-8"
+      />
+    </div>
   );
 
   return (
     <>
-      <div className="md:hidden">
-        <Tabs defaultValue="inventory">
-          <TabsList className="h-10 w-full md:max-w-[400px]">
-            <TabsTrigger className="h-full w-full" value="inventory">
-              유저 인벤토리
-            </TabsTrigger>
-            <TabsTrigger className="h-full w-full" value="weapons">
-              장착중인 무기
-            </TabsTrigger>
-            <TabsTrigger className="h-full w-full" value="vehicles">
-              보유 중인 차량
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="inventory">
-            {renderSearchInput("inventory")}
-            <div className="grid gap-4">{renderInventoryTable()}</div>
-          </TabsContent>
-          <TabsContent value="weapons">
-            {renderSearchInput("weapons")}
-            <div className="grid gap-4">{renderWeaponsTable()}</div>
-          </TabsContent>
-          <TabsContent value="vehicles">
-            {renderSearchInput("vehicles")}
-            <div className="grid gap-4">{renderVehiclesTable()}</div>
-          </TabsContent>
-        </Tabs>
-      </div>
-      <div className="hidden md:grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardHeader>
-            <CardTitle>유저 인벤토리</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div className="w-full flex justify-between items-center">
+              <CardTitle>인벤토리</CardTitle>
+              <Badge variant="secondary">{items.inventory.length}개</Badge>
+            </div>
           </CardHeader>
           <CardContent>
             {renderSearchInput("inventory")}
-            {renderInventoryTable()}
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10">
+                <TableRow>
+                  <TableHead>아이템 ID</TableHead>
+                  <TableHead>아이템명</TableHead>
+                  <TableHead className="text-right">수량</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.inventory.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium text-muted-foreground">
+                      {item.id}
+                    </TableCell>
+                    <TableCell className="truncate max-w-[200px]">
+                      {item.name}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isAdmin ? (
+                        editingItem === item.id ? (
+                          <Input
+                            type="number"
+                            defaultValue={item.amount}
+                            className="w-20 text-right"
+                            autoFocus
+                            onBlur={(e) => {
+                              const newAmount = Number(e.target.value);
+                              if (newAmount !== item.amount) {
+                                handleAmountChange(
+                                  item.id,
+                                  newAmount,
+                                  item.amount
+                                );
+                              } else {
+                                setEditingItem(null);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className="px-2 py-1 border rounded cursor-pointer hover:bg-muted whitespace-nowrap"
+                            onClick={() => setEditingItem(item.id)}
+                          >
+                            {formatKoreanNumber(item.amount)}개
+                          </span>
+                        )
+                      ) : (
+                        <span>{formatKoreanNumber(item.amount)}</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader>
-            <CardTitle>장착중인 무기</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div className="w-full flex justify-between items-center">
+              <CardTitle>무기</CardTitle>
+              <Badge variant="secondary">{items.weapons.length}개</Badge>
+            </div>
           </CardHeader>
           <CardContent>
             {renderSearchInput("weapons")}
-            {renderWeaponsTable()}
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10">
+                <TableRow>
+                  <TableHead>무기 ID</TableHead>
+                  <TableHead>무기명</TableHead>
+                  {isAdmin && <TableHead className="w-[60px]"></TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.weapons.map((weapon) => (
+                  <TableRow key={weapon.id}>
+                    <TableCell className="font-medium text-muted-foreground">
+                      {weapon.id}
+                    </TableCell>
+                    <TableCell className="truncate max-w-[200px]">
+                      {weapon.name}
+                    </TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedWeapon({
+                              id: weapon.id,
+                              name: weapon.name,
+                            });
+                            setShowWeaponDialog(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
+
         <Card>
-          <CardHeader>
-            <CardTitle>보유 중인 차량</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div className="w-full flex justify-between items-center">
+              <CardTitle>차량</CardTitle>
+              <Badge variant="secondary">{items.vehicles.length}개</Badge>
+            </div>
           </CardHeader>
           <CardContent>
             {renderSearchInput("vehicles")}
-            {renderVehiclesTable()}
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10">
+                <TableRow>
+                  <TableHead>차량 ID</TableHead>
+                  <TableHead>차량명</TableHead>
+                  {isAdmin && <TableHead className="w-[60px]"></TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.vehicles.map((vehicle) => (
+                  <TableRow key={vehicle.id}>
+                    <TableCell className="font-medium text-muted-foreground">
+                      {vehicle.id}
+                    </TableCell>
+                    <TableCell className="truncate max-w-[200px]">
+                      {vehicle.name}
+                    </TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedVehicle({
+                              id: vehicle.id,
+                              name: vehicle.name,
+                            });
+                            setShowVehicleDialog(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>수량 변경 확인</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedItem && (
+                <>
+                  현재 수량: {formatKoreanNumber(selectedItem.originalAmount)}개
+                  <br />
+                  변경 수량: {formatKoreanNumber(selectedItem.newAmount)}개
+                  <br />
+                  {selectedItem.newAmount > selectedItem.originalAmount ? (
+                    <span className="text-blue-500">
+                      {formatKoreanNumber(
+                        selectedItem.newAmount - selectedItem.originalAmount
+                      )}
+                      개 증가
+                    </span>
+                  ) : (
+                    <span className="text-red-500">
+                      {formatKoreanNumber(
+                        selectedItem.originalAmount - selectedItem.newAmount
+                      )}
+                      개 감소
+                    </span>
+                  )}
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelUpdate}>
+              취소
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmUpdate}>
+              적용
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showWeaponDialog} onOpenChange={setShowWeaponDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>무기 회수 확인</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedWeapon && (
+                <>
+                  다음 무기를 회수하시겠습니까?
+                  <br />
+                  <br />
+                  무기 ID:{" "}
+                  <span className="font-medium">{selectedWeapon.id}</span>
+                  <br />
+                  무기명:{" "}
+                  <span className="font-medium">{selectedWeapon.name}</span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowWeaponDialog(false)}>
+              취소
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleWeaponRemove}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              회수
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showVehicleDialog} onOpenChange={setShowVehicleDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>차량 제거 확인</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedVehicle && (
+                <>
+                  다음 차량을 제거하시겠습니까?
+                  <br />
+                  <br />
+                  차량 ID:{" "}
+                  <span className="font-medium">{selectedVehicle.id}</span>
+                  <br />
+                  차량명:{" "}
+                  <span className="font-medium">{selectedVehicle.name}</span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowVehicleDialog(false)}>
+              취소
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleVehicleRemove}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              제거
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -11,7 +11,7 @@ export default async function AdminCategoryPage() {
   const session = await auth();
   if (!session || !session.user) return redirect("/login");
   if (session.user && !session.user.isPermissive) return redirect("/pending");
-  if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/");
+  if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/404");
 
   const data = await boardService.getCategoryList();
   return (

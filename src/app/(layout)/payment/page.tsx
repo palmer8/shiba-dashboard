@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth-config";
 import { hasAccess } from "@/lib/utils";
 import { paymentService } from "@/service/payment-service";
 import { PaymentFilter } from "@/types/filters/payment-filter";
-import { Payment, PaymentDto } from "@/types/payment";
+import { PaymentDto } from "@/types/payment";
 import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 
@@ -17,8 +17,9 @@ export default async function PaymentPage({
 }) {
   const session = await auth();
   if (!session || !session.user) return redirect("/login");
-  if (session.user && !session.user.isPermissive) return redirect("/login");
-  if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) return redirect("/");
+  if (session.user && !session.user.isPermissive) return redirect("/pending");
+  if (!hasAccess(session.user.role, UserRole.SUPERMASTER))
+    return redirect("/404");
 
   let data: PaymentDto = {
     items: [],

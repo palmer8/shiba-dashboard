@@ -6,11 +6,11 @@ import { GlobalTitle } from "@/components/global/global-title";
 import RealtimeUseridSearch from "@/components/realtime/user/realtime-userid-search";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
-import { userService } from "@/service/user-service";
-import { UserRole } from "@prisma/client";
 import Empty from "@/components/ui/empty";
 import { realtimeService } from "@/service/realtime-service";
 import RealtimeUserGroup from "@/components/realtime/group/realtime-user-group";
+import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
 
 export default async function RealtimeUserPage({
   searchParams,
@@ -20,10 +20,7 @@ export default async function RealtimeUserPage({
   const session = await auth();
 
   if (!session || !session.user) return redirect("/login");
-
-  if (session.user && !session.user.isPermissive) {
-    return redirect("/pending");
-  }
+  if (session.user && !session.user.isPermissive) return redirect("/pending");
 
   const userId = (await searchParams).userId
     ? Number((await searchParams).userId) || null
@@ -51,10 +48,17 @@ export default async function RealtimeUserPage({
             <TabsTrigger value="group">그룹 정보</TabsTrigger>
           </TabsList>
           <TabsContent value="info">
-            <RealtimeUserInfo data={response.data} />
+            <RealtimeUserInfo
+              data={response.data}
+              isAdmin={hasAccess(session.user.role, UserRole.INGAME_ADMIN)}
+            />
           </TabsContent>
           <TabsContent value="item">
-            <RealtimeUserItem data={response.data} userId={userId} />
+            <RealtimeUserItem
+              data={response.data}
+              userId={userId}
+              isAdmin={hasAccess(session.user.role, UserRole.INGAME_ADMIN)}
+            />
           </TabsContent>
           <TabsContent value="group">
             <RealtimeUserGroup data={response.data} userId={userId} />

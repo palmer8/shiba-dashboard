@@ -24,7 +24,7 @@ interface PageProps {
 export default async function ItemQuantityPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session || !session.user) return redirect("/login");
-  if (session.user && !session.user.isPermissive) return redirect("/login");
+  if (session.user && !session.user.isPermissive) return redirect("/pending");
 
   const params = await searchParams;
   const page = Number(params.page) || 1;
