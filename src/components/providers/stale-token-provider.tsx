@@ -32,7 +32,8 @@ const StaleTokenProvider = ({ children }: { children: React.ReactNode }) => {
         const isValidSession =
           session.user.role === currentUser.role &&
           session.user.nickname === currentUser.nickname &&
-          session.user.id === currentUser.id;
+          session.user.id === currentUser.id &&
+          session.user.image === currentUser.image;
 
         if (!isValidSession) {
           signOut({ callbackUrl: "/login" });
