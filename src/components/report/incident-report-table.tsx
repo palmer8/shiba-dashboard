@@ -37,20 +37,17 @@ import Empty from "../ui/empty";
 interface IncidentReportTableProps {
   data: {
     records: IncidentReport[];
-    total: number;
-    page: number;
-    totalPages: number;
+    metadata: {
+      total: number;
+      page: number;
+      totalPages: number;
+    };
   };
   session: Session;
 }
 
 export default function IncidentReportTable({
-  data = {
-    records: [],
-    total: 0,
-    page: 1,
-    totalPages: 1,
-  },
+  data,
   session,
 }: IncidentReportTableProps) {
   const router = useRouter();
@@ -283,41 +280,41 @@ export default function IncidentReportTable({
       {data.records.length > 0 && (
         <div className="flex items-center justify-between py-2">
           <div className="text-sm text-muted-foreground">
-            총 {data.total}개 중 {(data.page - 1) * 10 + 1}-
-            {Math.min(data.page * 10, data.total)}개 표시
+            총 {data.metadata.total}개 중 {(data.metadata.page - 1) * 10 + 1}-
+            {Math.min(data.metadata.page * 10, data.metadata.total)}개 표시
           </div>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange(data.page - 1)}
-              disabled={data.page <= 1}
+              onClick={() => handlePageChange(data.metadata.page - 1)}
+              disabled={data.metadata.page <= 1}
             >
               이전
             </Button>
             <div className="flex items-center gap-1">
               <input
                 type="number"
-                value={data.page}
+                value={data.metadata.page}
                 onChange={(e) => {
                   const page = parseInt(e.target.value);
-                  if (page > 0 && page <= data.totalPages) {
+                  if (page > 0 && page <= data.metadata.totalPages) {
                     handlePageChange(page);
                   }
                 }}
                 className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 min={1}
-                max={data.totalPages}
+                max={data.metadata.totalPages}
               />
               <span className="text-sm text-muted-foreground">
-                / {data.totalPages}
+                / {data.metadata.totalPages}
               </span>
             </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange(data.page + 1)}
-              disabled={data.page >= data.totalPages}
+              onClick={() => handlePageChange(data.metadata.page + 1)}
+              disabled={data.metadata.page >= data.metadata.totalPages}
             >
               다음
             </Button>

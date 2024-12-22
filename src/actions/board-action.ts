@@ -1,7 +1,6 @@
 "use server";
 
 import { boardService } from "@/service/board-service";
-import { CategoryForm } from "@/components/dialog/add-category-dialog";
 import { revalidatePath } from "next/cache";
 import { JSONContent } from "novel";
 import { Board, BoardComment, BoardCategory } from "@prisma/client";
@@ -9,6 +8,7 @@ import { BoardDetailView, CommentData, LikeInfo } from "@/types/board";
 import { ApiResponse } from "@/types/global.dto";
 import { cache } from "react";
 import { BoardList, BoardFilter } from "@/types/board";
+import { CategoryForm, EditCategoryForm } from "@/lib/validations/board";
 
 // 게시글 목록 캐싱
 const getCachedBoardList = cache(async (filters: BoardFilter) => {
@@ -98,7 +98,7 @@ export async function createCategoryAction(
 
 export async function updateCategoryAction(
   id: string,
-  data: CategoryForm
+  data: EditCategoryForm
 ): Promise<ApiResponse<BoardCategory>> {
   const result = await boardService.updateCategory(id, data);
   if (result.success) revalidatePath("/admin/board");

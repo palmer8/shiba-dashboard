@@ -33,65 +33,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  createGroupMailAction,
-  updateGroupMailAction,
-} from "@/actions/mail-action";
+import { updateGroupMailAction } from "@/actions/mail-action";
 import { formatKoreanNumber } from "@/lib/utils";
 import { GroupMail } from "@/types/mail";
 import { ReactNode, useState } from "react";
 import { X } from "lucide-react";
+import {
+  editGroupMailSchema,
+  EditGroupMailValues,
+} from "@/lib/validations/mail";
 
-const RewardSchema = z
-  .object({
-    type: z.enum(["MONEY", "BANK", "ITEM"]),
-    itemId: z.string().optional(),
-    itemName: z.string().optional(),
-    amount: z.string(),
-  })
-  .refine(
-    (data) => {
-      if (data.type === "ITEM") {
-        return data.itemId && data.itemName;
-      }
-      return true;
-    },
-    {
-      message: "아이템 정보를 선택해주세요",
-    }
-  );
-
-const GroupMailSchema = z
-  .object({
-    reason: z.string().min(1, "사유를 입력해주세요"),
-    content: z.string().min(10, "내용은 최소 10자 이상이어야 합니다"),
-    rewards: z
-      .array(RewardSchema)
-      .min(1, "최소 1개 이상의 보상을 설정해주세요"),
-    startDate: z.date({
-      required_error: "시작 날짜를 입력해주세요",
-    }),
-    endDate: z.date({
-      required_error: "종료 날짜를 입력해주세요",
-    }),
-  })
-  .refine(
-    (data) => {
-      const now = new Date();
-      now.setSeconds(0, 0); // 초와 밀리초를 0으로 설정하여 비교
-      return data.startDate >= now;
-    },
-    {
-      path: ["startDate"],
-      message: "시작 날짜는 현재 시간 이후여야 합니다",
-    }
-  )
-  .refine((data) => data.startDate < data.endDate, {
-    path: ["endDate"],
-    message: "종료 날짜는 시작 날짜보다 이후여야 합니다",
-  });
-
-export type GroupMailValues = z.infer<typeof GroupMailSchema>;
+export type GroupMailValues = z.infer<typeof editGroupMailSchema>;
 
 interface EditGroupMailDialogProps {
   initialData: GroupMail;
@@ -103,8 +55,8 @@ export default function EditGroupMailDialog({
   trigger,
 }: EditGroupMailDialogProps) {
   const [open, setOpen] = useState(false);
-  const form = useForm<GroupMailValues>({
-    resolver: zodResolver(GroupMailSchema),
+  const form = useForm<EditGroupMailValues>({
+    resolver: zodResolver(editGroupMailSchema),
     defaultValues: {
       reason: initialData.reason,
       content: initialData.content,

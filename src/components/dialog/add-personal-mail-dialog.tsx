@@ -39,53 +39,7 @@ import {
 import { createPersonalMailAction } from "@/actions/mail-action";
 import { formatKoreanNumber } from "@/lib/utils";
 import { X } from "lucide-react";
-
-const RewardSchema = z
-  .object({
-    type: z.enum(["MONEY", "BANK", "ITEM"]),
-    itemId: z.string().optional(),
-    itemName: z.string().optional(),
-    amount: z.string(),
-  })
-  .refine(
-    (data) => {
-      if (data.type === "ITEM") {
-        return data.itemId && data.itemName;
-      }
-      return true;
-    },
-    {
-      message: "아이템 정보를 선택해주세요",
-    }
-  );
-
-const NeedItemSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("ITEM"),
-    itemId: z.string().min(1, "아이템을 선택해주세요"),
-    itemName: z.string().min(1, "아이템을 선택해주세요"),
-    amount: z.string().min(1, "수량을 입력해주세요"),
-  }),
-  z.object({
-    type: z.enum(["MONEY", "BANK"]),
-    amount: z.string().min(1, "금액을 입력해주세요"),
-  }),
-]);
-
-const PersonalMailSchema = z.object({
-  reason: z.string().min(1, "사유를 입력해주세요"),
-  content: z.string().min(10, "내용은 최소 10자 이상이어야 합니다"),
-  rewards: z.array(RewardSchema),
-  needItems: z.array(NeedItemSchema).optional(),
-  userId: z
-    .string({
-      required_error: "고유번호를 입력해주세요",
-    })
-    .min(1, "고유번호를 입력해주세요"),
-  nickname: z.string().min(1, "닉네임을 입력해주세요"),
-});
-
-export type PersonalMailValues = z.infer<typeof PersonalMailSchema>;
+import { PersonalMailSchema, PersonalMailValues } from "@/lib/validations/mail";
 
 interface AddPersonalMailDialogProps {
   open: boolean;

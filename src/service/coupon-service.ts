@@ -13,7 +13,7 @@ import {
   CouponGroupList,
   CouponList,
 } from "@/types/coupon";
-import { CouponGroupValues } from "@/components/dialog/add-coupon-dialog";
+import { CouponGroupValues } from "@/lib/validations/coupon";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
 import { ApiResponse } from "@/types/global.dto";
@@ -408,7 +408,7 @@ export class CouponService {
 
   async getCouponGroupWithCouponsAndIds(ids: string[]) {
     const session = await auth();
-    if (!session || !session.user)
+    if (!session?.user)
       return {
         success: false,
         data: null,
@@ -423,12 +423,23 @@ export class CouponService {
       };
 
     try {
-      const result = await prisma.couponGroup.findMany({
-        where: { id: { in: ids } },
-        include: {
-          coupons: true,
-        },
+      // 트랜잭션으로 데이터 일관성 보장
+      const result = await prisma.$transaction(async (tx) => {
+        // 1. 쿠폰 그룹 데이터 조회
+        const groups = await tx.couponGroup.findMany({
+          where: { id: { in: ids } },
+        });
+
+        const coupons = await tx.coupon.findMany({
+          where: { couponGroupId: { in: ids } },
+        });
+
+        return {
+          groups,
+          coupons,
+        };
       });
+
       return {
         success: true,
         data: result,

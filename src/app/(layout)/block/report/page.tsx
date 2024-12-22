@@ -45,7 +45,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
           title="사건 처리 보고서"
           description="사건 처리 보고서를 작성하고 관리할 수 있습니다."
         />
-        <AddIncidentReportDialog />
+        <AddIncidentReportDialog session={session} />
       </div>
       <IncidentReportFilter filter={filter} />
       <Suspense fallback={<TableSkeleton />}>

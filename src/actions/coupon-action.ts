@@ -1,7 +1,7 @@
 "use server";
 
 import { couponService } from "@/service/coupon-service";
-import { CouponGroupValues } from "@/components/dialog/add-coupon-dialog";
+import { CouponGroupValues } from "@/lib/validations/coupon";
 import { revalidatePath } from "next/cache";
 import { CouponGroup } from "@/types/coupon";
 import { ApiResponse } from "@/types/global.dto";

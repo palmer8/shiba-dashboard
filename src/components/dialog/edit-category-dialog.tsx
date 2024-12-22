@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { boolean, z } from "zod";
+import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "@/hooks/use-toast";
@@ -29,19 +29,14 @@ import { updateCategoryAction } from "@/actions/board-action";
 import Editor from "@/components/editor/advanced-editor";
 import { Switch } from "@/components/ui/switch";
 import { sanitizeContent } from "@/lib/utils";
-
-const categorySchema = z.object({
-  name: z.string().min(1, {
-    message: "카테고리 이름을 입력해주세요.",
-  }),
-  isUsed: z.boolean(),
-  template: z.any(),
-});
-
-export type CategoryForm = z.infer<typeof categorySchema>;
+import {
+  CategoryForm,
+  EditCategoryForm,
+  editCategorySchema,
+} from "@/lib/validations/board";
 
 interface EditCategoryDialogProps {
-  initialData: CategoryForm & { id: string };
+  initialData: EditCategoryForm & { id: string };
   trigger?: React.ReactNode;
 }
 
@@ -51,8 +46,8 @@ export default function EditCategoryDialog({
 }: EditCategoryDialogProps) {
   const [open, setOpen] = useState(false);
 
-  const form = useForm<CategoryForm>({
-    resolver: zodResolver(categorySchema),
+  const form = useForm<EditCategoryForm>({
+    resolver: zodResolver(editCategorySchema),
     defaultValues: {
       name: initialData.name,
       isUsed: initialData.isUsed,
@@ -63,7 +58,7 @@ export default function EditCategoryDialog({
     },
   });
 
-  const onSubmit = async (data: CategoryForm) => {
+  const onSubmit = async (data: EditCategoryForm) => {
     const template = sanitizeContent(data.template);
     const formData = {
       id: initialData.id,

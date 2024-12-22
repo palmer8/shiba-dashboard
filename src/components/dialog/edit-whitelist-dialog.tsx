@@ -24,7 +24,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -36,29 +35,15 @@ import {
 import { updateWhitelistAction } from "@/actions/report-action";
 import { WhitelistIP } from "@/types/report";
 import { WHITELIST_STATUS } from "@/constant/constant";
+import {
+  EditWhitelistForm,
+  editWhitelistSchema,
+} from "@/lib/validations/report";
 
 interface EditWhitelistDialogProps {
   initialData: WhitelistIP;
   trigger: React.ReactNode;
 }
-
-const schema = z.object({
-  id: z.number(),
-  user_ip: z
-    .string()
-    .refine(
-      (value) =>
-        /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|\*)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|\*)$/.test(
-          value
-        ),
-      {
-        message:
-          "올바른 IP 형식이 아닙니다. (예: 111.111.111.111 또는 111.111.*.*)",
-      }
-    ),
-  comment: z.string().optional(),
-  status: z.enum(Object.keys(WHITELIST_STATUS) as [string, ...string[]]),
-});
 
 export default function EditWhitelistDialog({
   initialData,
@@ -66,8 +51,8 @@ export default function EditWhitelistDialog({
 }: EditWhitelistDialogProps) {
   const [open, setOpen] = useState(false);
 
-  const form = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
+  const form = useForm<EditWhitelistForm>({
+    resolver: zodResolver(editWhitelistSchema),
     defaultValues: {
       id: initialData.id,
       user_ip: initialData.user_ip,
@@ -76,7 +61,7 @@ export default function EditWhitelistDialog({
     },
   });
 
-  const onSubmit = async (data: z.infer<typeof schema>) => {
+  const onSubmit = async (data: EditWhitelistForm) => {
     const result = await updateWhitelistAction({
       id: data.id,
       user_ip: data.user_ip,

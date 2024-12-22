@@ -8,12 +8,12 @@ import {
 } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
 import { extractTextFromJSON, hasAccess } from "@/lib/utils";
-import { CategoryForm } from "@/components/dialog/add-category-dialog";
 import { JSONContent } from "novel";
 import { redirect } from "next/navigation";
 import { BoardDetailView, CommentData, LikeInfo } from "@/types/board";
 import { BoardsData } from "@/types/dashboard";
 import { ApiResponse } from "@/types/global.dto";
+import { CategoryForm } from "@/lib/validations/board";
 
 interface BoardFilter {
   page?: number;
@@ -431,7 +431,7 @@ class BoardService {
           likes: {
             include: {
               user: {
-                select: { id: true, nickname: true },
+                select: { id: true, nickname: true, userId: true },
               },
             },
           },
@@ -476,7 +476,7 @@ class BoardService {
         likes: board.likes.map((like) => ({
           id: like.user.id,
           nickname: like.user.nickname,
-          userId: like.user.id,
+          userId: like.user.userId.toString(),
           createdAt: like.createdAt,
         })),
         _count: {

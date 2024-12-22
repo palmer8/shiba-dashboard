@@ -28,10 +28,7 @@ import {
 } from "@/actions/realtime/realtime-group-action";
 import { toast } from "@/hooks/use-toast";
 import { GroupComboBox } from "@/components/global/group-combo-box";
-
-const addGroupSchema = z.object({
-  groupName: z.string().min(1, "그룹 이름을 입력해주세요."),
-});
+import { addGroupSchema } from "@/lib/validations/group";
 
 interface AddGroupDialogProps {
   userId: number;

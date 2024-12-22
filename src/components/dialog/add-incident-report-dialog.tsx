@@ -40,44 +40,23 @@ import { getGameNicknameByUserIdAction } from "@/actions/user-action";
 import { IncidentReasonCombobox } from "@/components/report/incident-reason-combobox";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
+import { addIncidentReportSchema } from "@/lib/validations/report";
+import { Session } from "next-auth";
+import { AddIncidentReportValues } from "@/lib/validations/report";
 
-const schema = z.object({
-  reason: z.string().min(1, "사유를 입력해주세요"),
-  incidentDescription: z.string().min(5, "상세 내용을 5자 이상 입력해주세요"),
-  incidentTime: z.date(),
-  targetUserId: z.coerce
-    .number()
-    .min(1, "대상자 ID를 입력해주세요")
-    .transform((val) => (isNaN(val) ? 0 : val)),
-  targetUserNickname: z.string().min(1, "대상자 닉네임을 입력해주세요"),
-  reportingUserId: z.coerce
-    .number()
-    .transform((val) => (isNaN(val) ? 0 : val))
-    .optional(),
-  reportingUserNickname: z.string().optional(),
-  penaltyType: z.enum(["구두경고", "경고", "게임정지", "정지해제"]),
-  warningCount: z.coerce
-    .number()
-    .transform((val) => (isNaN(val) ? 0 : val))
-    .optional(),
-  detentionTimeMinutes: z.coerce
-    .number()
-    .transform((val) => (isNaN(val) ? 0 : val))
-    .optional(),
-  banDurationHours: z.coerce
-    .number()
-    .transform((val) => (isNaN(val) ? 0 : val))
-    .optional(),
-});
+interface AddIncidentReportDialogProps {
+  session: Session;
+}
 
-export default function AddIncidentReportDialog() {
+export default function AddIncidentReportDialog({
+  session,
+}: AddIncidentReportDialogProps) {
   const [open, setOpen] = useState(false);
   const [isPermanentBan, setIsPermanentBan] = useState(false);
-  const { data: session } = useSession();
   const isStaff = session?.user?.role === "STAFF";
 
-  const form = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
+  const form = useForm<AddIncidentReportValues>({
+    resolver: zodResolver(addIncidentReportSchema),
     defaultValues: {
       reason: "",
       incidentDescription: "",
@@ -95,7 +74,7 @@ export default function AddIncidentReportDialog() {
 
   const watchPenaltyType = form.watch("penaltyType");
 
-  const onSubmit = async (data: z.infer<typeof schema>) => {
+  const onSubmit = async (data: AddIncidentReportValues) => {
     const processedData = { ...data };
 
     // 영구정지 처리 로직

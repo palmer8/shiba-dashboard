@@ -105,7 +105,7 @@ export function RealtimeGroupExpandedRow({
               }
             }}
           >
-            제거
+            추방
           </Button>
         ),
       },

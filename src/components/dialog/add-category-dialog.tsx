@@ -26,19 +26,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { createCategoryAction } from "@/actions/board-action";
-import Editor from "../editor/advanced-editor";
-import { Switch } from "../ui/switch";
+import Editor from "@/components/editor/advanced-editor";
+import { Switch } from "@/components/ui/switch";
 import { sanitizeContent } from "@/lib/utils";
-
-const categorySchema = z.object({
-  name: z.string().min(1, {
-    message: "카테고리 이름을 입력해주세요.",
-  }),
-  isUsed: z.boolean(),
-  template: z.any(),
-});
-
-export type CategoryForm = z.infer<typeof categorySchema>;
+import { categorySchema, CategoryForm } from "@/lib/validations/board";
 
 export default function AddCategoryDialog() {
   const [open, setOpen] = useState(false);

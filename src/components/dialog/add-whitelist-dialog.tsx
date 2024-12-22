@@ -35,30 +35,12 @@ import {
   Select,
 } from "@/components/ui/select";
 import { WHITELIST_STATUS } from "@/constant/constant";
-
-const whitelistSchema = z.object({
-  user_ip: z.string().refine(
-    (value) => {
-      const ips = value.split("\n").filter((ip) => ip.trim() !== "");
-      return ips.every((ip) =>
-        /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|\*)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|\*)$/.test(
-          ip.trim()
-        )
-      );
-    },
-    {
-      message:
-        "올바른 IP 형식이 아닙니다. (예: 111.111.111.111 또는 111.111.*.*)",
-    }
-  ),
-  comment: z.string().optional(),
-  status: z.enum(Object.keys(WHITELIST_STATUS) as [string, ...string[]]),
-});
+import { WhitelistForm, whitelistSchema } from "@/lib/validations/report";
 
 export default function AddWhitelistDialog() {
   const [open, setOpen] = useState(false);
 
-  const form = useForm<z.infer<typeof whitelistSchema>>({
+  const form = useForm<WhitelistForm>({
     resolver: zodResolver(whitelistSchema),
     defaultValues: {
       user_ip: "",

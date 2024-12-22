@@ -24,6 +24,7 @@ import {
   formatKoreanDateTime,
   handleDonwloadJSZip,
   handleDownloadJson2CSV,
+  handleDownloadMultipleJson2CSV,
 } from "@/lib/utils";
 import AddCouponDialog from "@/components/dialog/add-coupon-dialog";
 import {
@@ -245,8 +246,11 @@ export function CouponTable({ data, page }: CouponTableProps) {
   async function handleDownloadCSV() {
     const ids = table.getSelectedRowModel().rows.map((row) => row.original.id);
     const result = await getCouponGroupWithCouponsAndIdsAction(ids);
-    if (result.success) {
-      // handleDonwloadJSZip(result.data || [], "coupon-groups.zip");
+    if (result.success && result.data) {
+      handleDownloadMultipleJson2CSV([
+        { data: result.data.groups, fileName: "coupon-groups" },
+        { data: result.data.coupons, fileName: "coupons" },
+      ]);
       toast({
         title: "CSV 다운로드 완료",
       });

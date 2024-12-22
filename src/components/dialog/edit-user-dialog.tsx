@@ -45,46 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { formatRole } from "@/lib/utils";
 import { signOut } from "next-auth/react";
-
-const schema = z
-  .object({
-    image: z.string().url("올바른 URL을 입력해주세요").nullable().optional(),
-    currentPassword: z.string().optional(),
-    password: z
-      .string()
-      .min(6, "비밀번호는 6자 이상이어야 합니다")
-      .max(20, "비밀번호는 20자를 초과할 수 없습니다")
-      .optional(),
-    confirmPassword: z
-      .string()
-      .min(6, "비밀번호는 6자 이상이어야 합니다")
-      .max(20, "비밀번호는 20자를 초과할 수 없습니다")
-      .optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.password || data.confirmPassword) {
-        return !!data.currentPassword;
-      }
-      return true;
-    },
-    {
-      message: "현재 비밀번호를 입력해주세요",
-      path: ["currentPassword"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.password || data.confirmPassword) {
-        return data.password === data.confirmPassword;
-      }
-      return true;
-    },
-    {
-      message: "비밀번호가 일치하지 않습니다",
-      path: ["confirmPassword"],
-    }
-  );
+import { EditUserFormValues, editUserSchema } from "@/lib/validations/user";
 
 interface EditUserDialogProps {
   session: any;
@@ -109,8 +70,8 @@ export default function EditUserDialog({
   const isOpen = isControlled ? open : internalOpen;
   const setIsOpen = isControlled ? onOpenChange : setInternalOpen;
 
-  const form = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
+  const form = useForm<EditUserFormValues>({
+    resolver: zodResolver(editUserSchema),
     defaultValues: {
       image: session?.user.image || "",
       password: undefined,
@@ -128,7 +89,7 @@ export default function EditUserDialog({
     }
   }, [isOpen, session?.user?.id]);
 
-  const onSubmit = async (data: z.infer<typeof schema>) => {
+  const onSubmit = async (data: EditUserFormValues) => {
     try {
       const result = await updateUserAction(session.user.id, {
         image: data.image,

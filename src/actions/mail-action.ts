@@ -1,7 +1,7 @@
 "use server";
 
-import { GroupMailValues } from "@/components/dialog/add-group-mail-dialog";
-import { PersonalMailValues } from "@/components/dialog/add-personal-mail-dialog";
+import { GroupMailValues } from "@/lib/validations/mail";
+import { PersonalMailValues } from "@/lib/validations/mail";
 import { mailService } from "@/service/mail-service";
 import { revalidatePath } from "next/cache";
 import { parsePersonalMailCSV } from "@/lib/utils";

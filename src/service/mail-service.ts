@@ -1,7 +1,6 @@
-import { GroupMailValues } from "@/components/dialog/add-group-mail-dialog";
-import { PersonalMailValues } from "@/components/dialog/add-personal-mail-dialog";
 import prisma from "@/db/prisma";
 import { auth } from "@/lib/auth-config";
+import { GroupMailValues, PersonalMailValues } from "@/lib/validations/mail";
 import {
   GroupMailFilter,
   PersonalMailFilter,

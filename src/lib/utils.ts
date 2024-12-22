@@ -436,7 +436,7 @@ export function convertMarkdownToNovel(nodes: MarkdownNode[]): JSONContent[] {
   return cleanupContent(converted) as JSONContent[];
 }
 
-export async function handleDonwloadJSZip(data: any[], fileName: string) {
+export async function handleDonwloadJSZip(fileName: string, ...args: any[]) {
   // const zip = new JSZip();
   // zip.file(fileName, JSON.stringify(data));
   // const content = await zip.generateAsync({ type: "blob" });
@@ -524,4 +524,31 @@ export function extractTextFromJSON(json: JSONContent): string {
   }
 
   return text.trim();
+}
+
+export async function handleDownloadMultipleJson2CSV(
+  files: {
+    data: any;
+    fileName: string;
+  }[]
+) {
+  const zip = new JSZip();
+  const parser = new Parser();
+
+  // 각 파일을 CSV로 변환하고 ZIP에 추가
+  files.forEach((file) => {
+    const csv = parser.parse(file.data);
+    const csvContent = "\ufeff" + csv; // UTF-8 BOM 추가
+    zip.file(
+      `${formatKoreanDateTime(new Date())}_${file.fileName}.csv`,
+      csvContent
+    );
+  });
+
+  // ZIP 파일 생성 및 다운로드
+  const content = await zip.generateAsync({ type: "blob" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(content);
+  a.download = `${formatKoreanDateTime(new Date())}_export.zip`;
+  a.click();
 }
