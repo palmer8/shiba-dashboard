@@ -50,7 +50,7 @@ export default async function GamePersonalMailPage({
         description="SHIBA의 개인 우편을 관리할 수 있습니다."
       />
       <PersonalMailSearchFilter filters={filterParams} />
-      <PersonalMailTable data={tableData.data!} />
+      <PersonalMailTable data={tableData.data!} session={session} />
     </main>
   );
 }

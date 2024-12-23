@@ -59,7 +59,7 @@ export default async function GameGroupMailPage({ searchParams }: PageProps) {
         description="SHIBA의 단체 우편을 관리할 수 있습니다."
       />
       <GroupMailSearchFilter filters={filterParams} />
-      <GroupMailTable data={tableData} />
+      <GroupMailTable data={tableData} session={session} />
     </main>
   );
 }

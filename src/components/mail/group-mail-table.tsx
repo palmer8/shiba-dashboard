@@ -19,7 +19,6 @@ import {
 } from "@tanstack/react-table";
 import { useState, useMemo, Fragment } from "react";
 import { GroupMailTableData, GroupMail } from "@/types/mail";
-import { useSession } from "next-auth/react";
 import { handleDownloadJson2CSV } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -38,15 +37,16 @@ import {
 import { MoreHorizontal, Trash, Edit2, Plus, Download } from "lucide-react";
 import EditGroupMailDialog from "@/components/dialog/edit-group-mail-dialog";
 import Empty from "@/components/ui/empty";
+import { Session } from "next-auth";
 
 interface GroupMailTableProps {
   data: GroupMailTableData;
+  session: Session;
 }
 
-export function GroupMailTable({ data }: GroupMailTableProps) {
+export function GroupMailTable({ data, session }: GroupMailTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedGroupMail, setSelectedGroupMail] = useState<GroupMail | null>(

@@ -30,20 +30,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash, Pencil, Download, Plus } from "lucide-react";
+import { MoreHorizontal, Trash, Download, Plus, Edit2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { useSession } from "next-auth/react";
 import { ExpandedMailRow } from "@/components/mail/expanded-mail-row";
 import EditPersonalMailDialog from "@/components/dialog/edit-personal-mail-dialog";
 import { Input } from "@/components/ui/input";
 import { uploadPersonalMailCSVAction } from "@/actions/mail-action";
 import Empty from "@/components/ui/empty";
+import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
+import { Session } from "next-auth";
 
 interface PersonalMailTableProps {
   data: PersonalMailTableData;
+  session: Session;
 }
 
-export function PersonalMailTable({ data }: PersonalMailTableProps) {
+export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -56,8 +59,6 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
     rewards: false,
     content: false,
   });
-  const { data: session } = useSession();
-
   const columns = useMemo<ColumnDef<PersonalMail>[]>(
     () => [
       {
@@ -123,59 +124,59 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
           <div>{formatKoreanDateTime(row.getValue("createdAt"))}</div>
         ),
       },
-      ...(session?.user?.role === "SUPERMASTER"
-        ? [
-            {
-              id: "actions",
-              header: "관리",
-              cell: ({ row }: { row: Row<PersonalMail> }) => {
-                return (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost">
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSelectedPersonalMail(row.original);
-                          setIsEditDialogOpen(true);
-                        }}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        <span>수정</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
-                            const result = await deletePersonalMailAction(
-                              row.original.id
-                            );
-                            if (result && result.success) {
-                              toast({
-                                title: "제거 성공",
-                                description:
-                                  "해당 항목을 성공적으로 제거했습니다.",
-                              });
-                            }
-                          }
-                        }}
-                        className="text-red-600"
-                      >
-                        <Trash className="mr-2 h-4 w-4" />
-                        <span>삭제</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              },
-            },
-          ]
-        : []),
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          const mail = row.original;
+          const canModify =
+            mail.registrantId === session?.user?.id ||
+            hasAccess(session?.user?.role, UserRole.SUPERMASTER);
+
+          if (!canModify) return null;
+
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[160px]">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedPersonalMail(row.original);
+                    setIsEditDialogOpen(true);
+                  }}
+                >
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  <span>수정</span>
+                </DropdownMenuItem>
+                {hasAccess(session?.user?.role, UserRole.SUPERMASTER) && (
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
+                        const result = await deletePersonalMailAction(
+                          row.original.id
+                        );
+                        if (result.success) {
+                          toast({
+                            title: "삭제 성공",
+                            description: "해당 항목을 성공적으로 제거했습니다.",
+                          });
+                        }
+                      }
+                    }}
+                    className="text-red-600"
+                  >
+                    <Trash className="mr-2 h-4 w-4" />
+                    <span>삭제</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
     ],
     [session]
   );
