@@ -134,9 +134,6 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button>단체 우편 추가</Button>
-      </DialogTrigger>
       <DialogContent className="max-h-[700px] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>단체 우편 추가</DialogTitle>

@@ -15,7 +15,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,58 +38,39 @@ import {
 import { updatePersonalMailAction } from "@/actions/mail-action";
 import { formatKoreanNumber } from "@/lib/utils";
 import { X } from "lucide-react";
-import { PersonalMail } from "@/types/mail";
 import {
   EditPersonalMailSchema,
   EditPersonalMailValues,
 } from "@/lib/validations/mail";
 
-const RewardSchema = z
-  .object({
-    type: z.enum(["MONEY", "BANK", "ITEM"]),
-    itemId: z.string().optional(),
-    itemName: z.string().optional(),
-    amount: z.string(),
-  })
-  .refine(
-    (data) => {
-      if (data.type === "ITEM") {
-        return data.itemId && data.itemName;
-      }
-      return true;
-    },
-    {
-      message: "아이템 정보를 선택해주세요",
-    }
-  );
-
 interface EditPersonalMailDialogProps {
-  initialData: PersonalMail;
-  trigger: ReactNode;
+  personalMail: any;
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }
 
 export default function EditPersonalMailDialog({
-  initialData,
-  trigger,
+  personalMail,
+  open,
+  setOpen,
 }: EditPersonalMailDialogProps) {
-  const [open, setOpen] = useState(false);
   const [nickname, setNickname] = useState<string>("");
   const [isLoadingNickname, setIsLoadingNickname] = useState(false);
 
   const form = useForm<EditPersonalMailValues>({
     resolver: zodResolver(EditPersonalMailSchema),
     defaultValues: {
-      userId: initialData.userId.toString(),
-      reason: initialData.reason,
-      content: initialData.content,
+      userId: personalMail.userId.toString(),
+      reason: personalMail.reason,
+      content: personalMail.content,
       nickname: "",
-      rewards: initialData.rewards.map((reward) => ({
+      rewards: personalMail.rewards.map((reward: any) => ({
         type: reward.type as "ITEM" | "MONEY" | "BANK",
         itemId: reward.itemId || "",
         itemName: reward.itemName || "",
         amount: reward.amount,
       })),
-      needItems: initialData.needItems?.map((item) => ({
+      needItems: personalMail.needItems?.map((item: any) => ({
         type: item.type as "MONEY" | "BANK" | "ITEM",
         itemId: item.itemId || "",
         itemName: item.itemName || "",
@@ -103,12 +83,12 @@ export default function EditPersonalMailDialog({
 
   // 초기 로딩 시 닉네임 가져오기
   useEffect(() => {
-    fetchNickname(initialData.userId.toString());
-  }, [initialData.userId]);
+    fetchNickname(personalMail.userId.toString());
+  }, [personalMail.userId]);
 
   // userId가 변경될 때마다 닉네임 조회
   useEffect(() => {
-    if (debouncedUserId !== initialData.userId.toString()) {
+    if (debouncedUserId !== personalMail.userId.toString()) {
       fetchNickname(debouncedUserId);
     }
   }, [debouncedUserId]);
@@ -221,10 +201,14 @@ export default function EditPersonalMailDialog({
       );
       submitData.rewards = withOutNoneIdRewards;
 
-      const result = await updatePersonalMailAction(initialData.id, submitData);
+      const result = await updatePersonalMailAction(
+        personalMail.id,
+        submitData
+      );
       if (result.success) {
         toast({ title: "개인 우편 수정 완료" });
-        handleOpenChange(false);
+        setOpen(false);
+        form.reset();
       }
     } catch (error) {
       toast({
@@ -235,13 +219,6 @@ export default function EditPersonalMailDialog({
     }
   });
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      form.reset();
-    }
-    setOpen(newOpen);
-  };
-
   const handleRemoveReward = (index: number) => {
     const currentRewards = form.getValues("rewards");
     form.setValue(
@@ -251,9 +228,15 @@ export default function EditPersonalMailDialog({
     );
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      form.reset();
+    }
+    setOpen(newOpen);
+  };
+
   return (
-    <Dialog>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[700px] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>개인 우편 수정</DialogTitle>

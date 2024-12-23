@@ -167,16 +167,17 @@ class CreditService {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
-    const rewardRevokes = await prisma.rewardRevoke.findMany({
-      where: {
-        id: { in: ids },
-        status: "PENDING",
-      },
-    });
-
     try {
-      await prisma.$transaction(async (prisma) => {
-        await prisma.rewardRevoke.updateMany({
+      await prisma.$transaction(async (tx) => {
+        const records = await tx.rewardRevoke.findMany({
+          where: { id: { in: ids } },
+        });
+
+        if (records.some((r) => r.status !== "PENDING")) {
+          throw new Error("이미 처리된 항목이 포함되어 있습니다.");
+        }
+
+        await tx.rewardRevoke.updateMany({
           where: {
             id: { in: ids },
             status: "PENDING",
@@ -189,7 +190,7 @@ class CreditService {
           },
         });
 
-        for (const revoke of rewardRevokes) {
+        for (const revoke of records) {
           const result = await this.addRewardRevokeByGame({
             userId: revoke.userId,
             amount: revoke.amount,
@@ -197,7 +198,7 @@ class CreditService {
             creditType: revoke.creditType,
           });
           if (!result) {
-            await prisma.rewardRevoke.updateMany({
+            await tx.rewardRevoke.updateMany({
               where: {
                 id: { in: ids },
                 status: "APPROVED",
@@ -213,8 +214,8 @@ class CreditService {
           }
         }
 
-        await prisma.accountUsingQuerylog.createMany({
-          data: rewardRevokes.map((revoke) => ({
+        await tx.accountUsingQuerylog.createMany({
+          data: records.map((revoke) => ({
             content: `재화 ${
               revoke.type === "ADD" ? "지급" : "회수"
             } 티켓 승인 - [${revoke.creditType}] ${formatKoreanNumber(
@@ -234,7 +235,10 @@ class CreditService {
       console.error("Approve reward revokes error:", error);
       return {
         success: false,
-        error: "재화 지급/회수 승인 실패",
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
         data: null,
       };
     }
@@ -473,7 +477,7 @@ class CreditService {
       console.error("Update reward revoke error:", error);
       return {
         success: false,
-        error: "재화 지급/회수 정보 수정에 실패했습니다.",
+        error: "재화 지급/회수 정보 수정에 실패��습니다.",
         data: null,
       };
     }

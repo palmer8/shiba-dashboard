@@ -33,34 +33,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createItemQuantityAction } from "@/actions/quantity-action";
+import {
+  createItemQuantityAction,
+  updateItemQuantityAction,
+} from "@/actions/quantity-action";
 import {
   ItemQuantitySchema,
   ItemQuantityValues,
 } from "@/lib/validations/quantity";
+import { ItemQuantity } from "@prisma/client";
 
-interface AddItemQuantityDialogProps {
+interface EditItemQuantityDialogProps {
   open: boolean;
   setOpen: (open: boolean) => void;
+  itemQuantity: ItemQuantity;
 }
 
-export default function AddItemQuantityDialog({
+export default function EditItemQuantityDialog({
   open,
   setOpen,
-}: AddItemQuantityDialogProps) {
+  itemQuantity,
+}: EditItemQuantityDialogProps) {
   const [nickname, setNickname] = useState<string>("");
   const [isLoadingNickname, setIsLoadingNickname] = useState(false);
 
   const form = useForm<ItemQuantityValues>({
     resolver: zodResolver(ItemQuantitySchema),
     defaultValues: {
-      userId: "",
-      nickname: "",
-      itemId: "",
-      itemName: "",
-      amount: "1",
-      type: "ADD",
-      reason: "",
+      userId: itemQuantity.userId.toString() || "",
+      nickname: nickname || "",
+      itemId: itemQuantity.itemId || "",
+      itemName: itemQuantity.itemName || "",
+      amount: itemQuantity.amount.toString() || "",
+      type: itemQuantity.type || "",
+      reason: itemQuantity.reason || "",
     },
   });
 
@@ -95,15 +101,15 @@ export default function AddItemQuantityDialog({
 
   const handleSubmit = form.handleSubmit(async (data) => {
     try {
-      const result = await createItemQuantityAction(data);
+      const result = await updateItemQuantityAction(itemQuantity.id, data);
       if (result.success) {
-        toast({ title: "아이템 지급/회수 티켓 생성 완료" });
+        toast({ title: "아이템 지급/회수 티켓 수정 완료" });
         setOpen(false);
         form.reset();
       }
     } catch (error) {
       toast({
-        title: "아이템 지급/회수 티켓 생성 실패",
+        title: "아이템 지급/회수 티켓 수정 실패",
         description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });

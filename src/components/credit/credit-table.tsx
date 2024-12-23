@@ -37,9 +37,9 @@ import {
   getRewardRevokeByIdsOrigin,
   deleteCreditAction,
 } from "@/actions/credit-action";
-import { Status, UserRole } from "@prisma/client";
+import { ActionType, Status, UserRole } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, Trash } from "lucide-react";
+import { Download, Edit2, MoreHorizontal, Plus, Trash } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,27 +48,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Empty from "@/components/ui/empty";
 import { Session } from "next-auth";
+import {
+  CREDIT_TYPE_MAP,
+  ACTION_TYPE_MAP,
+  STATUS_MAP,
+} from "@/lib/validations/credit";
+import EditCreditDialog from "@/components/dialog/edit-credit-dialog";
 
 interface CreditTableProps {
   data: CreditTableData;
   session: Session;
 }
-
-// 상수 분리
-const STATUS_MAP: Record<Status, string> = {
-  PENDING: "대기중",
-  APPROVED: "승인됨",
-  REJECTED: "거절됨",
-  CANCELLED: "취소됨",
-} as const;
-
-const CREDIT_TYPE_MAP: Record<string, string> = {
-  MONEY: "현금",
-  BANK: "계좌",
-  CREDIT: "무료 캐시",
-  CREDIT2: "유료 캐시",
-  CURRENT_COIN: "마일리지",
-} as const;
 
 export function CreditTable({ data, session }: CreditTableProps) {
   const router = useRouter();
@@ -79,6 +69,11 @@ export function CreditTable({ data, session }: CreditTableProps) {
     id: false,
     status: false,
   });
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedCredit, setSelectedCredit] = useState<RewardRevoke | null>(
+    null
+  );
+
   // columns 정의를 useMemo로 최적화
   const columns = useMemo<ColumnDef<RewardRevoke>[]>(
     () => [
@@ -124,7 +119,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
                 row.getValue("type") === "ADD" ? "default" : "destructive"
               }
             >
-              {row.getValue("type") === "ADD" ? "지급" : "회수"}
+              {ACTION_TYPE_MAP[row.getValue("type") as ActionType]}
             </Badge>
           </div>
         ),
@@ -133,10 +128,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
         accessorKey: "creditType",
         header: "재화 종류",
         cell: ({ row }) => {
-          return (
-            CREDIT_TYPE_MAP[row.getValue("creditType") as string] ||
-            row.getValue("creditType")
-          );
+          return CREDIT_TYPE_MAP[row.getValue("creditType") as string];
         },
       },
       {
@@ -163,10 +155,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
         accessorKey: "status",
         header: "상태",
         cell: ({ row }) => {
-          return (
-            STATUS_MAP[row.getValue("status") as Status] ||
-            row.getValue("status")
-          );
+          return STATUS_MAP[row.getValue("status") as Status];
         },
       },
       {
@@ -182,27 +171,60 @@ export function CreditTable({ data, session }: CreditTableProps) {
       {
         id: "actions",
         header: "",
-        cell: ({ row }: { row: Row<RewardRevoke> }) => {
+        cell: ({ row }) => {
+          const credit = row.original;
+          const canModify =
+            (credit.status === "PENDING" &&
+              credit.registrantId === session?.user?.id) ||
+            hasAccess(session?.user?.role, UserRole.SUPERMASTER);
+
+          if (!canModify) return null;
+
           return (
-            hasAccess(session?.user?.role, UserRole.MASTER) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost">
-                    <MoreHorizontal />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[160px]">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="h-8 w-8 p-0 hover:bg-muted"
+                  aria-label="더보기"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[160px]">
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSelectedCredit(credit);
+                    setIsEditDialogOpen(true);
+                  }}
+                >
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  <span>수정</span>
+                </DropdownMenuItem>
+                {hasAccess(session?.user?.role, UserRole.SUPERMASTER) && (
                   <DropdownMenuItem
-                    onClick={async () => {
-                      if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
-                        const result = await deleteCreditAction(
-                          row.original.id
-                        );
-                        if (result && result.success) {
-                          toast({
-                            title: "삭제 성공",
-                          });
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      if (!confirm("정말로 이 항목을 삭제하시겠습니까?"))
+                        return;
+
+                      setIsLoading(true);
+                      try {
+                        const result = await deleteCreditAction(credit.id);
+                        if (result.success) {
+                          toast({ title: "삭제되었습니다" });
+                        } else {
+                          throw new Error(result.error || "삭제 실패");
                         }
+                      } catch (error) {
+                        toast({
+                          title: "삭제 실패",
+                          description: "잠시 후 다시 시도해주세요",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsLoading(false);
                       }
                     }}
                     className="text-red-600"
@@ -210,9 +232,9 @@ export function CreditTable({ data, session }: CreditTableProps) {
                     <Trash className="mr-2 h-4 w-4" />
                     <span>삭제</span>
                   </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           );
         },
       },
@@ -443,6 +465,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
         {isPending && hasAccess(session?.user?.role, "MASTER") && (
           <div className="flex flex-wrap items-center gap-2">
             <Button
+              size="sm"
               onClick={handleApprove}
               disabled={
                 isLoading || table.getSelectedRowModel().rows.length === 0
@@ -450,10 +473,11 @@ export function CreditTable({ data, session }: CreditTableProps) {
             >
               승인
             </Button>
-            <Button onClick={handleBulkApprove} disabled={isLoading}>
+            <Button size="sm" onClick={handleBulkApprove} disabled={isLoading}>
               전체 승인
             </Button>
             <Button
+              size="sm"
               variant="destructive"
               onClick={handleReject}
               disabled={
@@ -463,6 +487,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
               거절
             </Button>
             <Button
+              size="sm"
               variant="destructive"
               onClick={handleBulkReject}
               disabled={isLoading}
@@ -470,6 +495,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
               전체 거절
             </Button>
             <Button
+              size="sm"
               variant="secondary"
               onClick={handleCancel}
               disabled={
@@ -480,16 +506,32 @@ export function CreditTable({ data, session }: CreditTableProps) {
             </Button>
           </div>
         )}
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" />
+            티켓 추가
+          </Button>
           <Button
+            variant="outline"
+            size="sm"
             onClick={handleDownloadCSV}
             disabled={isLoading || !table.getSelectedRowModel().rows.length}
           >
+            <Download className="h-4 w-4 mr-2" />
             CSV 다운로드
           </Button>
-          <AddCreditDialog open={open} setOpen={setOpen} />
         </div>
       </div>
+
+      <AddCreditDialog open={open} setOpen={setOpen} />
+      {selectedCredit && (
+        <EditCreditDialog
+          open={isEditDialogOpen}
+          setOpen={setIsEditDialogOpen}
+          credit={selectedCredit}
+          session={session}
+        />
+      )}
 
       <Table>
         <TableHeader>

@@ -16,7 +16,6 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
-  Row,
 } from "@tanstack/react-table";
 import { useState, useMemo, Fragment } from "react";
 import { GroupMailTableData, GroupMail } from "@/types/mail";
@@ -36,7 +35,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash, Pencil } from "lucide-react";
+import { MoreHorizontal, Trash, Edit2, Plus, Download } from "lucide-react";
 import EditGroupMailDialog from "@/components/dialog/edit-group-mail-dialog";
 import Empty from "@/components/ui/empty";
 
@@ -48,8 +47,11 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const isSuperMaster = session?.user?.role === "SUPERMASTER";
   const [open, setOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedGroupMail, setSelectedGroupMail] = useState<GroupMail | null>(
+    null
+  );
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
   >({
@@ -129,62 +131,50 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
           <div>{formatKoreanDateTime(row.getValue("createdAt"))}</div>
         ),
       },
-      ...(isSuperMaster
-        ? [
-            {
-              id: "actions",
-              header: "관리",
-              cell: ({ row }: { row: Row<GroupMail> }) => {
-                return (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost">
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-[160px]"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <EditGroupMailDialog
-                        initialData={row.original}
-                        trigger={
-                          <DropdownMenuItem
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            <span>수정</span>
-                          </DropdownMenuItem>
-                        }
-                      />
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
-                            const result = await deleteGroupMailAction(
-                              row.original.id
-                            );
-                            if (result && result.success) {
-                              toast({
-                                title: "제거 성공",
-                                description:
-                                  "해당 항목을 성공적으로 제거했습니다.",
-                              });
-                            }
-                          }
-                        }}
-                        className="text-red-600"
-                      >
-                        <Trash className="mr-2 h-4 w-4" />
-                        <span>삭제</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              },
-            },
-          ]
-        : []),
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[160px]">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedGroupMail(row.original);
+                    setIsEditDialogOpen(true);
+                  }}
+                >
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  <span>수정</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
+                      const result = await deleteGroupMailAction(
+                        row.original.id
+                      );
+                      if (result.success) {
+                        toast({
+                          title: "삭제 성공",
+                          description: "해당 항목을 성공적으로 제거했습니다.",
+                        });
+                      }
+                    }
+                  }}
+                  className="text-red-600"
+                >
+                  <Trash className="mr-2 h-4 w-4" />
+                  <span>삭제</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
     ],
     [session]
   );
@@ -234,12 +224,19 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2 items-center">
-        <AddGroupMailDialog open={open} setOpen={setOpen} />
         <Button
+          size="sm"
+          variant="outline"
           onClick={handleDownloadCSV}
           disabled={!table.getSelectedRowModel().rows.length}
+          className="gap-2"
         >
+          <Download className="h-4 w-4" />
           CSV 다운로드
+        </Button>
+        <Button size="sm" onClick={() => setOpen(true)} className="gap-2">
+          <Plus className="h-4 w-4" />
+          추가
         </Button>
       </div>
       <Table>
@@ -336,6 +333,14 @@ export function GroupMailTable({ data }: GroupMailTableProps) {
           </Button>
         </div>
       </div>
+      <AddGroupMailDialog open={open} setOpen={setOpen} />
+      {selectedGroupMail && (
+        <EditGroupMailDialog
+          open={isEditDialogOpen}
+          setOpen={setIsEditDialogOpen}
+          groupMail={selectedGroupMail}
+        />
+      )}
     </div>
   );
 }

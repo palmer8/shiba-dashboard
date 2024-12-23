@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { CreateItemQuantityData } from "@/types/quantity";
 import { ApiResponse } from "@/types/global.dto";
 import { ItemQuantity } from "@prisma/client";
+import { ItemQuantityValues } from "@/lib/validations/quantity";
 
 export async function createItemQuantityAction(
   data: CreateItemQuantityData
@@ -82,6 +83,26 @@ export async function approveAllItemQuantitiesAction(): Promise<
   ApiResponse<boolean>
 > {
   const result = await itemQuantityService.approveAllItemQuantities();
+
+  if (result.success) {
+    revalidatePath("/game/item");
+  }
+
+  return result;
+}
+
+export async function updateItemQuantityAction(
+  id: string,
+  data: ItemQuantityValues
+): Promise<ApiResponse<ItemQuantity>> {
+  const result = await itemQuantityService.updateItemQuantity(id, {
+    userId: Number(data.userId),
+    itemId: data.itemId,
+    itemName: data.itemName,
+    amount: data.amount,
+    type: data.type,
+    reason: data.reason,
+  });
 
   if (result.success) {
     revalidatePath("/game/item");

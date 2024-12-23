@@ -29,41 +29,55 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { createCreditAction } from "@/actions/credit-action";
 import { getGameNicknameByUserIdAction } from "@/actions/user-action";
 import { toast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
+import {
+  RewardRevokeCreditType,
+  ActionType,
+  RewardRevoke,
+  Status,
+  UserRole,
+} from "@prisma/client";
 import { useMemo, useState, useEffect } from "react";
 import { formatKoreanNumber } from "@/lib/utils";
 import { useDebounce } from "@/hooks/use-debounce";
-import {
-  createCreditSchema,
-  CreateCreditValues,
-} from "@/lib/validations/credit";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { editCreditAction } from "@/actions/credit-action";
+import { Session } from "next-auth";
 
-interface AddCreditDialogProps {
+interface EditCreditDialogProps {
   open: boolean;
   setOpen: (open: boolean) => void;
+  credit: any;
+  session: Session;
 }
 
-export default function AddCreditDialog({
+interface CreditValues {
+  userId: string;
+  creditType: RewardRevokeCreditType;
+  type: ActionType;
+  amount: string;
+  reason: string;
+}
+
+export default function EditCreditDialog({
   open,
   setOpen,
+  credit,
+  session,
   ...props
-}: AddCreditDialogProps) {
+}: EditCreditDialogProps) {
   const [nickname, setNickname] = useState<string>("");
   const [isLoadingNickname, setIsLoadingNickname] = useState(false);
 
-  const form = useForm<CreateCreditValues>({
+  const form = useForm<CreditValues>({
     defaultValues: {
-      userId: "",
-      creditType: "MONEY",
-      type: "ADD",
-      amount: "1",
-      reason: "",
+      userId: credit.userId.toString(),
+      creditType: credit.creditType,
+      type: credit.type,
+      amount: credit.amount.toString(),
+      reason: credit.reason,
     },
-    resolver: zodResolver(createCreditSchema),
   });
 
   const formattedAmount = useMemo(() => {
@@ -101,28 +115,35 @@ export default function AddCreditDialog({
 
   const handleSubmit = form.handleSubmit(async (data) => {
     try {
-      const result = await createCreditAction(data);
+      const result = await editCreditAction(credit.id, data);
       if (result.success) {
-        toast({ title: "재화 지급/회수 티켓 추가 완료" });
+        toast({ title: "재화 지급/회수 티켓 수정 완료" });
         setOpen(false);
         form.reset();
       }
     } catch (error) {
       toast({
-        title: "재화 지급/회수 티켓 추가 실패",
+        title: "재화 지급/회수 티켓 수정 실패",
         description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }
   });
 
+  const canEdit = (status: Status, userId: string, userRole: UserRole) => {
+    return (
+      (status === "PENDING" && userId === (session.user?.id ?? "")) ||
+      userRole === UserRole.SUPERMASTER
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>재화 지급/회수 티켓 추가</DialogTitle>
+          <DialogTitle>재화 지급/회수 티켓 수정</DialogTitle>
           <DialogDescription>
-            재화 지급/회수 티켓을 추가합니다.
+            재화 지급/회수 티켓을 수정합니다.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

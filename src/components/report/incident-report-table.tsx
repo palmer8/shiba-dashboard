@@ -33,6 +33,7 @@ import { toast } from "@/hooks/use-toast";
 import EditIncidentReportDialog from "@/components/dialog/edit-incident-report-dialog";
 import { Session } from "next-auth";
 import Empty from "../ui/empty";
+import { IncidentReportExpandedRow } from "./incident-report-expanded-row";
 
 interface IncidentReportTableProps {
   data: {
@@ -255,11 +256,9 @@ export default function IncidentReportTable({
                 {row.getIsExpanded() && (
                   <TableRow>
                     <TableCell colSpan={columns.length} className="bg-muted/30">
-                      <div className="p-1">
-                        <p className="text-sm whitespace-pre-wrap">
-                          {row.original.incident_description}
-                        </p>
-                      </div>
+                      <IncidentReportExpandedRow
+                        incidentReport={row.original}
+                      />
                     </TableCell>
                   </TableRow>
                 )}

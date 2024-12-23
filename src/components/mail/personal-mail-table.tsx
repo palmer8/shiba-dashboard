@@ -18,7 +18,7 @@ import {
   Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { useState, useMemo, useCallback, Fragment } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getPersonalMailsByIdsOrigin } from "@/actions/mail-action";
 import { AddPersonalMailDialog } from "@/components/dialog/add-personal-mail-dialog";
@@ -30,14 +30,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash, Pencil } from "lucide-react";
+import { MoreHorizontal, Trash, Pencil, Download, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSession } from "next-auth/react";
 import { ExpandedMailRow } from "@/components/mail/expanded-mail-row";
 import EditPersonalMailDialog from "@/components/dialog/edit-personal-mail-dialog";
 import { Input } from "@/components/ui/input";
 import { uploadPersonalMailCSVAction } from "@/actions/mail-action";
-import Empty from "../ui/empty";
+import Empty from "@/components/ui/empty";
 
 interface PersonalMailTableProps {
   data: PersonalMailTableData;
@@ -47,6 +47,9 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedPersonalMail, setSelectedPersonalMail] =
+    useState<PersonalMail | null>(null);
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
   >({
@@ -137,17 +140,15 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
                       align="end"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <EditPersonalMailDialog
-                        initialData={row.original}
-                        trigger={
-                          <DropdownMenuItem
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            <span>수정</span>
-                          </DropdownMenuItem>
-                        }
-                      />
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSelectedPersonalMail(row.original);
+                          setIsEditDialogOpen(true);
+                        }}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        <span>수정</span>
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={async () => {
                           if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
@@ -197,20 +198,6 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
     params.set("page", page.toString());
     router.push(`?${params.toString()}`);
   };
-
-  const handleDownloadCSV = useCallback(async () => {
-    const selectedRows = table.getSelectedRowModel().rows;
-    if (!selectedRows.length) return;
-
-    const selectedIds = selectedRows.map((row) => row.original.id);
-    const result = await getPersonalMailsByIdsOrigin(selectedIds);
-    if (result.success && result.data) {
-      handleDownloadJson2CSV({
-        data: result.data,
-        fileName: "personal-mail-list.csv",
-      });
-    }
-  }, [table]);
 
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -273,11 +260,14 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
       <div className="flex justify-end items-center">
         <div className="flex items-center gap-2">
           <Button
+            size="sm"
+            variant="outline"
             onClick={() => {
               handleCSVDownload();
             }}
             disabled={!table.getSelectedRowModel().rows.length}
           >
+            <Download className="h-4 w-4" />
             CSV 다운로드
           </Button>
           <div className="relative">
@@ -287,9 +277,15 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
               onChange={handleFileUpload}
               className="absolute inset-0 opacity-0 cursor-pointer"
             />
-            <Button variant="outline">CSV 업로드</Button>
+            <Button size="sm" variant="outline" className="gap-2">
+              <Plus className="h-4 w-4" />
+              CSV 업로드
+            </Button>
           </div>
-          <AddPersonalMailDialog open={open} setOpen={setOpen} />
+          <Button size="sm" onClick={() => setOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            추가
+          </Button>
         </div>
       </div>
       <Table>
@@ -386,6 +382,14 @@ export function PersonalMailTable({ data }: PersonalMailTableProps) {
           </Button>
         </div>
       </div>
+      <AddPersonalMailDialog open={open} setOpen={setOpen} />
+      {selectedPersonalMail && (
+        <EditPersonalMailDialog
+          open={isEditDialogOpen}
+          setOpen={setIsEditDialogOpen}
+          personalMail={selectedPersonalMail}
+        />
+      )}
     </div>
   );
 }

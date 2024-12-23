@@ -211,9 +211,6 @@ export function AddPersonalMailDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button>개인 우편 추가</Button>
-      </DialogTrigger>
       <DialogContent className="max-h-[700px] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>개인 우편 추가</DialogTitle>

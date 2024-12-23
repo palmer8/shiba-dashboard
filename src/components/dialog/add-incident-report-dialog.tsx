@@ -43,6 +43,8 @@ import { UserRole } from "@prisma/client";
 import { addIncidentReportSchema } from "@/lib/validations/report";
 import { Session } from "next-auth";
 import { AddIncidentReportValues } from "@/lib/validations/report";
+import { ImageUpload } from "@/components/ui/image-upload";
+import Image from "next/image";
 
 interface AddIncidentReportDialogProps {
   session: Session;
@@ -69,6 +71,7 @@ export default function AddIncidentReportDialog({
       targetUserNickname: "",
       reportingUserId: 0,
       reportingUserNickname: "",
+      image: "",
     },
   });
 
@@ -88,6 +91,7 @@ export default function AddIncidentReportDialog({
       warningCount: processedData.warningCount ?? null,
       detentionTimeMinutes: processedData.detentionTimeMinutes ?? null,
       banDurationHours: processedData.banDurationHours ?? null,
+      image: processedData.image ?? null,
     });
 
     if (result.success) {
@@ -394,6 +398,35 @@ export default function AddIncidentReportDialog({
                 />
               </div>
             )}
+
+            <FormField
+              control={form.control}
+              name="image"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>첨부 사진</FormLabel>
+                  <FormControl>
+                    <div className="grid gap-2">
+                      {field.value && (
+                        <Image
+                          src={field.value}
+                          alt="첨부 사진"
+                          width={100}
+                          height={300}
+                          className="rounded-md w-full h-full object-cover"
+                        />
+                      )}
+                      <ImageUpload
+                        value={field.value ? field.value : ""}
+                        onChange={(url) => field.onChange(url)}
+                        onRemove={() => field.onChange("")}
+                      />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DialogFooter>
               <Button

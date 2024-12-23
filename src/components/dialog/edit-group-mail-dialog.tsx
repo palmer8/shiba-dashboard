@@ -46,23 +46,24 @@ import {
 export type GroupMailValues = z.infer<typeof editGroupMailSchema>;
 
 interface EditGroupMailDialogProps {
-  initialData: GroupMail;
-  trigger: ReactNode;
+  groupMail: any;
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }
 
 export default function EditGroupMailDialog({
-  initialData,
-  trigger,
+  groupMail,
+  open,
+  setOpen,
 }: EditGroupMailDialogProps) {
-  const [open, setOpen] = useState(false);
   const form = useForm<EditGroupMailValues>({
     resolver: zodResolver(editGroupMailSchema),
     defaultValues: {
-      reason: initialData.reason,
-      content: initialData.content,
-      rewards: initialData.rewards,
-      startDate: initialData.startDate,
-      endDate: initialData.endDate,
+      reason: groupMail.reason,
+      content: groupMail.content,
+      rewards: groupMail.rewards,
+      startDate: groupMail.startDate,
+      endDate: groupMail.endDate,
     },
   });
 
@@ -112,7 +113,7 @@ export default function EditGroupMailDialog({
         (reward) => reward.type === "ITEM" && reward.itemId !== ""
       );
       submitData.rewards = withOutNoneIdRewards;
-      const result = await updateGroupMailAction(initialData.id, submitData);
+      const result = await updateGroupMailAction(groupMail.id, submitData);
       if (result.success) {
         toast({ title: "단체 우편 수정 완료" });
         setOpen(false);
@@ -146,7 +147,6 @@ export default function EditGroupMailDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-h-[700px] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>단체 우편 수정</DialogTitle>

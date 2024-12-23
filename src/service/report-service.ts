@@ -132,8 +132,8 @@ class ReportService {
             target_user_id, target_user_nickname,
             reporting_user_id, reporting_user_nickname,
             penalty_type, warning_count, detention_time_minutes,
-            ban_duration_hours, admin
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ban_duration_hours, admin, image
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             data.reason,
             data.incidentDescription,
@@ -147,6 +147,7 @@ class ReportService {
             data.detentionTimeMinutes,
             72,
             session.user.nickname,
+            data.image,
           ]
         );
 
@@ -171,8 +172,8 @@ class ReportService {
           target_user_id, target_user_nickname,
           reporting_user_id, reporting_user_nickname,
           penalty_type, warning_count, detention_time_minutes,
-          ban_duration_hours, admin
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ban_duration_hours, admin, image
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           data.reason,
           data.incidentDescription,
@@ -186,6 +187,7 @@ class ReportService {
           data.detentionTimeMinutes,
           data.banDurationHours,
           session.user.nickname,
+          data.image,
         ]
       );
 
@@ -271,6 +273,7 @@ class ReportService {
            SET reason = ?, 
                incident_description = ?,
                incident_time = ?,
+               image = ?,
                penalty_type = ?,
                warning_count = ?,
                ban_duration_hours = ?,
@@ -283,6 +286,7 @@ class ReportService {
             data.reason,
             data.incidentDescription,
             formatKoreanDateTime(data.incidentTime),
+            data.image,
             data.penaltyType,
             data.warningCount || null,
             72,
@@ -309,6 +313,7 @@ class ReportService {
          SET reason = ?, 
              incident_description = ?,
              incident_time = ?,
+             image = ?,
              penalty_type = ?,
              warning_count = ?,
              ban_duration_hours = ?,
@@ -321,6 +326,7 @@ class ReportService {
           data.reason,
           data.incidentDescription,
           formatKoreanDateTime(data.incidentTime),
+          data.image,
           data.penaltyType,
           data.warningCount || null,
           data.banDurationHours || null,
@@ -868,7 +874,8 @@ class ReportService {
             incident_time,
             ban_duration_hours,
             incident_description,
-            admin
+            admin,
+            image
            FROM dokku_incident_report 
            WHERE report_id IN (?)`,
           [tickets.map((ticket) => ticket.reportId)]
@@ -898,11 +905,13 @@ class ReportService {
              SET banned = 1,
              bantime = "영구정지",
              banreason = ?,
-             banadmin = ?
+             banadmin = ?,
+             image = ?
              WHERE id = ?`,
             [
               matchingReport.reason,
               matchingReport.admin,
+              matchingReport.image,
               matchingReport.target_user_id,
             ]
           );

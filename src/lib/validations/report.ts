@@ -66,6 +66,7 @@ export const editIncidentReportSchema = z.object({
     .number()
     .transform((val) => (isNaN(val) ? 0 : val))
     .optional(),
+  image: z.string().optional(),
 });
 
 export type EditIncidentReportValues = z.infer<typeof editIncidentReportSchema>;
@@ -97,6 +98,7 @@ export const addIncidentReportSchema = z.object({
     .number()
     .transform((val) => (isNaN(val) ? 0 : val))
     .optional(),
+  image: z.string().optional(),
 });
 
 export type AddIncidentReportValues = z.infer<typeof addIncidentReportSchema>;

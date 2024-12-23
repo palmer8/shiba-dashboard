@@ -1,6 +1,6 @@
 "use client";
 
-import { UploadCloud } from "lucide-react";
+import { UploadCloud, X } from "lucide-react";
 import { Button } from "./button";
 import { FIVEMANAGE_API_KEY, FIVEMANAGE_API_URL } from "@/constant/constant";
 
@@ -10,6 +10,7 @@ interface ImageUploadProps {
   disabled?: boolean;
   onUploadStart?: () => void;
   onUploadEnd?: () => void;
+  onRemove?: () => void;
 }
 
 export function ImageUpload({
@@ -18,6 +19,7 @@ export function ImageUpload({
   disabled,
   onUploadStart,
   onUploadEnd,
+  onRemove = () => {},
 }: ImageUploadProps) {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
@@ -69,6 +71,11 @@ export function ImageUpload({
         onChange={handleUpload}
         disabled={disabled}
       />
+      {value && (
+        <Button variant="outline" size="icon" onClick={onRemove}>
+          <X className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 }

@@ -386,7 +386,12 @@ export default function AddCouponDialog({
                   취소
                 </Button>
               </DialogClose>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button
+                type="submit"
+                disabled={
+                  form.formState.isSubmitting || !form.formState.isValid
+                }
+              >
                 추가
               </Button>
             </DialogFooter>

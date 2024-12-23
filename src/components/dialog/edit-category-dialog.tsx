@@ -153,12 +153,7 @@ export default function EditCategoryDialog({
               >
                 취소
               </Button>
-              <Button
-                type="submit"
-                disabled={
-                  !form.formState.isValid || form.formState.isSubmitting
-                }
-              >
+              <Button type="submit" disabled={form.formState.isSubmitting}>
                 수정
               </Button>
             </DialogFooter>

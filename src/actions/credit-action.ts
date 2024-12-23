@@ -78,6 +78,21 @@ export async function approveAllCreditAction() {
   };
 }
 
+export async function editCreditAction(
+  id: string,
+  data: {
+    userId: string;
+    creditType: RewardRevokeCreditType;
+    type: ActionType;
+    amount: string;
+    reason: string;
+  }
+) {
+  const result = await creditService.updateRewardRevoke(id, data);
+  if (result.success) revalidatePath("/game/credit");
+  return result;
+}
+
 export async function getRewardRevokeByIdsOrigin(ids: string[]) {
   const result = await creditService.getRewardRevokeByIdsOrigin(ids);
   return result;

@@ -18,6 +18,7 @@ export type IncidentReport = {
   warning_count: number | null;
   detention_time_minutes: number | null;
   ban_duration_hours: number | null;
+  image: string | null;
   admin: string;
 };
 
@@ -36,6 +37,7 @@ export type AddIncidentReportData = {
   incidentDescription: string;
   incidentTime: Date;
   targetUserId: number;
+  image: string | null;
   targetUserNickname: string;
   reportingUserId?: number;
   reportingUserNickname?: string;
@@ -50,6 +52,7 @@ export type EditIncidentReportData = {
   reason: string;
   incidentDescription: string;
   incidentTime: Date;
+  image: string | null;
   targetUserId: number;
   targetUserNickname: string;
   reportingUserId?: number;

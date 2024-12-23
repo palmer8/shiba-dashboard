@@ -43,6 +43,8 @@ import { getGameNicknameByUserIdAction } from "@/actions/user-action";
 import { UserRole } from "@prisma/client";
 import { editIncidentReportSchema } from "@/lib/validations/report";
 import { EditIncidentReportValues } from "@/lib/validations/report";
+import { ImageUpload } from "@/components/ui/image-upload";
+import Image from "next/image";
 
 interface EditIncidentReportDialogProps {
   initialData: IncidentReport;
@@ -66,13 +68,14 @@ export default function EditIncidentReportDialog({
       reason: initialData.reason,
       incidentDescription: initialData.incident_description,
       incidentTime: new Date(initialData.incident_time),
-      targetUserId: initialData.target_user_id || 0,
-      targetUserNickname: initialData.target_user_nickname || "",
-      reportingUserId: initialData.reporting_user_id || 0,
-      reportingUserNickname: initialData.reporting_user_nickname || "",
-      penaltyType: initialData.penalty_type as any,
+      penaltyType: initialData.penalty_type,
       warningCount: initialData.warning_count || 0,
       banDurationHours: initialData.ban_duration_hours || 0,
+      targetUserId: initialData.target_user_id,
+      targetUserNickname: initialData.target_user_nickname,
+      reportingUserId: initialData.reporting_user_id,
+      reportingUserNickname: initialData.reporting_user_nickname,
+      image: initialData.image || "",
     },
   });
 
@@ -114,7 +117,10 @@ export default function EditIncidentReportDialog({
 
   const onSubmit = async (data: EditIncidentReportValues) => {
     try {
-      const result = await updateIncidentReportAction(data);
+      const result = await updateIncidentReportAction({
+        ...data,
+        image: data.image || null,
+      });
 
       if (result.success) {
         toast({
@@ -385,6 +391,35 @@ export default function EditIncidentReportDialog({
                   <FormControl>
                     <Input disabled={true} {...field} />
                   </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="image"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>증거 사진</FormLabel>
+                  <FormControl>
+                    <div className="grid gap-2">
+                      {field.value && (
+                        <Image
+                          src={field.value}
+                          alt="첨부 사진"
+                          width={100}
+                          height={300}
+                          className="rounded-md w-full h-full object-cover"
+                        />
+                      )}
+                      <ImageUpload
+                        value={field.value ? field.value : ""}
+                        onChange={(url) => field.onChange(url)}
+                        onRemove={() => field.onChange("")}
+                      />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
