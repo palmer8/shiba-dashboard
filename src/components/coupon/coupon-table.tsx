@@ -11,7 +11,6 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
-  Row,
   useReactTable,
 } from "@tanstack/react-table";
 import { CouponGroup, CouponGroupList } from "@/types/coupon";
@@ -22,9 +21,8 @@ import { ExpandedCouponRow } from "./expanded-coupon-row";
 import { Badge } from "@/components/ui/badge";
 import {
   formatKoreanDateTime,
-  handleDonwloadJSZip,
-  handleDownloadJson2CSV,
   handleDownloadMultipleJson2CSV,
+  hasAccess,
 } from "@/lib/utils";
 import AddCouponDialog from "@/components/dialog/add-coupon-dialog";
 import {
@@ -35,29 +33,39 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useSession } from "next-auth/react";
-import { MoreHorizontal, Trash, Pencil } from "lucide-react";
+import {
+  MoreHorizontal,
+  Trash,
+  Edit2,
+  Download,
+  Plus,
+  BookDown,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Prisma } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import EditCouponDialog from "@/components/dialog/edit-coupon-dialog";
 import Empty from "@/components/ui/empty";
+import { Session } from "next-auth";
 
 interface CouponTableProps {
   data: CouponGroupList;
   page: number;
+  session: Session;
 }
 
-export function CouponTable({ data, page }: CouponTableProps) {
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+export function CouponTable({ data, page, session }: CouponTableProps) {
+  const [selectedCoupon, setSelectedCoupon] = useState<CouponGroup | null>(
+    null
+  );
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [open, setOpen] = useState(false);
-  const { data: session } = useSession();
 
   const columns: ColumnDef<CouponGroup>[] = [
     {
@@ -147,70 +155,59 @@ export function CouponTable({ data, page }: CouponTableProps) {
       header: "생성일",
       cell: ({ row }) => formatKoreanDateTime(row.original.createdAt),
     },
-    ...(session?.user?.role === "SUPERMASTER"
-      ? [
-          {
-            id: "actions",
-            header: "관리",
-            cell: ({ row }: { row: Row<CouponGroup> }) => {
-              return (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="h-8 w-8 p-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <EditCouponDialog
-                      initialData={row.original}
-                      trigger={
-                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          <span>수정</span>
-                        </DropdownMenuItem>
+    {
+      id: "actions",
+      cell: ({ row }) => {
+        const canModify = hasAccess(session?.user?.role, UserRole.SUPERMASTER);
+
+        if (!canModify) return null;
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[160px]">
+              <DropdownMenuItem
+                onClick={() => {
+                  setSelectedCoupon(row.original);
+                  setIsEditDialogOpen(true);
+                }}
+              >
+                <Edit2 className="mr-2 h-4 w-4" />
+                <span>수정</span>
+              </DropdownMenuItem>
+              {hasAccess(session?.user?.role, UserRole.SUPERMASTER) && (
+                <DropdownMenuItem
+                  onClick={async () => {
+                    if (
+                      confirm(
+                        "정말로 이 쿠폰 그룹을 삭제하시겠습니까?\n쿠폰도 모두 삭제됩니다."
+                      )
+                    ) {
+                      const result = await deleteCouponGroupWithCouponsAction(
+                        row.original.id
+                      );
+                      if (result) {
+                        toast({
+                          title: "쿠폰 그룹 삭제 완료",
+                        });
                       }
-                    />
-                    <DropdownMenuItem
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (
-                          confirm(
-                            `정말로 이 쿠폰 그룹을 삭제하시겠습니까?\n쿠폰도 모두 삭제됩니다.`
-                          )
-                        ) {
-                          const result =
-                            await deleteCouponGroupWithCouponsAction(
-                              row.original.id
-                            );
-                          if (result) {
-                            toast({
-                              title: "쿠폰 그룹 삭제 완료",
-                            });
-                          } else {
-                            toast({
-                              title: "쿠폰 그룹 삭제 실패",
-                              description: "잠시 후 다시 시도해주세요",
-                              variant: "destructive",
-                            });
-                          }
-                        }
-                      }}
-                      className="text-red-600"
-                    >
-                      <Trash className="mr-2 h-4 w-4" />
-                      <span>삭제</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              );
-            },
-          },
-        ]
-      : []),
+                    }
+                  }}
+                  className="text-red-600"
+                >
+                  <Trash className="mr-2 h-4 w-4" />
+                  <span>삭제</span>
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
   ];
 
   const table = useReactTable({
@@ -266,18 +263,26 @@ export function CouponTable({ data, page }: CouponTableProps) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end items-center gap-2">
-        <AddCouponDialog open={open} setOpen={setOpen} />
         <Button
-          disabled={table.getSelectedRowModel().rows.length === 0}
-          onClick={handleIssueCoupon}
+          variant="outline"
+          onClick={handleDownloadCSV}
+          disabled={!table.getSelectedRowModel().rows.length}
+          className="gap-2"
         >
-          쿠폰 발급
+          <Download className="h-4 w-4" />
+          CSV 다운로드
         </Button>
         <Button
           disabled={table.getSelectedRowModel().rows.length === 0}
-          onClick={handleDownloadCSV}
+          onClick={handleIssueCoupon}
+          className="gap-2"
         >
-          CSV 다운로드
+          <BookDown className="h-4 w-4" />
+          쿠폰 발급
+        </Button>
+        <Button onClick={() => setOpen(true)} className="gap-2">
+          <Plus className="h-4 w-4" />
+          추가
         </Button>
       </div>
       <Table>
@@ -304,14 +309,7 @@ export function CouponTable({ data, page }: CouponTableProps) {
                     "cursor-pointer hover:bg-muted/50",
                     !row.original.isIssued && "cursor-not-allowed opacity-50"
                   )}
-                  onClick={() => {
-                    {
-                      setExpandedRows((prev) => ({
-                        ...prev,
-                        [row.id]: !prev[row.id],
-                      }));
-                    }
-                  }}
+                  onClick={() => row.toggleExpanded()}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -322,7 +320,7 @@ export function CouponTable({ data, page }: CouponTableProps) {
                     </TableCell>
                   ))}
                 </TableRow>
-                {expandedRows[row.id] && (
+                {row.getIsExpanded() && (
                   <TableRow>
                     <TableCell
                       colSpan={columns.length}
@@ -390,6 +388,15 @@ export function CouponTable({ data, page }: CouponTableProps) {
           </Button>
         </div>
       </div>
+
+      <AddCouponDialog open={open} setOpen={setOpen} />
+      {selectedCoupon && (
+        <EditCouponDialog
+          open={isEditDialogOpen}
+          setOpen={setIsEditDialogOpen}
+          couponGroup={selectedCoupon}
+        />
+      )}
     </div>
   );
 }

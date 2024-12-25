@@ -130,9 +130,6 @@ export default function AddCouponDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>그룹 추가</Button>
-      </DialogTrigger>
       <DialogContent className="max-h-[70vh] overflow-x-hidden overflow-y-auto">
         <DialogHeader>
           <DialogTitle>쿠폰 그룹 추가</DialogTitle>

@@ -62,6 +62,7 @@ export default async function CouponPage({ searchParams }: PageProps) {
           }
         }
         page={page}
+        session={session}
       />
     </main>
   );

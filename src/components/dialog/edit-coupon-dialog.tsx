@@ -42,30 +42,30 @@ import {
 } from "@/lib/validations/coupon";
 
 interface EditCouponDialogProps {
-  initialData: CouponGroup;
-  trigger?: React.ReactNode;
+  couponGroup: CouponGroup;
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }
 
 export default function EditCouponDialog({
-  initialData,
-  trigger,
+  couponGroup,
+  open,
+  setOpen,
 }: EditCouponDialogProps) {
-  const [open, setOpen] = useState(false);
-
   const form = useForm<EditCouponGroupValues>({
     resolver: zodResolver(editCouponGroupSchema),
     defaultValues: {
-      groupName: initialData.groupName,
-      groupReason: initialData.groupReason,
-      groupType: initialData.groupType,
-      code: initialData.code || "",
-      startDate: new Date(initialData.startDate),
-      endDate: new Date(initialData.endDate),
-      usageLimit: initialData.usageLimit || 0,
-      quantity: initialData.quantity,
-      rewards: Array.isArray(initialData.rewards)
-        ? initialData.rewards
-        : JSON.parse(initialData.rewards as string),
+      groupName: couponGroup.groupName,
+      groupReason: couponGroup.groupReason,
+      groupType: couponGroup.groupType,
+      code: couponGroup.code || "",
+      startDate: new Date(couponGroup.startDate),
+      endDate: new Date(couponGroup.endDate),
+      usageLimit: couponGroup.usageLimit || 0,
+      quantity: couponGroup.quantity,
+      rewards: Array.isArray(couponGroup.rewards)
+        ? couponGroup.rewards
+        : JSON.parse(couponGroup.rewards as string),
     },
   });
 
@@ -93,7 +93,7 @@ export default function EditCouponDialog({
 
   const onSubmit = async (data: EditCouponGroupValues) => {
     try {
-      const result = await updateCouponGroupAction(initialData.id, {
+      const result = await updateCouponGroupAction(couponGroup.id, {
         ...data,
         rewards: data.rewards,
       });
@@ -114,9 +114,6 @@ export default function EditCouponDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
-        {trigger}
-      </DialogTrigger>
       <DialogContent
         className="max-h-[70vh] overflow-y-auto"
         onClick={(e) => {
