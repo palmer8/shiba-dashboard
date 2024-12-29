@@ -411,31 +411,39 @@ class BoardService {
     if (!session?.user) return redirect("/login");
 
     try {
-      const board = await prisma.board.findUnique({
-        where: { id },
-        include: {
-          registrant: {
-            select: { id: true, nickname: true, image: true },
-          },
-          category: {
-            select: { id: true, name: true },
-          },
-          comments: {
-            include: {
-              registrant: {
-                select: { id: true, nickname: true, image: true },
+      const board = await prisma.$transaction(async (tx) => {
+        await tx.board.update({
+          where: { id },
+          data: { views: { increment: 1 } },
+        });
+
+        // 게시글 조회
+        return tx.board.findUnique({
+          where: { id },
+          include: {
+            registrant: {
+              select: { id: true, nickname: true, image: true },
+            },
+            category: {
+              select: { id: true, name: true },
+            },
+            comments: {
+              include: {
+                registrant: {
+                  select: { id: true, nickname: true, image: true },
+                },
+              },
+              orderBy: { createdAt: "desc" },
+            },
+            likes: {
+              include: {
+                user: {
+                  select: { id: true, nickname: true, userId: true },
+                },
               },
             },
-            orderBy: { createdAt: "desc" },
           },
-          likes: {
-            include: {
-              user: {
-                select: { id: true, nickname: true, userId: true },
-              },
-            },
-          },
-        },
+        });
       });
 
       if (!board) {
@@ -498,6 +506,35 @@ class BoardService {
         data: null,
       };
     }
+  }
+
+  // 조회수 증가 여부를 확인하는 private 메서드
+  private async shouldIncreaseViewCount(
+    boardId: string,
+    userId: string
+  ): Promise<boolean> {
+    const key = `board_view_${boardId}_${userId}`;
+
+    if (typeof window !== "undefined") {
+      const lastViewTime = sessionStorage.getItem(key);
+      const now = Date.now();
+
+      if (!lastViewTime) {
+        // 첫 조회인 경우
+        sessionStorage.setItem(key, now.toString());
+        return true;
+      }
+
+      const timeDiff = now - parseInt(lastViewTime);
+      if (timeDiff > 1000 * 60 * 30) {
+        // 30분
+        // 마지막 조회로부터 30분이 지난 경우
+        sessionStorage.setItem(key, now.toString());
+        return true;
+      }
+    }
+
+    return false;
   }
 
   async getBoardList(filters: BoardFilter): Promise<ApiResponse<BoardList>> {
