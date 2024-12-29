@@ -1,10 +1,16 @@
 import prisma from "@/db/prisma";
 import { auth } from "@/lib/auth-config";
 import { hasAccess } from "@/lib/utils";
-import { AdminFilter } from "@/types/filters/admin-filter";
-import { User, UserRole } from "@prisma/client";
-import { AdminDto } from "@/types/user";
+import {
+  AdminFilter,
+  AdminGroupFilter,
+  GroupFilter,
+} from "@/types/filters/admin-filter";
+import { Prisma, User, UserRole } from "@prisma/client";
+import { AdminDto, GroupTableData } from "@/types/user";
 import { ApiResponse } from "@/types/global.dto";
+import { Group } from "next/dist/shared/lib/router/utils/route-regex";
+import { redirect } from "next/navigation";
 
 class AdminService {
   async getDashboardUsers(params: AdminFilter): Promise<ApiResponse<AdminDto>> {
@@ -196,6 +202,107 @@ class AdminService {
       data: result,
       error: null,
     };
+  }
+
+  async getGroups(
+    page: number,
+    filter: GroupFilter
+  ): Promise<ApiResponse<GroupTableData>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
+    try {
+      const where: Prisma.GroupsWhereInput = {};
+
+      if (filter.name) {
+        where.groupId = {
+          contains: filter.name,
+        };
+      }
+
+      if (filter.role) {
+        where.minRole = filter.role as UserRole;
+      }
+
+      const [records, total] = await Promise.all([
+        prisma.groups.findMany({
+          where,
+          skip: ((page || 1) - 1) * 50,
+          take: 50,
+          orderBy: { groupId: "asc" },
+        }),
+        prisma.groups.count({ where }),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          records: records,
+          metadata: {
+            total,
+            page: page || 1,
+            totalPages: Math.ceil(total / 50),
+          },
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get groups error:", error);
+      return {
+        success: false,
+        error: "그룹 목록 조회 실패",
+        data: null,
+      };
+    }
+  }
+
+  async updateGroup(
+    groupId: string,
+    minRole: UserRole
+  ): Promise<ApiResponse<boolean>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
+    if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) {
+      return {
+        success: false,
+        error: "권한이 없습니다.",
+        data: null,
+      };
+    }
+
+    try {
+      const result = await prisma.$transaction(async (prisma) => {
+        const updateResult = await prisma.groups.update({
+          where: { groupId },
+          data: {
+            minRole,
+          },
+        });
+
+        const logResult = await prisma.accountUsingQuerylog.create({
+          data: {
+            content: `그룹 권한 수정 - [${updateResult.groupId}] minRole: ${minRole}`,
+            registrantId: session.user!.id,
+          },
+        });
+
+        return { updateResult, logResult };
+      });
+
+      return {
+        success: true,
+        data: true,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Update group error:", error);
+      return {
+        success: false,
+        error: "그룹 정보 수정 실패",
+        data: null,
+      };
+    }
   }
 }
 

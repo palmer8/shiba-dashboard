@@ -25,15 +25,13 @@ const ICONS: { [key: string]: LucideIcon } = {
 };
 
 export function NavAdminLinks({ session }: { session: Session | null }) {
-  //   const userRole = session?.user?.role || UserRole.STAFF;
-
-  const userRole = UserRole.MASTER;
-
+  const userRole = session?.user?.role || UserRole.STAFF;
   const filteredLinks = Object.entries(ADMIN_LINKS).filter(([_, value]) =>
     value.role.includes(userRole)
   );
-
   if (filteredLinks.length === 0) return null;
+
+  console.log(filteredLinks);
 
   return (
     <SidebarGroup>

@@ -27,3 +27,9 @@ export async function toggleDashboardUserPermissionAction(
   revalidatePath("/admin");
   return result;
 }
+
+export async function updateGroupAction(groupId: string, minRole: UserRole) {
+  const result = await adminService.updateGroup(groupId, minRole);
+  revalidatePath("/admin/group");
+  return result;
+}

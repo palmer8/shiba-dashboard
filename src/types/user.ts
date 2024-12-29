@@ -1,5 +1,4 @@
-import { Prisma, User } from "@prisma/client";
-import { z } from "zod";
+import { Groups, Prisma, User } from "@prisma/client";
 import { UserRole } from "@prisma/client";
 
 type SignUpUser = Omit<Prisma.UserCreateInput, "hashedPassword">;
@@ -78,6 +77,15 @@ export type SignUpResponse = {
   error?: string;
 };
 
+interface GroupTableData {
+  records: Groups[];
+  metadata: {
+    total: number;
+    page: number;
+    totalPages: number;
+  };
+}
+
 export type {
   SignUpUser,
   RealtimeGameUserData,
@@ -87,4 +95,5 @@ export type {
   RealtimeAdminData,
   UpdateProfileData,
   AdminDto,
+  GroupTableData,
 };

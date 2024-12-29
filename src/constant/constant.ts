@@ -150,6 +150,11 @@ export const ADMIN_LINKS = {
         href: "/admin/attendance",
         role: ["MASTER", "SUPERMASTER"],
       },
+      {
+        name: "그룹 관리",
+        href: "/admin/group",
+        role: ["SUPERMASTER"],
+      },
     ],
   },
 };

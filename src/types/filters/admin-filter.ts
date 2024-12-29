@@ -7,4 +7,14 @@ type AdminFilter = {
   role?: UserRole;
 };
 
-export type { AdminFilter };
+type GroupFilter = {
+  name?: string;
+  role?: UserRole;
+};
+
+type AdminGroupFilter = {
+  page?: number;
+  filter: GroupFilter;
+};
+
+export type { AdminFilter, AdminGroupFilter, GroupFilter };
