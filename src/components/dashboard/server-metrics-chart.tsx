@@ -39,9 +39,14 @@ interface MetricsData {
   };
 }
 
-function formatBytes(bytes: number) {
+function formatBytes(bytes: number | string | null | undefined) {
+  if (bytes === null || bytes === undefined || isNaN(Number(bytes))) {
+    return "0 B";
+  }
+
+  const numBytes = Number(bytes);
   const units = ["B", "KB", "MB", "GB"];
-  let value = bytes;
+  let value = numBytes;
   let unitIndex = 0;
 
   while (value >= 1024 && unitIndex < units.length - 1) {
@@ -55,25 +60,86 @@ function formatBytes(bytes: number) {
 export function ServerMetricsChart() {
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const processMetricsData = (rawData: any): MetricsData => {
+    return {
+      current: {
+        cpu: {
+          usage: String(rawData.current.cpu.usage || 0),
+          cores: Number(rawData.current.cpu.cores || 1),
+          platform: String(rawData.current.cpu.platform || "unknown"),
+          loadAverage: String(rawData.current.cpu.loadAverage || 0),
+        },
+        memory: {
+          total: String(rawData.current.memory.total || 0),
+          used: String(rawData.current.memory.used || 0),
+          usagePercent: String(rawData.current.memory.usagePercent || 0),
+        },
+        network: {
+          bytesReceived: Number(rawData.current.network.bytesReceived || 0),
+          bytesSent: Number(rawData.current.network.bytesSent || 0),
+        },
+      },
+      history: {
+        cpu: Array.isArray(rawData.history.cpu) ? rawData.history.cpu : [],
+        memory: Array.isArray(rawData.history.memory)
+          ? rawData.history.memory
+          : [],
+        network: Array.isArray(rawData.history.network)
+          ? rawData.history.network
+          : [],
+      },
+    };
+  };
 
   useEffect(() => {
+    const controller = new AbortController();
+    let isMounted = true;
+
     const fetchMetrics = async () => {
       try {
-        const response = await fetch("/api/resource");
-        const data = await response.json();
-        if (data.success) {
-          setMetrics(data.data);
+        const response = await fetch("/api/resource", {
+          signal: controller.signal,
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        });
+
+        if (!response.ok) throw new Error("서버 응답 오류");
+
+        const result = await response.json();
+
+        if (result.success && isMounted) {
+          const processedData = processMetricsData(result.data);
+          setMetrics(processedData);
+          setError(null);
+        } else {
+          throw new Error(result.error || "데이터 형식 오류");
         }
       } catch (error) {
-        console.error("Metrics fetch error:", error);
+        if (
+          error instanceof Error &&
+          error.name !== "AbortError" &&
+          isMounted
+        ) {
+          console.error("Metrics fetch error:", error);
+          setError("메트릭 데이터를 가져오는데 실패했습니다.");
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 5000); // 5초마다 갱신
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchMetrics, 3000);
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+      clearInterval(interval);
+    };
   }, []);
 
   const formatChartData = (historyData: number[], label: string) => {
@@ -88,6 +154,16 @@ export function ServerMetricsChart() {
       <Card className="col-span-full">
         <CardContent className="flex items-center justify-center h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="col-span-full">
+        <CardContent className="flex items-center justify-center h-[400px] text-red-500">
+          {error}
         </CardContent>
       </Card>
     );

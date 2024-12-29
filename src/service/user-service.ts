@@ -35,7 +35,6 @@ class UserService {
 
       // 3. userId 중복 검사
       const existingUser = await this.findByUserId(data.userId);
-      console.log(existingUser);
 
       if (existingUser.success) {
         return {
@@ -94,8 +93,6 @@ class UserService {
       const user = await prisma.user.findFirst({
         where: { userId },
       });
-
-      console.log(user);
 
       if (!user) {
         return {

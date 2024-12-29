@@ -60,14 +60,6 @@ export function AttendanceCalendar({
 }: AttendanceCalendarProps) {
   if (!date?.from || !date?.to) return null;
 
-  // 날짜 형식이 맞는지 확인하기 위해 로그 추가
-  console.log("Calendar Data:", {
-    date,
-    adminId,
-    data,
-    formattedDate: format(date.from, "yyyy-MM-dd"),
-  });
-
   const days = eachDayOfInterval({
     start: date.from,
     end: date.to,

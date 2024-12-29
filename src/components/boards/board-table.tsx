@@ -49,8 +49,6 @@ export function BoardTable({
   const router = useRouter();
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
-  console.log(data, metadata);
-
   const handleSelect = (id: string) => {
     setSelectedRows((prev) =>
       prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id]
