@@ -31,8 +31,6 @@ export function NavAdminLinks({ session }: { session: Session | null }) {
   );
   if (filteredLinks.length === 0) return null;
 
-  console.log(filteredLinks);
-
   return (
     <SidebarGroup>
       <SidebarGroupLabel>관리 메뉴</SidebarGroupLabel>

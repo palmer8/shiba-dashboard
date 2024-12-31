@@ -4,9 +4,8 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { AttendanceCalendar } from "./attendance-calendar";
-import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import {
   Area,
@@ -16,174 +15,165 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useState } from "react";
-import { Admin } from "@/types/attendance";
-
-const MOCK_ADMINS: Admin[] = [
-  {
-    id: "1",
-    name: "도꾸",
-    role: "마스터",
-    todayAttendance: {
-      startTime: "09:00",
-      endTime: null,
-    },
-    workHours: {
-      "2024-12-10": [{ startTime: "09:00", endTime: "18:00" }],
-      "2024-12-11": [{ startTime: "08:50", endTime: "18:10" }],
-      "2024-12-12": [{ startTime: "09:10", endTime: "18:20" }],
-      "2024-12-14": [{ startTime: "08:55", endTime: "18:05" }],
-      "2024-12-15": [{ startTime: "09:05", endTime: null }],
-      "2024-12-18": [{ startTime: "09:00", endTime: "19:00" }],
-      "2024-12-19": [{ startTime: "09:15", endTime: "18:15" }],
-      "2024-12-20": [{ startTime: "08:45", endTime: "18:00" }],
-      "2024-12-21": [{ startTime: "09:00", endTime: "18:30" }],
-    },
-    weeklyStats: [
-      { date: "12/10", hours: 9, expected: 8 },
-      { date: "12/11", hours: 9.3, expected: 8 },
-      { date: "12/12", hours: 9.2, expected: 8 },
-      { date: "12/13", hours: 0, expected: 8 },
-      { date: "12/14", hours: 9.1, expected: 8 },
-      { date: "12/15", hours: 0, expected: 8 },
-      { date: "12/18", hours: 10, expected: 8 },
-      { date: "12/19", hours: 9, expected: 8 },
-      { date: "12/20", hours: 9.25, expected: 8 },
-      { date: "12/21", hours: 9.5, expected: 8 },
-    ],
-  },
-  {
-    id: "2",
-    name: "토리",
-    role: "인게임 관리자",
-    todayAttendance: {
-      startTime: "08:30",
-      endTime: "17:30",
-    },
-    workHours: {
-      "2024-12-10": [{ startTime: "08:30", endTime: "17:30" }],
-      "2024-12-11": [{ startTime: "08:45", endTime: "17:45" }],
-      "2024-12-13": [{ startTime: "08:15", endTime: "17:15" }],
-      "2024-12-14": [{ startTime: "08:20", endTime: "19:20" }],
-      "2024-12-15": [{ startTime: "08:40", endTime: "17:40" }],
-      "2024-12-18": [{ startTime: "08:35", endTime: "17:35" }],
-      "2024-12-19": [{ startTime: "08:25", endTime: "20:25" }],
-      "2024-12-20": [{ startTime: "08:30", endTime: "17:30" }],
-      "2024-12-21": [{ startTime: "08:40", endTime: "17:40" }],
-    },
-    weeklyStats: [
-      { date: "12/10", hours: 9, expected: 8 },
-      { date: "12/11", hours: 9, expected: 8 },
-      { date: "12/12", hours: 0, expected: 8 },
-      { date: "12/13", hours: 9, expected: 8 },
-      { date: "12/14", hours: 11, expected: 8 },
-      { date: "12/15", hours: 9, expected: 8 },
-      { date: "12/18", hours: 9, expected: 8 },
-      { date: "12/19", hours: 12, expected: 8 },
-      { date: "12/20", hours: 9, expected: 8 },
-      { date: "12/21", hours: 9, expected: 8 },
-    ],
-  },
-  {
-    id: "3",
-    name: "담",
-    role: "스태프",
-    todayAttendance: {
-      startTime: "09:15",
-      endTime: "18:15",
-    },
-    workHours: {
-      "2024-12-10": [{ startTime: "09:15", endTime: "18:15" }],
-      "2024-12-11": [{ startTime: "09:00", endTime: "18:00" }],
-      "2024-12-12": [{ startTime: "09:30", endTime: "18:30" }],
-      "2024-12-13": [{ startTime: "09:20", endTime: "20:20" }],
-      "2024-12-14": [{ startTime: "09:10", endTime: "18:10" }],
-      "2024-12-15": [{ startTime: "09:05", endTime: "18:05" }],
-      "2024-12-18": [{ startTime: "09:00", endTime: "19:00" }],
-      "2024-12-19": [{ startTime: "09:25", endTime: "18:25" }],
-      "2024-12-20": [{ startTime: "09:15", endTime: "19:15" }],
-      "2024-12-21": [{ startTime: "09:20", endTime: "18:20" }],
-    },
-    weeklyStats: [
-      { date: "12/10", hours: 9, expected: 8 },
-      { date: "12/11", hours: 9, expected: 8 },
-      { date: "12/12", hours: 9, expected: 8 },
-      { date: "12/13", hours: 11, expected: 8 },
-      { date: "12/14", hours: 9, expected: 8 },
-      { date: "12/15", hours: 9, expected: 8 },
-      { date: "12/18", hours: 0, expected: 8 },
-      { date: "12/19", hours: 9, expected: 8 },
-      { date: "12/20", hours: 10, expected: 8 },
-      { date: "12/21", hours: 9, expected: 8 },
-    ],
-  },
-];
+import { AdminAttendance } from "@/types/attendance";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface AttendanceListProps {
-  expandedAdmin: string | null;
-  onExpand: (id: string | null) => void;
+  attendances: AdminAttendance[];
+  expandedAdmin: number | null;
+  onExpand: (id: number | null) => void;
   date: DateRange | undefined;
 }
 
+function formatWorkTime(time: string | null): string {
+  if (!time) return "--:--";
+  return format(new Date(time), "HH:mm");
+}
+
 export function AttendanceList({
+  attendances,
   expandedAdmin,
   onExpand,
   date,
 }: AttendanceListProps) {
-  // useState를 사용하여 상태 관리
-  const [admins] = useState(MOCK_ADMINS);
+  const processAttendanceRecord = (record: any) => {
+    const inTime = record.in ? formatWorkTime(record.in) : null;
+    const outTime = record.out ? formatWorkTime(record.out) : null;
+    const isOvernight = outTime && inTime && outTime < inTime;
+
+    return {
+      ...record,
+      displayIn: inTime,
+      displayOut: outTime,
+      isOvernight,
+    };
+  };
 
   return (
     <div className="space-y-4">
-      {admins.map((admin) => (
-        <div key={admin.id} className="rounded-lg border bg-card">
-          {/* 관리자 기본 정보 행 */}
+      {attendances.map((admin) => (
+        <div key={admin.userId} className="rounded-lg border bg-card">
           <div
             className={cn(
               "p-4 flex items-center justify-between cursor-pointer hover:bg-accent/50 transition-colors",
-              expandedAdmin === admin.id && "border-b"
+              expandedAdmin === admin.userId && "border-b"
             )}
             onClick={() =>
-              onExpand(expandedAdmin === admin.id ? null : admin.id)
+              onExpand(expandedAdmin === admin.userId ? null : admin.userId)
             }
           >
             <div className="flex items-center gap-4">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={admin.avatarUrl} />
-                <AvatarFallback>{admin.name[0]}</AvatarFallback>
+                <AvatarFallback>{admin.nickname[0]}</AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{admin.name}</span>
-                  <Badge variant="outline">{admin.role}</Badge>
+                  <span className="font-medium">{admin.nickname}</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {admin.todayAttendance?.startTime && (
-                    <span>출근: {admin.todayAttendance.startTime}</span>
+                  {admin.today.in ? (
+                    <>
+                      <span>
+                        출근: {format(new Date(admin.today.in), "HH:mm")}
+                      </span>
+                      {admin.today.out && (
+                        <span>
+                          {" "}
+                          / 퇴근: {format(new Date(admin.today.out), "HH:mm")}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span>미출근</span>
                   )}
-                  {admin.todayAttendance?.endTime && (
-                    <span> / 퇴근: {admin.todayAttendance.endTime}</span>
-                  )}
-                  {!admin.todayAttendance?.startTime && <span>미출근</span>}
                 </div>
               </div>
             </div>
-            {expandedAdmin === admin.id ? (
+            {expandedAdmin === admin.userId ? (
               <ChevronUp className="h-5 w-5 text-muted-foreground" />
             ) : (
               <ChevronDown className="h-5 w-5 text-muted-foreground" />
             )}
           </div>
 
-          {/* 확장된 통계 및 캘린더 뷰 */}
-          {expandedAdmin === admin.id && (
+          {expandedAdmin === admin.userId && (
             <div className="p-4 space-y-6">
-              {/* 캘린더 뷰 */}
-              <AttendanceCalendar
-                date={date}
-                adminId={admin.id}
-                data={admin.workHours}
-              />
+              {/* 출퇴근 기록 탭 */}
+              <Tabs defaultValue="calendar" className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">출퇴근 기록</h3>
+                  <TabsList>
+                    <TabsTrigger value="calendar">캘린더</TabsTrigger>
+                    <TabsTrigger value="table">목록</TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <TabsContent value="calendar" className="mt-0">
+                  <AttendanceCalendar
+                    date={date}
+                    adminId={admin.userId}
+                    data={admin.workHours}
+                  />
+                </TabsContent>
+
+                <TabsContent value="table" className="mt-0">
+                  <div className="rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>날짜</TableHead>
+                          <TableHead>출근</TableHead>
+                          <TableHead>퇴근</TableHead>
+                          <TableHead className="text-right">근무시간</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {admin.records.map((record) => {
+                          const processed = processAttendanceRecord(record);
+                          return (
+                            <TableRow key={record.date}>
+                              <TableCell className="font-medium">
+                                {record.date}
+                              </TableCell>
+                              <TableCell>
+                                {processed.displayIn || "-"}
+                              </TableCell>
+                              <TableCell>
+                                {processed.displayOut ? (
+                                  <>
+                                    {processed.displayOut}
+                                    {processed.isOvernight && (
+                                      <span className="ml-1 text-xs text-muted-foreground">
+                                        (익일)
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  "-"
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {calculateWorkHours(
+                                  processed.displayIn,
+                                  processed.displayOut
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+              </Tabs>
 
               {/* 통계 섹션 */}
               <div className="space-y-4">
@@ -199,7 +189,7 @@ export function AttendanceList({
                         <AreaChart data={admin.weeklyStats}>
                           <defs>
                             <linearGradient
-                              id={`workHours-${admin.id}`}
+                              id={`workHours-${admin.userId}`}
                               x1="0"
                               y1="0"
                               x2="0"
@@ -221,7 +211,7 @@ export function AttendanceList({
                           <YAxis className="text-xs" />
                           <Tooltip
                             content={({ active, payload }) => {
-                              if (!active || !payload) return null;
+                              if (!active || !payload?.length) return null;
                               return (
                                 <div className="rounded-lg border bg-background p-2 shadow-sm">
                                   <div className="grid gap-2">
@@ -232,7 +222,7 @@ export function AttendanceList({
                                       <span className="font-bold">
                                         {payload[0].value &&
                                         typeof payload[0].value === "number"
-                                          ? payload[0].value?.toFixed(1)
+                                          ? Number(payload[0].value).toFixed(1)
                                           : 0}
                                         시간
                                       </span>
@@ -254,7 +244,7 @@ export function AttendanceList({
                             type="monotone"
                             dataKey="hours"
                             stroke="hsl(var(--primary))"
-                            fill={`url(#workHours-${admin.id})`}
+                            fill={`url(#workHours-${admin.userId})`}
                           />
                           <Area
                             type="monotone"
@@ -276,14 +266,16 @@ export function AttendanceList({
                     <div className="h-[200px] flex items-center justify-center">
                       <div className="text-center">
                         <div className="text-2xl font-bold mb-2">
-                          {format(new Date(0, 0, 0, 9, 0), "HH:mm")}
+                          {calculateAverageTime(admin.records.map((r) => r.in))}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           평균 출근
                         </div>
                         <div className="h-px bg-border my-4" />
                         <div className="text-2xl font-bold mb-2">
-                          {format(new Date(0, 0, 0, 18, 0), "HH:mm")}
+                          {calculateAverageTime(
+                            admin.records.map((r) => r.out).filter(Boolean)
+                          )}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           평균 퇴근
@@ -299,4 +291,42 @@ export function AttendanceList({
       ))}
     </div>
   );
+}
+
+// 평균 시간 계산 헬퍼 함수
+function calculateAverageTime(times: (string | null)[]): string {
+  const validTimes = times.filter(Boolean) as string[];
+  if (validTimes.length === 0) return "--:--";
+
+  const totalMinutes = validTimes.reduce((acc, time) => {
+    const date = new Date(time);
+    return acc + date.getHours() * 60 + date.getMinutes();
+  }, 0);
+
+  const averageMinutes = Math.round(totalMinutes / validTimes.length);
+  const hours = Math.floor(averageMinutes / 60);
+  const minutes = averageMinutes % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+    2,
+    "0"
+  )}`;
+}
+// 근무 시간 계산 헬퍼 함수 추가
+function calculateWorkHours(
+  inTime: string | null,
+  outTime: string | null
+): string {
+  if (!inTime || !outTime) return "-";
+
+  const start = new Date(`2000/01/01 ${inTime}`);
+  const end = new Date(`2000/01/01 ${outTime}`);
+
+  // 익일 퇴근 처리
+  if (end < start) {
+    end.setDate(end.getDate() + 1);
+  }
+
+  const diff = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  return `${diff.toFixed(1)}시간`;
 }

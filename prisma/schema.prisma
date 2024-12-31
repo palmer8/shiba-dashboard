@@ -10,7 +10,6 @@ datasource db {
   extensions = [pgcrypto]
 }
 
-
 enum UserRole {
   STAFF
   INGAME_ADMIN
@@ -51,12 +50,11 @@ enum ActionType {
   @@map("action_type")
 }
 
-
 enum PenaltyType {
-  WARNING     @map("경고")
-  GAME_BAN    @map("게임정지")
-  VERBAL      @map("구두경고")
-  UNBAN       @map("정지해제")
+  WARNING  @map("경고")
+  GAME_BAN @map("게임정지")
+  VERBAL   @map("구두경고")
+  UNBAN    @map("정지해제")
 
   @@map("penalty_type")
 }
@@ -82,41 +80,42 @@ enum RewardRevokeCreditType {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  name          String?
-  hashedPassword String?  @map("password")
-  email         String?   @unique
-  userId        Int    @map("user_id") @unique
-  emailVerified DateTime? @map("email_verified")
-  nickname      String
-  image         String?
-  role          UserRole  @default(STAFF) 
-  isPermissive  Boolean   @default(false) @map("is_permissive")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id             String    @id @default(uuid())
+  name           String?
+  hashedPassword String?   @map("password")
+  email          String?   @unique
+  userId         Int       @unique @map("user_id")
+  emailVerified  DateTime? @map("email_verified")
+  nickname       String
+  image          String?
+  role           UserRole  @default(STAFF)
+  isPermissive   Boolean   @default(false) @map("is_permissive")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  accounts      Account[]
-  sessions      Session[]
+  accounts              Account[]
+  sessions              Session[]
   accountUsingQuerylogs AccountUsingQuerylog[]
-  groupMails    GroupMail[]
-  personalMails PersonalMail[]
-  
+  groupMails            GroupMail[]
+  personalMails         PersonalMail[]
+
   registeredItemQuantities ItemQuantity[] @relation("ItemQuantityRegistrant")
   approvedItemQuantities   ItemQuantity[] @relation("ItemQuantityApprover")
-  
+
   registeredCreditManagements CreditManagement[] @relation("CreditManagementRegistrant")
-  approvedCreditManagements  CreditManagement[] @relation("CreditManagementApprover")
-  
+  approvedCreditManagements   CreditManagement[] @relation("CreditManagementApprover")
+
   registeredBlockTickets BlockTicket[] @relation("BlockTicketRegistrant")
-  approvedBlockTickets  BlockTicket[] @relation("BlockTicketApprover")
-  
+  approvedBlockTickets   BlockTicket[] @relation("BlockTicketApprover")
+
   registeredRewardRevokes RewardRevoke[] @relation("RewardRevokeRegistrant")
-  approvedRewardRevokes  RewardRevoke[] @relation("RewardRevokeApprover")
-  
-  boards        Board[]
+  approvedRewardRevokes   RewardRevoke[] @relation("RewardRevokeApprover")
+
+  boards          Board[]
   boardCategories BoardCategory[]
-  boardComments BoardComment[]
-  boardLikes BoardLike[]
+  boardComments   BoardComment[]
+  boardLikes      BoardLike[]
+
   @@map("user")
 }
 
@@ -162,30 +161,30 @@ model VerificationToken {
 }
 
 model GroupMail {
-  id        String   @id @default(uuid())
-  reason    String
-  content   String
-  rewards    Json[]    
-  startDate DateTime @map("start_date")
-  endDate   DateTime @map("end_date")
+  id           String   @id @default(uuid())
+  reason       String
+  content      String
+  rewards      Json[]
+  startDate    DateTime @map("start_date")
+  endDate      DateTime @map("end_date")
   registrantId String?  @map("registrant_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
   registrant   User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
 
   @@map("group_mail")
 }
 
 model PersonalMail {
-  id        String   @id @default(uuid())
-  userId    Int   @map("user_id")
-  reason    String
-  content   String
-  rewards    Json[]    
-  registrantId String? @map("registrant_id")
-  needItems  Json[]
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  userId       Int      @map("user_id")
+  reason       String
+  content      String
+  rewards      Json[]
+  registrantId String?  @map("registrant_id")
+  needItems    Json[]
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
   registrant   User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
 
   @@map("personal_mail")
@@ -206,19 +205,19 @@ model CouponGroup {
   endDate     DateTime          @map("end_date")
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
-  coupons     Coupon[] 
+  coupons     Coupon[]
 
   @@map("coupon_group")
 }
 
 model Coupon {
-  id            String      @id @default(uuid())
-  rewards       Json        @default("[]")
-  isUsed        Boolean     @default(false) @map("is_used")
-  code          String?     @map("coupon_code") @db.VarChar(10)
-  couponGroupId String?     @map("coupon_group_id")
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  id            String       @id @default(uuid())
+  rewards       Json         @default("[]")
+  isUsed        Boolean      @default(false) @map("is_used")
+  code          String?      @map("coupon_code") @db.VarChar(10)
+  couponGroupId String?      @map("coupon_group_id")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
   couponGroup   CouponGroup? @relation(fields: [couponGroupId], references: [id], onDelete: Cascade)
   couponLogs    CouponLog[]
 
@@ -239,42 +238,42 @@ model CouponLog {
 }
 
 model ItemQuantity {
-  id           String            @id @default(uuid())
-  userId       Int            @map("user_id")
-  itemId       String            @map("item_id")
-  itemName     String            @map("item_name")
-  reason       String            @map("reason")
-  amount       String               @map("quantity")
-  type         ActionType        @default(ADD)
-  status       Status            @default(PENDING)
-  registrantId String?           @map("registrant_id")
-  approverId   String?           @map("approver_id")
-  isApproved   Boolean           @default(false) @map("is_approved")
-  approvedAt   DateTime?         @map("approved_at")
-  createdAt    DateTime          @default(now()) @map("created_at")
-  updatedAt    DateTime          @updatedAt @map("updated_at")
-  registrant   User?             @relation("ItemQuantityRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
-  approver     User?             @relation("ItemQuantityApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  id           String     @id @default(uuid())
+  userId       Int        @map("user_id")
+  itemId       String     @map("item_id")
+  itemName     String     @map("item_name")
+  reason       String     @map("reason")
+  amount       String     @map("quantity")
+  type         ActionType @default(ADD)
+  status       Status     @default(PENDING)
+  registrantId String?    @map("registrant_id")
+  approverId   String?    @map("approver_id")
+  isApproved   Boolean    @default(false) @map("is_approved")
+  approvedAt   DateTime?  @map("approved_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  registrant   User?      @relation("ItemQuantityRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
+  approver     User?      @relation("ItemQuantityApprover", fields: [approverId], references: [id], onDelete: SetNull)
 
   @@map("item_quantity")
 }
 
 model RewardRevoke {
-  id           String               @id @default(uuid())
-  userId       Int               @map("user_id")
-  reason       String            @map("reason")
+  id           String                 @id @default(uuid())
+  userId       Int                    @map("user_id")
+  reason       String                 @map("reason")
   amount       String
-  status       Status               @default(PENDING)
+  status       Status                 @default(PENDING)
   type         ActionType
   creditType   RewardRevokeCreditType
-  registrantId String?              @map("registrant_id")
-  approverId   String?              @map("approver_id")
-  isApproved   Boolean              @default(false) @map("is_approved")
-  approvedAt   DateTime?            @map("approved_at")
-  createdAt    DateTime             @default(now()) @map("created_at")
-  updatedAt    DateTime             @updatedAt @map("updated_at")
-  registrant   User?                @relation("RewardRevokeRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
-  approver     User?                @relation("RewardRevokeApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  registrantId String?                @map("registrant_id")
+  approverId   String?                @map("approver_id")
+  isApproved   Boolean                @default(false) @map("is_approved")
+  approvedAt   DateTime?              @map("approved_at")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+  registrant   User?                  @relation("RewardRevokeRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
+  approver     User?                  @relation("RewardRevokeApprover", fields: [approverId], references: [id], onDelete: SetNull)
 
   @@map("reward_revoke")
 }
@@ -290,103 +289,104 @@ model Items {
 }
 
 model Groups {
-  id        String   @id @default(uuid())
-  groupId   String   @unique @map("group_id")
-  groupBoolean Boolean   @map("group_boolean")
-  minRole   UserRole @default(STAFF) @map("min_role")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  groupId      String   @unique @map("group_id")
+  groupBoolean Boolean  @map("group_boolean")
+  minRole      UserRole @default(STAFF) @map("min_role")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("groups")
 }
 
 model CreditManagement {
-  id           String        @id @default(uuid())
+  id           String     @id @default(uuid())
   userId       Int        @map("user_id")
   type         ActionType
-  creditType   CreditType    @map("credit_type")
+  creditType   CreditType @map("credit_type")
   amount       String
-  status       Status        @default(PENDING)
-  registrantId String?        @map("registrant_id")
-  approverId   String?        @map("approver_id")
-  isApproved   Boolean       @default(false) @map("is_approved")
-  approvedAt   DateTime?     @map("approved_at")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  registrant   User?         @relation("CreditManagementRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
-  approver     User?         @relation("CreditManagementApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  status       Status     @default(PENDING)
+  registrantId String?    @map("registrant_id")
+  approverId   String?    @map("approver_id")
+  isApproved   Boolean    @default(false) @map("is_approved")
+  approvedAt   DateTime?  @map("approved_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  registrant   User?      @relation("CreditManagementRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
+  approver     User?      @relation("CreditManagementApprover", fields: [approverId], references: [id], onDelete: SetNull)
 
   @@map("credit_management")
 }
 
 model BlockTicket {
-  id           String           @id @default(uuid())
-  reportId     Int              @map("report_id")
-  status       Status           @default(PENDING)
-  registrantId String?          @map("registrant_id")
-  approverId   String?          @map("approver_id")
-  isApproved   Boolean          @default(false) @map("is_approved")
-  approvedAt   DateTime?        @map("approved_at")
-  createdAt    DateTime         @default(now()) @map("created_at")
-  updatedAt    DateTime         @updatedAt @map("updated_at")
-  registrant   User?            @relation("BlockTicketRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
-  approver     User?            @relation("BlockTicketApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  id           String    @id @default(uuid())
+  reportId     Int       @map("report_id")
+  status       Status    @default(PENDING)
+  registrantId String?   @map("registrant_id")
+  approverId   String?   @map("approver_id")
+  isApproved   Boolean   @default(false) @map("is_approved")
+  approvedAt   DateTime? @map("approved_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  registrant   User?     @relation("BlockTicketRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
+  approver     User?     @relation("BlockTicketApprover", fields: [approverId], references: [id], onDelete: SetNull)
 
   @@map("block_ticket")
 }
 
 model Board {
-  id        String        @id @default(uuid())
-  title     String
-  content   Json
-  categoryId String? @map("category_id")
-  views     Int          @default(0)
-  registrantId    String?       @map("registrant_id")
-  isNotice  Boolean      @default(false) @map("is_notice")
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
-  registrant    User?        @relation(fields: [registrantId], references: [id], onDelete: SetNull)
-  category   BoardCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  comments  BoardComment[]
-  likes     BoardLike[]
+  id           String         @id @default(uuid())
+  title        String
+  content      Json
+  categoryId   String?        @map("category_id")
+  views        Int            @default(0)
+  registrantId String?        @map("registrant_id")
+  isNotice     Boolean        @default(false) @map("is_notice")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  registrant   User?          @relation(fields: [registrantId], references: [id], onDelete: SetNull)
+  category     BoardCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  comments     BoardComment[]
+  likes        BoardLike[]
 
   @@map("board")
 }
 
 model BoardComment {
-  id        String   @id @default(uuid())
-  content   String
-  boardId   String   @map("board_id")
-  registrantId    String   @map("registrant_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  registrant    User     @relation(fields: [registrantId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  content      String
+  boardId      String   @map("board_id")
+  registrantId String   @map("registrant_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  board        Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  registrant   User     @relation(fields: [registrantId], references: [id], onDelete: Cascade)
 
   @@map("board_comment")
 }
 
 model AccountUsingQuerylog {
-  id        String   @id @default(uuid())
-  content   String
-  registrantId    String?  @map("registrant_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  registrant    User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
+  id           String   @id @default(uuid())
+  content      String
+  registrantId String?  @map("registrant_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  registrant   User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
 
   @@map("account_using_querylog")
 }
 
 model BoardCategory {
-  id        String   @id @default(uuid())
-  name      String    @unique
-  registrantId String? @map("registrant_id")
-  template Json? @map("template")
-  isUsed Boolean @default(false) @map("is_used")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  boards   Board[]
+  id           String   @id @default(uuid())
+  name         String   @unique
+  registrantId String?  @map("registrant_id")
+  template     Json?    @map("template")
+  isUsed       Boolean  @default(false) @map("is_used")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  boards       Board[]
   registrant   User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
+
   @@map("board_category")
 }
 
@@ -396,19 +396,53 @@ model BoardLike {
   userId    String   @map("user_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
-  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([boardId, userId])
   @@map("board_like")
 }
 
-// model Attendance {
-//   id        String   @id @default(uuid())
-//   user
-//   createdAt DateTime @default(now()) @map("created_at")
-//   updatedAt DateTime @updatedAt @map("updated_at")
+// 현재 출퇴근 상태
+model Attendance {
+  id        String   @id @default(cuid())
+  userId    Int      @map("user_id")
+  nickname  String   @map("nickname")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-//   @@map("attendance")
-// }
+  // 출근/퇴근 기록과의 관계
+  checkIns  CheckIn[]
+  checkOuts CheckOut[]
+
+  @@unique([userId]) // 한 유저당 하나의 상태만 존재
+  @@index([userId])
+  @@map("attendance")
+}
+
+// 출근 기록
+model CheckIn {
+  id           String     @id @default(cuid())
+  attendanceId String     @map("attendance_id")
+  attendance   Attendance @relation(fields: [attendanceId], references: [id])
+  timestamp    DateTime   @map("timestamp")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@index([attendanceId])
+  @@index([timestamp])
+  @@map("check_in")
+}
+
+// 퇴근 기록
+model CheckOut {
+  id           String     @id @default(cuid())
+  attendanceId String // 출퇴근 상태 ID
+  attendance   Attendance @relation(fields: [attendanceId], references: [id])
+  timestamp    DateTime   @map("timestamp")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@index([attendanceId])
+  @@index([timestamp])
+  @@map("check_out")
+}

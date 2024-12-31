@@ -9,8 +9,9 @@ import {
 import { Prisma, User, UserRole } from "@prisma/client";
 import { AdminDto, GroupTableData } from "@/types/user";
 import { ApiResponse } from "@/types/global.dto";
-import { Group } from "next/dist/shared/lib/router/utils/route-regex";
 import { redirect } from "next/navigation";
+import { AdminAttendance, WorkHours } from "@/types/attendance";
+import { format } from "date-fns";
 
 class AdminService {
   async getDashboardUsers(params: AdminFilter): Promise<ApiResponse<AdminDto>> {
@@ -300,6 +301,139 @@ class AdminService {
       return {
         success: false,
         error: "그룹 정보 수정 실패",
+        data: null,
+      };
+    }
+  }
+
+  async getAttendanceAll(
+    startDate?: string,
+    endDate?: string
+  ): Promise<ApiResponse<AdminAttendance[]>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+    if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/404");
+    if (!session.user.isPermissive) return redirect("/pending");
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const start = startDate ? new Date(startDate) : today;
+    const end = endDate ? new Date(endDate) : today;
+    end.setHours(23, 59, 59, 999);
+
+    try {
+      const attendances = await prisma.attendance.findMany({
+        include: {
+          checkIns: {
+            where: {
+              timestamp: {
+                gte: start,
+                lte: end,
+              },
+            },
+            orderBy: { timestamp: "asc" },
+          },
+          checkOuts: {
+            where: {
+              timestamp: {
+                gte: start,
+                lte: end,
+              },
+            },
+            orderBy: { timestamp: "asc" },
+          },
+        },
+      });
+
+      const formattedData: AdminAttendance[] = attendances.map((attendance) => {
+        const dateMap = new Map<string, { in: string; out: string | null }>();
+        const workHoursMap = new Map<string, WorkHours[]>();
+        const weeklyStats: any[] = [];
+
+        attendance.checkIns.forEach((checkIn) => {
+          const date = format(checkIn.timestamp, "yyyy-MM-dd");
+          dateMap.set(date, {
+            in: checkIn.timestamp.toISOString(),
+            out: null,
+          });
+
+          workHoursMap.set(date, [
+            {
+              startTime: format(checkIn.timestamp, "HH:mm"),
+              endTime: null,
+            },
+          ]);
+        });
+
+        attendance.checkOuts.forEach((checkOut) => {
+          const date = format(checkOut.timestamp, "yyyy-MM-dd");
+          if (dateMap.has(date)) {
+            dateMap.get(date)!.out = checkOut.timestamp.toISOString();
+            workHoursMap.get(date)![0].endTime = format(
+              checkOut.timestamp,
+              "HH:mm"
+            );
+          }
+        });
+
+        const records = Array.from(dateMap.entries());
+        records.forEach(([date, record]) => {
+          if (record.out) {
+            const inTime = new Date(record.in);
+            const outTime = new Date(record.out);
+            const hours =
+              (outTime.getTime() - inTime.getTime()) / (1000 * 60 * 60);
+
+            weeklyStats.push({
+              date: format(inTime, "MM/dd"),
+              hours,
+              expected: 8,
+            });
+          }
+        });
+
+        return {
+          userId: attendance.userId,
+          nickname: attendance.nickname,
+          records: Array.from(dateMap.entries()).map(([date, record]) => ({
+            date,
+            in: record.in,
+            out: record.out,
+          })),
+          today: {
+            in:
+              attendance.checkIns
+                .find(
+                  (check) =>
+                    format(check.timestamp, "yyyy-MM-dd") ===
+                    format(new Date(), "yyyy-MM-dd")
+                )
+                ?.timestamp.toISOString() || null,
+            out:
+              attendance.checkOuts
+                .find(
+                  (check) =>
+                    format(check.timestamp, "yyyy-MM-dd") ===
+                    format(new Date(), "yyyy-MM-dd")
+                )
+                ?.timestamp.toISOString() || null,
+          },
+          workHours: Object.fromEntries(workHoursMap),
+          weeklyStats: weeklyStats,
+        };
+      });
+
+      return {
+        success: true,
+        data: formattedData,
+        error: null,
+      };
+    } catch (error) {
+      console.error("근태 조회 에러:", error);
+      return {
+        success: false,
+        error: "근태 목록을 조회하는데 실패했습니다",
         data: null,
       };
     }

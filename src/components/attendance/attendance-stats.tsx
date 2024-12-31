@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Area,
   AreaChart,
@@ -12,42 +12,91 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ChartTooltipContent } from "../ui/chart";
+import { AdminAttendance } from "@/types/attendance";
+import { format } from "date-fns";
 
 interface AttendanceStatsProps {
-  data?: any; // 실제 데이터 타입으로 변경 필요
+  data: AdminAttendance[];
 }
 
 export function AttendanceStats({ data }: AttendanceStatsProps) {
-  // 임시 데이터
-  const averageWorkHours = [
-    { date: "12/09", hours: 8.5, expected: 8 },
-    { date: "12/10", hours: 7.8, expected: 8 },
-    { date: "12/11", hours: 8.2, expected: 8 },
-    { date: "12/12", hours: 8.7, expected: 8 },
-    { date: "12/13", hours: 8.1, expected: 8 },
-  ];
+  // 근무 시간 계산 함수
+  const calculateWorkHours = (records: any[]) => {
+    return records.map((record) => {
+      const start = new Date(record.in);
+      const end = record.out ? new Date(record.out) : null;
 
-  const timeDistribution = [
-    { time: "07-09", count: 2 },
-    { time: "09-11", count: 8 },
-    { time: "11-13", count: 5 },
-    { time: "13-15", count: 6 },
-    { time: "15-17", count: 7 },
-    { time: "17-19", count: 4 },
-    { time: "19-21", count: 1 },
-  ];
+      if (!end)
+        return {
+          date: format(start, "MM/dd"),
+          hours: 0,
+          expected: 8,
+        };
+
+      let hours;
+      if (end < start) {
+        // 날짜를 넘어가는 경우 (예: 17:00 - 02:00)
+        const nextDay = new Date(end);
+        nextDay.setDate(nextDay.getDate() + 1);
+        hours = (nextDay.getTime() - start.getTime()) / (1000 * 60 * 60);
+      } else {
+        hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      }
+
+      return {
+        date: format(start, "MM/dd"),
+        hours: Math.round(hours * 10) / 10, // 소수점 첫째자리까지
+        expected: 8,
+      };
+    });
+  };
+
+  // 시간대별 근무 인원 계산 개선
+  const calculateTimeDistribution = (attendances: AdminAttendance[]) => {
+    const timeSlots = new Map<string, number>();
+    for (let i = 0; i < 24; i += 2) {
+      const timeSlot = `${String(i).padStart(2, "0")}-${String(i + 2).padStart(
+        2,
+        "0"
+      )}`;
+      timeSlots.set(timeSlot, 0);
+    }
+
+    attendances.forEach((admin) => {
+      Object.values(admin.workHours).forEach((works) => {
+        works.forEach((work) => {
+          const startHour = parseInt(work.startTime.split(":")[0]);
+          const endHour = work.endTime
+            ? parseInt(work.endTime.split(":")[0])
+            : (startHour + 1) % 24;
+
+          for (let hour = startHour; hour !== endHour; hour = (hour + 1) % 24) {
+            const slot = `${String(Math.floor(hour / 2) * 2).padStart(
+              2,
+              "0"
+            )}-${String(Math.floor(hour / 2) * 2 + 2).padStart(2, "0")}`;
+            timeSlots.set(slot, (timeSlots.get(slot) || 0) + 1);
+          }
+        });
+      });
+    });
+
+    return Array.from(timeSlots).map(([time, count]) => ({ time, count }));
+  };
+
+  const workHoursData = calculateWorkHours(data[0]?.records || []);
+  const timeDistribution = calculateTimeDistribution(data);
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">평균 근무 시간</CardTitle>
+          <CardTitle className="text-sm font-medium">근무 시간</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={averageWorkHours}>
+              <AreaChart data={workHoursData}>
                 <defs>
                   <linearGradient id="workHours" x1="0" y1="0" x2="0" y2="1">
                     <stop

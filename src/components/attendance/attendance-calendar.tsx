@@ -2,11 +2,11 @@
 
 import { cn } from "@/lib/utils";
 import {
-  //   addDays,
+  addDays,
   eachDayOfInterval,
   format,
   isSameDay,
-  //   startOfWeek,
+  isWeekend,
 } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Button } from "../ui/button";
@@ -14,49 +14,89 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { AttendanceCalendarProps, WorkHours } from "@/types/attendance";
 
-// 시간을 위치값으로 변환하는 헬퍼 함수
-function getTimePosition(time: string | null): number {
-  if (!time) return 0;
-  const [hours, minutes] = time.split(":").map(Number);
-  return (hours + minutes / 60) * 2.5;
-}
+// 시간을 위치값으로 변환하는 함수
+const getTimePosition = (timeStr: string): number => {
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  return hours * 2.5 + (minutes / 60) * 2.5;
+};
 
-// 근무 상태에 따른 스타일 반환 함수
-function getWorkStatusStyle(startTime: string | null, endTime: string | null) {
-  if (!startTime) return {};
+// 근무 시간이 24시를 넘어가는 경우 분할하는 함수
+const splitOvernightWork = (
+  work: WorkHours,
+  currentDate: string
+): {
+  current: WorkHours;
+  next?: { date: string; work: WorkHours };
+} => {
+  if (!work.endTime) return { current: work };
 
-  if (!endTime) {
-    // 출근만 한 경우 (근무 중)
+  const [startHour] = work.startTime.split(":").map(Number);
+  const [endHour] = work.endTime.split(":").map(Number);
+
+  if (endHour < startHour || (endHour === 0 && startHour > 0)) {
+    const nextDate = format(addDays(new Date(currentDate), 1), "yyyy-MM-dd");
     return {
-      backgroundColor: "hsl(var(--warning) / 0.15)",
-      borderLeft: "3px solid hsl(var(--warning))",
-      borderTop: "1px solid hsl(var(--warning) / 0.3)",
-      borderBottom: "1px solid hsl(var(--warning) / 0.3)",
-      borderRight: "1px solid hsl(var(--warning) / 0.3)",
+      current: {
+        startTime: work.startTime,
+        endTime: "24:00",
+      },
+      next: {
+        date: nextDate,
+        work: {
+          startTime: "00:00",
+          endTime: work.endTime,
+        },
+      },
     };
   }
 
-  // 정상 출퇴근
+  return { current: work };
+};
+
+// 근무 상태에 따른 스타일 반환 함수
+const getWorkStatusStyle = (startTime: string, endTime: string | null) => {
   return {
-    backgroundColor: "hsl(var(--primary) / 0.15)",
-    borderLeft: "3px solid hsl(var(--primary))",
-    borderTop: "1px solid hsl(var(--primary) / 0.3)",
-    borderBottom: "1px solid hsl(var(--primary) / 0.3)",
-    borderRight: "1px solid hsl(var(--primary) / 0.3)",
+    backgroundColor: endTime
+      ? "hsl(var(--primary) / 0.15)"
+      : "hsl(var(--warning) / 0.15)",
+    borderLeft: `3px solid ${
+      endTime ? "hsl(var(--primary))" : "hsl(var(--warning))"
+    }`,
+    borderRadius: "0.375rem",
+    borderTop: `1px solid ${
+      endTime ? "hsl(var(--primary) / 0.3)" : "hsl(var(--warning) / 0.3)"
+    }`,
+    borderBottom: `1px solid ${
+      endTime ? "hsl(var(--primary) / 0.3)" : "hsl(var(--warning) / 0.3)"
+    }`,
+    borderRight: `1px solid ${
+      endTime ? "hsl(var(--primary) / 0.3)" : "hsl(var(--warning) / 0.3)"
+    }`,
   };
-}
+};
 
 // 근무 시간 텍스트 반환 함수
-function getWorkTimeText(startTime: string | null, endTime: string | null) {
-  if (!startTime) return "결근";
+const getWorkTimeText = (
+  startTime: string,
+  endTime: string | null,
+  isPreviousDayWork: boolean = false
+): string => {
   if (!endTime) return `${startTime} - 근무중 ⌛`;
-  return `${startTime} - ${endTime}`;
-}
+
+  // 이전 날짜에서 이어진 근무인 경우 "작일" 표시
+  if (isPreviousDayWork) {
+    return `${startTime} - ${endTime} (작일)`;
+  }
+
+  // 다음 날까지 이어지는 경우 "익일" 표시
+  const isNextDay = endTime < startTime;
+  return `${startTime} - ${endTime}${isNextDay ? " (익일)" : ""}`;
+};
 
 export function AttendanceCalendar({
+  data,
   date,
   adminId,
-  data,
 }: AttendanceCalendarProps) {
   if (!date?.from || !date?.to) return null;
 
@@ -65,7 +105,6 @@ export function AttendanceCalendar({
     end: date.to,
   });
 
-  // 주 단위로 날짜 분할
   const weeks = days.reduce<Date[][]>((acc, day) => {
     const weekIndex = Math.floor(days.indexOf(day) / 7);
     acc[weekIndex] = acc[weekIndex] || [];
@@ -74,8 +113,16 @@ export function AttendanceCalendar({
   }, []);
 
   const [currentWeekIndex, setCurrentWeekIndex] = useState(0);
-
   const today = new Date();
+
+  // 다음 날로 이어지는 근무 시간을 저장할 맵
+  const nextDayWorkMap = new Map<
+    string,
+    Array<{
+      startTime: string;
+      endTime: string;
+    }>
+  >();
 
   return (
     <div className="rounded-lg bg-card">
@@ -121,7 +168,7 @@ export function AttendanceCalendar({
           </div>
         </div>
 
-        {/* 현재 주의 타임라인 */}
+        {/* 캘린더 그리드 */}
         <div className="relative w-full overflow-x-auto">
           <div className="sticky top-0 z-20 bg-card border-b">
             <div className="grid grid-cols-7">
@@ -139,16 +186,34 @@ export function AttendanceCalendar({
             </div>
           </div>
 
-          {/* 타임라인 그리드 */}
           <div className="grid grid-cols-7 divide-x">
-            {weeks[currentWeekIndex].map((day) => {
+            {weeks[currentWeekIndex].map((day, dayIndex) => {
               const formattedDate = format(day, "yyyy-MM-dd");
-              const workData = data?.[formattedDate];
+              const workData = data?.[formattedDate] || [];
+              const nextDayWork = nextDayWorkMap.get(formattedDate) || [];
               const isToday = isSameDay(day, today);
+
+              // 현재 날짜의 근무 데이터 처리
+              workData.forEach((work: WorkHours) => {
+                const { current, next } = splitOvernightWork(
+                  work,
+                  formattedDate
+                );
+                if (next) {
+                  const existingNextDay = nextDayWorkMap.get(next.date) || [];
+                  nextDayWorkMap.set(next.date, [
+                    ...existingNextDay,
+                    {
+                      startTime: work.startTime,
+                      endTime: work.endTime!,
+                    },
+                  ]);
+                }
+              });
 
               return (
                 <div
-                  key={day.toString()}
+                  key={formattedDate}
                   className={cn(
                     "relative min-h-[calc(24*2.5rem)]",
                     isToday && "bg-accent/10"
@@ -160,46 +225,53 @@ export function AttendanceCalendar({
                     ))}
                   </div>
 
-                  {/* 근무 시간 표시 */}
-                  {workData?.map((work: WorkHours, index: number) => {
-                    const startTime = work.startTime || null;
-                    const endTime = work.endTime || null;
-
+                  {/* 현재 날짜의 근무 시간 */}
+                  {workData.map((work: WorkHours, index: number) => {
+                    const { current } = splitOvernightWork(work, formattedDate);
                     return (
                       <div
-                        key={index}
+                        key={`${formattedDate}-current-${index}-${work.startTime}`}
                         className={cn(
-                          "absolute left-1 right-1 rounded-md p-2 text-xs shadow-sm",
-                          !endTime && "animate-pulse",
-                          "text-card-foreground"
+                          "absolute left-1 right-1 p-2 text-xs shadow-sm",
+                          !work.endTime && "animate-pulse"
                         )}
                         style={{
-                          top: `${getTimePosition(startTime)}rem`,
-                          height: endTime
-                            ? `${
-                                getTimePosition(endTime) -
-                                getTimePosition(startTime)
-                              }rem`
-                            : "2.5rem",
-                          ...getWorkStatusStyle(startTime, endTime),
+                          top: `${getTimePosition(current.startTime)}rem`,
+                          height: `${
+                            getTimePosition(current.endTime || "24:00") -
+                            getTimePosition(current.startTime)
+                          }rem`,
+                          ...getWorkStatusStyle(
+                            current.startTime,
+                            current.endTime
+                          ),
                         }}
                       >
-                        <div
-                          className={cn(
-                            "whitespace-nowrap font-medium",
-                            !endTime
-                              ? "text-warning-foreground"
-                              : "text-foreground"
-                          )}
-                        >
-                          {getWorkTimeText(startTime, endTime)}
+                        <div className="whitespace-nowrap font-medium">
+                          {getWorkTimeText(current.startTime, work.endTime)}
                         </div>
                       </div>
                     );
                   })}
 
-                  {/* 결근 표시 개선 */}
-                  {!workData && !isSameDay(day, today) && (
+                  {/* 이전 날짜에서 이어진 근무 시간 */}
+                  {nextDayWork.map(({ startTime, endTime }, index) => (
+                    <div
+                      key={`${formattedDate}-next-${index}-${startTime}`}
+                      className="absolute left-1 right-1 p-2 text-xs shadow-sm"
+                      style={{
+                        top: 0,
+                        height: `${getTimePosition(endTime)}rem`,
+                        ...getWorkStatusStyle(startTime, endTime),
+                      }}
+                    >
+                      <div className="whitespace-nowrap font-medium">
+                        {getWorkTimeText(startTime, endTime, true)}
+                      </div>
+                    </div>
+                  ))}
+
+                  {!workData && !isToday && !isWeekend(day) && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="rounded-md px-3 py-1 bg-destructive/10 border border-destructive/30">
                         <span className="text-xs font-medium text-destructive">

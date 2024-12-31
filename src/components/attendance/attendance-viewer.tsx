@@ -2,19 +2,18 @@
 
 import { useState } from "react";
 import { DateRange } from "react-day-picker";
-import { AttendanceCalendar } from "./attendance-calendar";
 import { AttendanceFilter } from "./attendance-filter";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { AttendanceList } from "./attendance-list";
 import { AttendanceStats } from "./attendance-stats";
+import { AdminAttendance } from "@/types/attendance";
 
 interface AttendanceViewerProps {
-  // 나중에 실제 데이터 타입으로 변경
-  data?: any;
+  attendances?: AdminAttendance[];
 }
 
-export function AttendanceViewer({ data }: AttendanceViewerProps) {
+export function AttendanceViewer({ attendances = [] }: AttendanceViewerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialDate = new Date();
@@ -42,11 +41,20 @@ export function AttendanceViewer({ data }: AttendanceViewerProps) {
     setDate(range);
   };
 
+  if (!attendances.length) {
+    return (
+      <div className="text-center py-10 text-muted-foreground">
+        출퇴근 기록이 없습니다.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <AttendanceFilter date={date} onDateChange={handleDateChange} />
-      <AttendanceStats data={data} />
+      <AttendanceStats data={attendances} />
       <AttendanceList
+        attendances={attendances}
         expandedAdmin={expandedAdmin}
         onExpand={setExpandedAdmin}
         date={date}
