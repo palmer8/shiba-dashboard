@@ -15,6 +15,7 @@ import { getUserByIdAction } from "@/actions/user-action";
 import { User, UserRole } from "@prisma/client";
 import { hasAccess } from "@/lib/utils";
 import { useEffect } from "react";
+import Link from "next/link";
 
 export function ShibaSidebar({
   ...props
@@ -56,7 +57,18 @@ export function ShibaSidebar({
         )}
       </SidebarContent>
       <SidebarFooter>
-        {session?.user && <NavUser session={session} />}
+        {session?.user && (
+          <div className="grid gap-6">
+            <Link
+              href="https://docs.dokku.co.kr/shiba"
+              target="_blank"
+              className="pl-2 text-sm text-muted-foreground hover:underline"
+            >
+              SHIBA 문서 바로가기
+            </Link>
+            <NavUser session={session} />
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );

@@ -49,3 +49,8 @@ export async function getCouponGroupWithCouponsAndIdsAction(ids: string[]) {
   const result = await couponService.getCouponGroupWithCouponsAndIds(ids);
   return result;
 }
+
+export async function getCouponLogByIdsOrigin(ids: string[]) {
+  const result = await couponService.getCouponLogsByIds(ids);
+  return result;
+}

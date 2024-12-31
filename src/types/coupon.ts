@@ -53,3 +53,28 @@ export interface CouponList {
     totalCount: number;
   };
 }
+
+// 기존 타입들 유지...
+
+export interface CouponLogFilter {
+  userId?: number;
+  nickname?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CouponLog {
+  id: string;
+  userId: number;
+  nickname: string;
+  couponId: string | null;
+  usedAt: Date;
+  coupon?: {
+    id: string;
+    code: string | null;
+    couponGroup: {
+      groupName: string;
+      groupType: string;
+    } | null;
+  } | null;
+}

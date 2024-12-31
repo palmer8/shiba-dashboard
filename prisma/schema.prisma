@@ -403,3 +403,12 @@ model BoardLike {
   @@unique([boardId, userId])
   @@map("board_like")
 }
+
+// model Attendance {
+//   id        String   @id @default(uuid())
+//   user
+//   createdAt DateTime @default(now()) @map("created_at")
+//   updatedAt DateTime @updatedAt @map("updated_at")
+
+//   @@map("attendance")
+// }

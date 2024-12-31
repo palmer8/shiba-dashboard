@@ -1,9 +1,9 @@
 import { prisma } from "@/db/prisma";
 import { generateCouponCode, hasAccess } from "@/lib/utils";
 import {
-  Coupon,
   CouponGroupStatus,
   CouponGroupType,
+  CouponLog,
   Prisma,
   UserRole,
 } from "@prisma/client";
@@ -447,6 +447,138 @@ export class CouponService {
       };
     } catch (error) {
       console.error("Get coupon group with coupons and ids error:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
+      };
+    }
+  }
+
+  // 쿠폰 로그 조회 (페이지네이션, 필터링 포함)
+  async getCouponLogs(
+    page: number = 1,
+    filters?: {
+      userId?: number;
+      nickname?: string;
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<
+    ApiResponse<{
+      records: CouponLog[];
+      metadata: {
+        total: number;
+        page: number;
+        totalPages: number;
+      };
+    }>
+  > {
+    try {
+      const session = await auth();
+      if (!session?.user) {
+        return {
+          success: false,
+          error: "로그인이 필요합니다.",
+          data: null,
+        };
+      }
+
+      const itemsPerPage = 50;
+      const skip = (page - 1) * itemsPerPage;
+
+      // 필터 조건 구성
+      const where: Prisma.CouponLogWhereInput = {};
+      if (filters?.userId) where.userId = filters.userId;
+      if (filters?.nickname) where.nickname = { contains: filters.nickname };
+      if (filters?.startDate && filters?.endDate) {
+        where.usedAt = {
+          gte: new Date(filters.startDate),
+          lte: new Date(filters.endDate),
+        };
+      } else if (filters?.startDate) {
+        where.usedAt = { gte: new Date(filters.startDate) };
+      } else if (filters?.endDate) {
+        where.usedAt = { lte: new Date(filters.endDate) };
+      }
+
+      // 총 개수 조회
+      const total = await prisma.couponLog.count({ where });
+      const totalPages = Math.ceil(total / itemsPerPage);
+
+      // 데이터 조회
+      const records = await prisma.couponLog.findMany({
+        where,
+        skip,
+        take: itemsPerPage,
+        orderBy: { usedAt: "desc" },
+        include: {
+          coupon: {
+            include: {
+              couponGroup: true,
+            },
+          },
+        },
+      });
+
+      return {
+        success: true,
+        data: {
+          records,
+          metadata: {
+            total,
+            page,
+            totalPages,
+          },
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get coupon logs error:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생하였습니다",
+      };
+    }
+  }
+
+  // 선택된 쿠폰 로그 조회 (CSV 다운로드용)
+  async getCouponLogsByIds(ids: string[]): Promise<ApiResponse<CouponLog[]>> {
+    try {
+      const session = await auth();
+      if (!session?.user) {
+        return {
+          success: false,
+          error: "로그인이 필요합니다.",
+          data: null,
+        };
+      }
+
+      const logs = await prisma.couponLog.findMany({
+        where: { id: { in: ids } },
+        include: {
+          coupon: {
+            include: {
+              couponGroup: true,
+            },
+          },
+        },
+      });
+
+      return {
+        success: true,
+        data: logs,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get coupon logs by ids error:", error);
       return {
         success: false,
         data: null,

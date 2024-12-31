@@ -181,27 +181,34 @@ export function ServerMetricsChart() {
           <TabsList>
             <TabsTrigger value="cpu">CPU</TabsTrigger>
             <TabsTrigger value="memory">메모리</TabsTrigger>
-            <TabsTrigger value="network">네트워크</TabsTrigger>
+            {/* <TabsTrigger value="network">네트워크</TabsTrigger> */}
           </TabsList>
 
           <TabsContent value="cpu" className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={formatChartData(metrics.history.cpu, "usage")}>
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  className="stroke-border"
+                />
                 <XAxis
                   dataKey="time"
                   label={{
                     value: "시간",
                     position: "insideBottom",
                     offset: -10,
+                    className: "fill-foreground",
                   }}
+                  tick={{ fill: "var(--foreground)" }}
                 />
                 <YAxis
                   label={{
                     value: "CPU 사용률 (%)",
                     angle: -90,
                     position: "insideLeft",
+                    className: "fill-foreground",
                   }}
+                  tick={{ fill: "var(--foreground)" }}
                   domain={[0, 100]}
                 />
                 <Tooltip
@@ -210,6 +217,11 @@ export function ServerMetricsChart() {
                     "CPU 사용률",
                   ]}
                   labelFormatter={(label) => `${label}`}
+                  contentStyle={{
+                    backgroundColor: "var(--background)",
+                    border: "1px solid var(--border)",
+                    color: "var(--foreground)",
+                  }}
                 />
                 <Line
                   type="monotone"
@@ -227,21 +239,28 @@ export function ServerMetricsChart() {
               <LineChart
                 data={formatChartData(metrics.history.memory, "usage")}
               >
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  className="stroke-border"
+                />
                 <XAxis
                   dataKey="time"
                   label={{
                     value: "시간",
                     position: "insideBottom",
                     offset: -10,
+                    className: "fill-foreground",
                   }}
+                  tick={{ fill: "var(--foreground)" }}
                 />
                 <YAxis
                   label={{
                     value: "메모리 사용률 (%)",
                     angle: -90,
                     position: "insideLeft",
+                    className: "fill-foreground",
                   }}
+                  tick={{ fill: "var(--foreground)" }}
                   domain={[0, 100]}
                 />
                 <Tooltip
@@ -250,6 +269,11 @@ export function ServerMetricsChart() {
                     "메모리 사용률",
                   ]}
                   labelFormatter={(label) => `${label}`}
+                  contentStyle={{
+                    backgroundColor: "var(--background)",
+                    border: "1px solid var(--border)",
+                    color: "var(--foreground)",
+                  }}
                 />
                 <Line
                   type="monotone"
@@ -262,26 +286,33 @@ export function ServerMetricsChart() {
             </ResponsiveContainer>
           </TabsContent>
 
-          <TabsContent value="network" className="h-[400px]">
+          {/* <TabsContent value="network" className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={formatChartData(metrics.history.network, "traffic")}
               >
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  className="stroke-border"
+                />
                 <XAxis
                   dataKey="time"
                   label={{
                     value: "시간",
                     position: "insideBottom",
                     offset: -10,
+                    className: "fill-foreground",
                   }}
+                  tick={{ fill: "var(--foreground)" }}
                 />
                 <YAxis
                   label={{
                     value: "네트워크 트래픽",
                     angle: -90,
                     position: "insideLeft",
+                    className: "fill-foreground",
                   }}
+                  tick={{ fill: "var(--foreground)" }}
                 />
                 <Tooltip
                   formatter={(value: number) => [
@@ -289,6 +320,11 @@ export function ServerMetricsChart() {
                     "네트워크 트래픽",
                   ]}
                   labelFormatter={(label) => `${label}`}
+                  contentStyle={{
+                    backgroundColor: "var(--muted-background)",
+                    border: "1px solid var(--border)",
+                    color: "var(--foreground)",
+                  }}
                 />
                 <Line
                   type="monotone"
@@ -299,10 +335,11 @@ export function ServerMetricsChart() {
                 />
               </LineChart>
             </ResponsiveContainer>
-          </TabsContent>
+          </TabsContent> */}
         </Tabs>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4"> */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950">
             <div className="text-sm text-blue-600 dark:text-blue-400">CPU</div>
             <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
@@ -326,7 +363,7 @@ export function ServerMetricsChart() {
             </div>
           </div>
 
-          <div className="p-4 rounded-lg bg-red-50 dark:bg-red-950">
+          {/* <div className="p-4 rounded-lg bg-red-50 dark:bg-red-950">
             <div className="text-sm text-red-600 dark:text-red-400">
               네트워크
             </div>
@@ -341,7 +378,7 @@ export function ServerMetricsChart() {
               ↑ {formatBytes(metrics.current.network.bytesSent)}/s | ↓{" "}
               {formatBytes(metrics.current.network.bytesReceived)}/s
             </div>
-          </div>
+          </div> */}
         </div>
       </CardContent>
     </Card>
