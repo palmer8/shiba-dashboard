@@ -9,11 +9,7 @@ import { JSONContent } from "novel";
 import { parse } from "csv-parse/sync";
 import { MarkdownNode } from "@/types/lib";
 import JSZip from "jszip";
-import {
-  MockAttendanceData,
-  WorkHours,
-  WorkHoursData,
-} from "@/types/attendance";
+import { WorkHours, WorkHoursData } from "@/types/attendance";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -443,71 +439,75 @@ export async function handleDonwloadJSZip(fileName: string, ...args: any[]) {
   // saveAs(content, fileName);
 }
 
-// 시간을 위치값으로 변환하는 헬퍼 함수
-export function getTimePosition(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
-  return (hours + minutes / 60) * 2.5;
+// 시간 문자열 검증
+export function isValidTimeString(time: string | null | undefined): boolean {
+  if (!time) return false;
+  return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time);
 }
 
-// 시간 간격을 높이값으로 변환하는 헬퍼 함수
-export function getTimeDuration(start: string, end: string): number {
-  const [startHours, startMinutes] = start.split(":").map(Number);
-  const [endHours, endMinutes] = end.split(":").map(Number);
-  const duration = endHours - startHours + (endMinutes - startMinutes) / 60;
-  return duration * 2.5;
-}
+// 안전한 시간 계산 함수
+export function calculateWorkHours(
+  startTime: string | null | undefined,
+  endTime: string | null | undefined
+): number {
+  if (!isValidTimeString(startTime) || !isValidTimeString(endTime)) return 0;
 
-// 근무 시간 계산 함수
-export function calculateWorkHours(start: string, end: string): number {
-  const [startHours, startMinutes] = start.split(":").map(Number);
-  const [endHours, endMinutes] = end.split(":").map(Number);
-  return endHours - startHours + (endMinutes - startMinutes) / 60;
-}
+  const [startHours, startMinutes] = startTime!.split(":").map(Number);
+  const [endHours, endMinutes] = endTime!.split(":").map(Number);
 
-// 임시 데이터 생성 함수
-export function generateMockAttendanceData(
-  days: number = 7
-): MockAttendanceData {
-  const workHours: WorkHoursData = {};
-  const weeklyStats: MockAttendanceData["weeklyStats"] = [];
+  let hours = endHours - startHours;
+  let minutes = endMinutes - startMinutes;
 
-  for (let i = 0; i < days; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const dateStr = format(date, "yyyy-MM-dd");
-
-    // 랜덤 출근 시간 (8시~10시 사이)
-    const startHour = 8 + Math.floor(Math.random() * 2);
-    const startMin = Math.floor(Math.random() * 60);
-    // 랜덤 퇴근 시간 (17시~19시 사이)
-    const endHour = 17 + Math.floor(Math.random() * 2);
-    const endMin = Math.floor(Math.random() * 60);
-
-    const startTime = `${String(startHour).padStart(2, "0")}:${String(
-      startMin
-    ).padStart(2, "0")}`;
-    const endTime = `${String(endHour).padStart(2, "0")}:${String(
-      endMin
-    ).padStart(2, "0")}`;
-
-    workHours[dateStr] = [
-      {
-        startTime,
-        endTime,
-      },
-    ];
-
-    weeklyStats.push({
-      date: format(date, "MM/dd"),
-      hours: endHour - startHour + (endMin - startMin) / 60,
-      expected: 8,
-    });
+  // 날짜를 넘어가는 경우 처리
+  if (hours < 0 || (hours === 0 && minutes < 0)) {
+    hours += 24;
   }
 
-  return {
-    workHours,
-    weeklyStats: weeklyStats.reverse(),
-  };
+  return hours + minutes / 60;
+}
+
+// 시간 포맷팅 함수
+export function formatWorkHours(hours: number): string {
+  if (isNaN(hours) || hours < 0) return "0시간";
+  return `${hours.toFixed(1)}시간`;
+}
+
+// 시간 위치 계산 (캘린더용)
+export function getTimePosition(time: string | null): number {
+  if (!isValidTimeString(time)) return 0;
+  const [hours, minutes] = time!.split(":").map(Number);
+  return hours * 2.5 + (minutes / 60) * 2.5;
+}
+
+// 시간 간격 계산 (캘린더용)
+export function getTimeDuration(
+  start: string | null,
+  end: string | null
+): number {
+  if (!isValidTimeString(start) || !isValidTimeString(end)) return 0;
+
+  const startPos = getTimePosition(start);
+  const endPos = getTimePosition(end);
+
+  let duration = endPos - startPos;
+  if (duration < 0) {
+    duration += 24 * 2.5; // 날짜를 넘어가는 경우
+  }
+
+  return duration;
+}
+
+// 근무 시간 표시 텍스트 생성
+export function getWorkTimeText(
+  startTime: string | null,
+  endTime: string | null,
+  isOvernight: boolean = false
+): string {
+  if (!isValidTimeString(startTime)) return "-";
+  if (!isValidTimeString(endTime)) return `${startTime} ~`;
+
+  const text = `${startTime} ~ ${endTime}`;
+  return isOvernight ? `${text} (익일)` : text;
 }
 
 export function extractTextFromJSON(json: JSONContent): string {

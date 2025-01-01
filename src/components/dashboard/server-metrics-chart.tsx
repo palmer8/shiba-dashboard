@@ -194,7 +194,7 @@ export function ServerMetricsChart() {
                 <XAxis
                   dataKey="time"
                   label={{
-                    value: "시간",
+                    value: "",
                     position: "insideBottom",
                     offset: -10,
                     className: "fill-foreground",
@@ -246,7 +246,7 @@ export function ServerMetricsChart() {
                 <XAxis
                   dataKey="time"
                   label={{
-                    value: "시간",
+                    value: "",
                     position: "insideBottom",
                     offset: -10,
                     className: "fill-foreground",

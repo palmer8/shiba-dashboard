@@ -1,11 +1,42 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 import {
-  AdminAttendance,
   AttendanceResponse,
+  ProcessedAdminAttendance,
   WorkHoursData,
 } from "@/types/attendance";
-import { addDays, startOfWeek, endOfWeek } from "date-fns";
+import { addDays, startOfWeek, endOfWeek, format } from "date-fns";
+
+// 주간 통계 계산 함수 추가
+function calculateWeeklyStats(checkIns: any[], checkOuts: any[]) {
+  const weeklyStats = [];
+  const weekStart = startOfWeek(new Date());
+  const weekEnd = endOfWeek(new Date());
+
+  for (let i = 0; i < checkIns.length; i++) {
+    const checkIn = checkIns[i];
+    const checkOut = checkOuts[i];
+
+    if (!checkIn || !checkOut) continue;
+
+    const checkInDate = new Date(checkIn.timestamp);
+    if (checkInDate >= weekStart && checkInDate <= weekEnd) {
+      const hours =
+        (checkOut.timestamp.getTime() - checkIn.timestamp.getTime()) /
+        (1000 * 60 * 60);
+
+      if (hours >= 0 && hours <= 24) {
+        weeklyStats.push({
+          date: format(checkInDate, "MM/dd"),
+          hours: Number(hours.toFixed(1)),
+          expected: 8,
+        });
+      }
+    }
+  }
+
+  return weeklyStats;
+}
 
 // 전체 관리자 출퇴근 현황 조회
 export async function GET(): Promise<NextResponse<AttendanceResponse>> {
@@ -21,53 +52,72 @@ export async function GET(): Promise<NextResponse<AttendanceResponse>> {
       },
     });
 
-    const formattedData: AdminAttendance[] = await Promise.all(
-      attendances.map(async (attendance) => {
-        // 주간 통계 계산
-        const today = new Date();
-        const weekStart = startOfWeek(today);
-        const weekEnd = endOfWeek(today);
-
+    const formattedData: ProcessedAdminAttendance[] = attendances.map(
+      (attendance) => {
         // 근무 기록을 WorkHoursData 형식으로 변환
         const workHours: WorkHoursData = {};
         attendance.checkIns.forEach((checkIn, index) => {
-          const date = checkIn.timestamp.toISOString().split("T")[0];
+          const date = format(checkIn.timestamp, "yyyy-MM-dd");
           if (!workHours[date]) workHours[date] = [];
 
           workHours[date].push({
-            startTime: checkIn.timestamp.toLocaleTimeString("ko-KR", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            }),
-            endTime:
-              attendance.checkOuts[index]?.timestamp.toLocaleTimeString(
-                "ko-KR",
-                {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: false,
-                }
-              ) || null,
+            startTime: format(checkIn.timestamp, "HH:mm"),
+            endTime: attendance.checkOuts[index]
+              ? format(attendance.checkOuts[index].timestamp, "HH:mm")
+              : null,
           });
+        });
+
+        // 주간 통계 계산
+        const weeklyStats = calculateWeeklyStats(
+          attendance.checkIns,
+          attendance.checkOuts
+        );
+
+        // 유효한 records만 필터링 (null 값 제외)
+        const validRecords = attendance.checkIns.map((checkIn, index) => {
+          const date = format(checkIn.timestamp, "yyyy-MM-dd");
+          return {
+            date,
+            in: checkIn.timestamp.toISOString(), // null이 아닌 값만 사용
+            out: attendance.checkOuts[index]?.timestamp.toISOString() || null,
+            displayIn: format(checkIn.timestamp, "HH:mm"),
+            displayOut: attendance.checkOuts[index]
+              ? format(attendance.checkOuts[index].timestamp, "HH:mm")
+              : null,
+            isOvernight: attendance.checkOuts[index]
+              ? checkIn.timestamp.getHours() >
+                attendance.checkOuts[index].timestamp.getHours()
+              : false,
+            workHours: attendance.checkOuts[index]
+              ? calculateWorkHours(
+                  checkIn.timestamp,
+                  attendance.checkOuts[index].timestamp
+                )
+              : "-",
+          };
         });
 
         return {
           userId: attendance.userId,
           nickname: attendance.nickname,
+          records: validRecords,
           today: {
             in: attendance.checkIns[0]?.timestamp.toISOString() || null,
             out: attendance.checkOuts[0]?.timestamp.toISOString() || null,
           },
-          records: attendance.checkIns.map((checkIn, index) => ({
-            date: checkIn.timestamp.toISOString().split("T")[0],
-            in: checkIn.timestamp.toISOString(),
-            out: attendance.checkOuts[index]?.timestamp.toISOString() || null,
-          })),
-          weeklyStats: [], // 주간 통계 계산 로직 필요
-          workHours,
+          stats: {
+            averageTimes: {
+              in: format(new Date(), "HH:mm"),
+              out: format(new Date(), "HH:mm"),
+            },
+            weeklyStats: weeklyStats,
+          },
+          workHours: Object.fromEntries(
+            Object.entries(workHours).filter(([_, value]) => value.length > 0)
+          ),
         };
-      })
+      }
     );
 
     return NextResponse.json({
@@ -86,6 +136,21 @@ export async function GET(): Promise<NextResponse<AttendanceResponse>> {
       { status: 500 }
     );
   }
+}
+
+// 근무 시간 계산 헬퍼 함수
+function calculateWorkHours(inTime: Date, outTime: Date): string {
+  let hours = (outTime.getTime() - inTime.getTime()) / (1000 * 60 * 60);
+
+  if (hours < 0) {
+    hours += 24;
+  }
+
+  if (hours > 24) {
+    return "-";
+  }
+
+  return `${hours.toFixed(1)}시간`;
 }
 
 // 여러 관리자의 출퇴근 데이터 일괄 등록

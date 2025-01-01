@@ -23,11 +23,10 @@ export default async function AdminAttendancePage({
   if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/404");
 
   const params = await searchParams;
+  const { startDate, endDate } = params;
 
-  const attendance = await adminService.getAttendanceAll(
-    params.startDate,
-    params.endDate
-  );
+  const attendance = await adminService.getAttendanceAll(startDate, endDate);
+
   return (
     <main>
       <PageBreadcrumb />

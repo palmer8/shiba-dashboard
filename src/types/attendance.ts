@@ -11,35 +11,54 @@ export interface WorkHoursData {
   [date: string]: WorkHours[];
 }
 
-// API 응답 타입
-export interface AttendanceResponse {
-  success: boolean;
-  error: string | null;
-  data: AdminAttendance[] | null;
+// 가공된 출퇴근 기록 타입
+export interface ProcessedRecord {
+  date: string;
+  in: string | null;
+  out: string | null;
+  displayIn: string | null;
+  displayOut: string | null;
+  isOvernight: boolean;
+  workHours: string;
 }
 
-// 관리자 출퇴근 데이터
-export interface AdminAttendance {
+// 차트 데이터 타입
+export interface ChartData {
+  date: string;
+  hours: number;
+  expected: number;
+}
+
+// 통계 데이터 타입
+export interface AttendanceStats {
+  averageTimes: {
+    in: string;
+    out: string;
+  };
+  weeklyStats: ChartData[];
+}
+
+// 가공된 관리자 출퇴근 데이터 타입
+export interface ProcessedAdminAttendance {
   userId: number;
   nickname: string;
+  records: ProcessedRecord[];
   today: {
     in: string | null;
     out: string | null;
   };
-  records: {
-    date: string;
-    in: string;
-    out: string | null;
-  }[];
-  weeklyStats: {
-    date: string;
-    hours: number;
-    expected: number;
-  }[];
+  stats: AttendanceStats;
   workHours: WorkHoursData;
 }
 
-// 컴포넌트 Props 타입
+// API 응답 타입
+export interface AttendanceResponse {
+  success: boolean;
+  error: string | null;
+  data: ProcessedAdminAttendance[] | null;
+}
+
+// 컴포넌트 Props 타입들
 export interface AttendanceCalendarProps {
   data: WorkHoursData;
   date: DateRange | undefined;
@@ -47,14 +66,15 @@ export interface AttendanceCalendarProps {
 }
 
 export interface AttendanceListProps {
-  attendances: AdminAttendance[];
-  expandedAdmin: string | null;
-  onExpand: (id: string | null) => void;
+  attendances: ProcessedAdminAttendance[];
+  expandedAdmin: number | null;
+  onExpand: (id: number | null) => void;
   date: DateRange | undefined;
 }
 
 export interface AttendanceStatsProps {
-  data: AdminAttendance[];
+  data: ProcessedAdminAttendance[];
+  dateRange?: DateRange;
 }
 
 export interface AttendanceFilterProps {
@@ -63,5 +83,5 @@ export interface AttendanceFilterProps {
 }
 
 export interface AttendanceViewerProps {
-  attendances?: AdminAttendance[];
+  attendances?: ProcessedAdminAttendance[];
 }

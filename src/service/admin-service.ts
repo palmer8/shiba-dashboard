@@ -10,8 +10,14 @@ import { Prisma, User, UserRole } from "@prisma/client";
 import { AdminDto, GroupTableData } from "@/types/user";
 import { ApiResponse } from "@/types/global.dto";
 import { redirect } from "next/navigation";
-import { AdminAttendance, WorkHours } from "@/types/attendance";
+import {
+  AttendanceStats,
+  ProcessedAdminAttendance,
+  ProcessedRecord,
+  WorkHours,
+} from "@/types/attendance";
 import { format } from "date-fns";
+import { eachDayOfInterval, isWeekend } from "date-fns";
 
 class AdminService {
   async getDashboardUsers(params: AdminFilter): Promise<ApiResponse<AdminDto>> {
@@ -309,20 +315,22 @@ class AdminService {
   async getAttendanceAll(
     startDate?: string,
     endDate?: string
-  ): Promise<ApiResponse<AdminAttendance[]>> {
+  ): Promise<ApiResponse<ProcessedAdminAttendance[]>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
     if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/404");
     if (!session.user.isPermissive) return redirect("/pending");
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const start = startDate ? new Date(startDate) : today;
-    const end = endDate ? new Date(endDate) : today;
-    end.setHours(23, 59, 59, 999);
-
     try {
+      // 날짜 범위 설정 (기본값: 한달)
+      const end = endDate ? new Date(endDate) : new Date();
+      const start = startDate
+        ? new Date(startDate)
+        : new Date(end.getFullYear(), end.getMonth() - 1, end.getDate());
+
+      end.setHours(23, 59, 59, 999);
+      start.setHours(0, 0, 0, 0);
+
       const attendances = await prisma.attendance.findMany({
         include: {
           checkIns: {
@@ -346,83 +354,153 @@ class AdminService {
         },
       });
 
-      const formattedData: AdminAttendance[] = attendances.map((attendance) => {
-        const dateMap = new Map<string, { in: string; out: string | null }>();
-        const workHoursMap = new Map<string, WorkHours[]>();
-        const weeklyStats: any[] = [];
+      const formattedData: ProcessedAdminAttendance[] = attendances.map(
+        (attendance) => {
+          const dateMap = new Map<string, ProcessedRecord>();
+          const workHoursMap = new Map<string, WorkHours[]>();
+          const weeklyStats: AttendanceStats["weeklyStats"] = [];
 
-        attendance.checkIns.forEach((checkIn) => {
-          const date = format(checkIn.timestamp, "yyyy-MM-dd");
-          dateMap.set(date, {
-            in: checkIn.timestamp.toISOString(),
-            out: null,
+          // 날짜별 기본 데이터 초기화 (시작일부터 종료일까지)
+          const days = eachDayOfInterval({ start, end });
+          days.forEach((day) => {
+            const date = format(day, "yyyy-MM-dd");
+            if (!isWeekend(day)) {
+              dateMap.set(date, {
+                date,
+                in: null,
+                out: null,
+                displayIn: null,
+                displayOut: null,
+                isOvernight: false,
+                workHours: "-",
+              });
+            }
           });
 
-          workHoursMap.set(date, [
-            {
-              startTime: format(checkIn.timestamp, "HH:mm"),
-              endTime: null,
-            },
-          ]);
-        });
+          // 출근 기록 처리
+          attendance.checkIns.forEach((checkIn) => {
+            const date = format(checkIn.timestamp, "yyyy-MM-dd");
+            const displayTime = format(checkIn.timestamp, "HH:mm");
 
-        attendance.checkOuts.forEach((checkOut) => {
-          const date = format(checkOut.timestamp, "yyyy-MM-dd");
-          if (dateMap.has(date)) {
-            dateMap.get(date)!.out = checkOut.timestamp.toISOString();
-            workHoursMap.get(date)![0].endTime = format(
-              checkOut.timestamp,
-              "HH:mm"
-            );
-          }
-        });
-
-        const records = Array.from(dateMap.entries());
-        records.forEach(([date, record]) => {
-          if (record.out) {
-            const inTime = new Date(record.in);
-            const outTime = new Date(record.out);
-            const hours =
-              (outTime.getTime() - inTime.getTime()) / (1000 * 60 * 60);
-
-            weeklyStats.push({
-              date: format(inTime, "MM/dd"),
-              hours,
-              expected: 8,
+            dateMap.set(date, {
+              date,
+              in: checkIn.timestamp.toISOString(),
+              out: null,
+              displayIn: displayTime,
+              displayOut: null,
+              isOvernight: false,
+              workHours: "-",
             });
-          }
-        });
 
-        return {
-          userId: attendance.userId,
-          nickname: attendance.nickname,
-          records: Array.from(dateMap.entries()).map(([date, record]) => ({
-            date,
-            in: record.in,
-            out: record.out,
-          })),
-          today: {
-            in:
-              attendance.checkIns
-                .find(
-                  (check) =>
-                    format(check.timestamp, "yyyy-MM-dd") ===
-                    format(new Date(), "yyyy-MM-dd")
-                )
-                ?.timestamp.toISOString() || null,
-            out:
-              attendance.checkOuts
-                .find(
-                  (check) =>
-                    format(check.timestamp, "yyyy-MM-dd") ===
-                    format(new Date(), "yyyy-MM-dd")
-                )
-                ?.timestamp.toISOString() || null,
-          },
-          workHours: Object.fromEntries(workHoursMap),
-          weeklyStats: weeklyStats,
-        };
-      });
+            workHoursMap.set(date, [
+              {
+                startTime: displayTime,
+                endTime: null,
+              },
+            ]);
+          });
+
+          // 퇴근 기록 처리
+          attendance.checkOuts.forEach((checkOut) => {
+            const date = format(checkOut.timestamp, "yyyy-MM-dd");
+            const record = dateMap.get(date);
+
+            if (record) {
+              const displayTime = format(checkOut.timestamp, "HH:mm");
+              record.out = checkOut.timestamp.toISOString();
+              record.displayOut = displayTime;
+
+              // 근무 시간 계산 로직 개선
+              if (record.in) {
+                const inTime = new Date(record.in);
+                const outTime = new Date(record.out);
+                const inHour = inTime.getHours() + inTime.getMinutes() / 60;
+                const outHour = outTime.getHours() + outTime.getMinutes() / 60;
+
+                // 익일 퇴근 체크
+                record.isOvernight = inHour > outHour;
+
+                let hours;
+                if (record.isOvernight) {
+                  // 익일 퇴근인 경우: 24시간 - 출근시간 + 퇴근시간
+                  hours = 24 - inHour + outHour;
+                } else {
+                  // 당일 퇴근인 경우: 퇴근시간 - 출근시간
+                  hours = outHour - inHour;
+                }
+
+                // 유효한 근무시간 범위 체크 (0-24시간)
+                if (hours >= 0 && hours <= 24) {
+                  record.workHours = `${hours.toFixed(1)}시간`;
+                } else {
+                  record.workHours = "-";
+                }
+
+                // 주간 통계에는 유효한 근무시간만 추가
+                if (!isWeekend(inTime) && hours >= 0 && hours <= 24) {
+                  weeklyStats.push({
+                    date: format(inTime, "MM/dd"),
+                    hours: Number(hours.toFixed(1)),
+                    expected: 8,
+                  });
+                }
+              } else {
+                // 출근 기록이 없는 경우
+                record.workHours = "-";
+              }
+
+              // workHours 맵 업데이트
+              const workHourRecord = workHoursMap.get(date);
+              if (workHourRecord) {
+                workHourRecord[0].endTime = displayTime;
+              }
+            }
+          });
+
+          // 평균 시간 계산
+          const validRecords = Array.from(dateMap.values()).filter(
+            (r) => !isWeekend(new Date(r.date))
+          );
+          const averageIn = this.calculateAverageTime(
+            validRecords.map((r) => r.displayIn)
+          );
+          const averageOut = this.calculateAverageTime(
+            validRecords.map((r) => r.displayOut)
+          );
+
+          return {
+            userId: attendance.userId,
+            nickname: attendance.nickname,
+            records: Array.from(dateMap.values()),
+            today: {
+              in:
+                attendance.checkIns
+                  .find(
+                    (check) =>
+                      format(check.timestamp, "yyyy-MM-dd") ===
+                      format(new Date(), "yyyy-MM-dd")
+                  )
+                  ?.timestamp.toISOString() || null,
+              out:
+                attendance.checkOuts
+                  .find(
+                    (check) =>
+                      format(check.timestamp, "yyyy-MM-dd") ===
+                      format(new Date(), "yyyy-MM-dd")
+                  )
+                  ?.timestamp.toISOString() || null,
+            },
+            stats: {
+              averageTimes: {
+                in: averageIn,
+                out: averageOut,
+              },
+              weeklyStats: weeklyStats,
+            },
+            workHours: Object.fromEntries(workHoursMap),
+          };
+        }
+      );
 
       return {
         success: true,
@@ -437,6 +515,48 @@ class AdminService {
         data: null,
       };
     }
+  }
+
+  // 평균 시간 계산 헬퍼 메서드
+  private calculateAverageTime(times: (string | null)[]): string {
+    const validTimes = times.filter(Boolean) as string[];
+    if (validTimes.length === 0) return "--:--";
+
+    const totalMinutes = validTimes.reduce((acc, time) => {
+      const [hours, minutes] = time.split(":").map(Number);
+      return acc + hours * 60 + minutes;
+    }, 0);
+
+    const averageMinutes = Math.round(totalMinutes / validTimes.length);
+    const hours = Math.floor(averageMinutes / 60);
+    const minutes = averageMinutes % 60;
+
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0"
+    )}`;
+  }
+
+  private calculateWorkHours(
+    inTime: Date | null,
+    outTime: Date | null
+  ): string {
+    if (!inTime || !outTime) return "-";
+
+    // 시간 차이 계산
+    let hours = (outTime.getTime() - inTime.getTime()) / (1000 * 60 * 60);
+
+    // 음수 시간이 나오면 24시간 더하기 (익일 퇴근)
+    if (hours < 0) {
+      hours += 24;
+    }
+
+    // 비정상적인 값 체크 (24시간 초과)
+    if (hours > 24) {
+      return "-";
+    }
+
+    return `${hours.toFixed(1)}시간`;
   }
 }
 

@@ -7,36 +7,41 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { AttendanceList } from "./attendance-list";
 import { AttendanceStats } from "./attendance-stats";
-import { AdminAttendance } from "@/types/attendance";
+import { ProcessedAdminAttendance } from "@/types/attendance";
 
 interface AttendanceViewerProps {
-  attendances?: AdminAttendance[];
+  attendances?: ProcessedAdminAttendance[];
 }
 
 export function AttendanceViewer({ attendances = [] }: AttendanceViewerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialDate = new Date();
-  initialDate.setHours(0, 0, 0, 0);
+
+  // 초기 날짜 범위 설정 (한달)
+  const today = new Date();
+  const oneMonthAgo = new Date(
+    today.getFullYear(),
+    today.getMonth() - 1,
+    today.getDate()
+  );
 
   const [date, setDate] = useState<DateRange | undefined>({
     from: searchParams.get("startDate")
       ? new Date(searchParams.get("startDate")!)
-      : initialDate,
+      : oneMonthAgo,
     to: searchParams.get("endDate")
       ? new Date(searchParams.get("endDate")!)
-      : initialDate,
+      : today,
   });
-  const [expandedAdmin, setExpandedAdmin] = useState<string | null>(null);
+  const [expandedAdmin, setExpandedAdmin] = useState<number | null>(null);
 
   const handleDateChange = (range: DateRange | undefined) => {
-    if (!range) return;
+    if (!range?.from) return;
 
     const params = new URLSearchParams(searchParams.toString());
-    params.set("startDate", format(range.from!, "yyyy-MM-dd"));
-    if (range.to) {
-      params.set("endDate", format(range.to, "yyyy-MM-dd"));
-    }
+    params.set("startDate", format(range.from, "yyyy-MM-dd"));
+    params.set("endDate", format(range.to || range.from, "yyyy-MM-dd"));
+
     router.push(`/admin/attendance?${params.toString()}`);
     setDate(range);
   };
@@ -52,7 +57,7 @@ export function AttendanceViewer({ attendances = [] }: AttendanceViewerProps) {
   return (
     <div className="space-y-6">
       <AttendanceFilter date={date} onDateChange={handleDateChange} />
-      <AttendanceStats data={attendances} />
+      <AttendanceStats data={attendances} dateRange={date} />
       <AttendanceList
         attendances={attendances}
         expandedAdmin={expandedAdmin}
