@@ -552,3 +552,24 @@ export async function handleDownloadMultipleJson2CSV(
   a.download = `${formatKoreanDateTime(new Date())}_export.zip`;
   a.click();
 }
+
+export const getFirstNonEmojiCharacter = (text?: string | null): string => {
+  if (!text) return "";
+
+  // 이모지를 제외한 첫 번째 문자를 찾음
+  const nonEmojiMatch = text.match(/[A-Za-z0-9가-힣]/);
+  if (nonEmojiMatch) {
+    return nonEmojiMatch[0].toUpperCase();
+  }
+
+  // 이모지나 일반 문자가 없는 경우
+  return "?";
+};
+
+// 동일하거나 상위 권한인지 확인하는 함수
+export function isSameOrHigherRole(
+  userRole: UserRole,
+  targetRole: UserRole
+): boolean {
+  return ROLE_HIERARCHY[userRole] <= ROLE_HIERARCHY[targetRole];
+}

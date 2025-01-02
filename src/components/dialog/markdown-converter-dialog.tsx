@@ -113,8 +113,6 @@ export function MarkdownConverterDialog({
               <Editor
                 key={previewKey}
                 initialValue={previewContent}
-                // editable={false}
-                // onChange={(content) => console.log(content)}
                 markdown={true}
               />
             </div>

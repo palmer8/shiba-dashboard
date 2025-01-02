@@ -17,7 +17,11 @@ import {
 } from "@tanstack/react-table";
 import { useMemo, useState, Fragment } from "react";
 import { useSession } from "next-auth/react";
-import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
+import {
+  formatKoreanDateTime,
+  formatRole,
+  handleDownloadJson2CSV,
+} from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,6 +90,12 @@ export default function CategoryTable({ data }: CategoryTableProps) {
         header: "카테고리 이름",
         accessorKey: "name",
         cell: ({ row }) => row.original.name,
+      },
+      {
+        header: "권한",
+        accessorKey: "role",
+        cell: ({ row }) =>
+          row.original.role ? formatRole(row.original.role) : "전체",
       },
       {
         header: "템플릿",
@@ -250,7 +260,12 @@ export default function CategoryTable({ data }: CategoryTableProps) {
                     ) {
                       return;
                     }
-                    row.toggleExpanded();
+                    if (
+                      row.original.template &&
+                      Object.keys(row.original.template).length > 0
+                    ) {
+                      row.toggleExpanded();
+                    }
                   }}
                 >
                   {row.getVisibleCells().map((cell) => (

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/popover";
 import { useDebounce } from "@/hooks/use-debounce";
 import { getGroupsByGroupIdAction } from "@/actions/realtime/realtime-group-action";
+import { useSession } from "next-auth/react";
 
 interface GroupComboBoxProps {
   value?: string;
@@ -77,7 +78,7 @@ export function GroupComboBox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="그룹 ID 검색..."

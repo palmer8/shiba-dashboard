@@ -65,7 +65,7 @@ export default function UserLogFilter({ filter }: UserLogFilterProps) {
   }, [localFilter, dateRange, router]);
 
   const handleReset = useCallback(() => {
-    router.replace("/block/ip");
+    router.replace("/log/user");
     setLocalFilter({ page: 1 });
     setDateRange(undefined);
   }, [router]);

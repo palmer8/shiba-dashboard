@@ -31,36 +31,28 @@ export type WhitelistIP = {
   date: Date;
 };
 
-// API 요청 데이터 타입
-export type AddIncidentReportData = {
+// 기본 공통 타입
+export type IncidentReportData = {
   reason: string;
   incidentDescription: string;
   incidentTime: Date;
   targetUserId: number;
-  image: string | null;
   targetUserNickname: string;
-  reportingUserId?: number;
-  reportingUserNickname?: string;
+  reportingUserId: number | null;
+  reportingUserNickname: string | null;
   penaltyType: PenaltyType;
   warningCount: number | null;
   detentionTimeMinutes: number | null;
   banDurationHours: number | null;
+  image: string | null;
 };
 
-export type EditIncidentReportData = {
+// 생성 시 사용
+export type AddIncidentReportData = IncidentReportData;
+
+// 수정 시 사용
+export type EditIncidentReportData = IncidentReportData & {
   reportId: number;
-  reason: string;
-  incidentDescription: string;
-  incidentTime: Date;
-  image: string | null;
-  targetUserId: number;
-  targetUserNickname: string;
-  reportingUserId?: number;
-  reportingUserNickname?: string;
-  penaltyType: PenaltyType;
-  warningCount?: number | null;
-  detentionTimeMinutes?: number | null;
-  banDurationHours?: number | null;
 };
 
 export type AddWhitelistData = {

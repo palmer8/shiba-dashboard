@@ -109,6 +109,23 @@ export default function BoardEditForm({
     setShowTemplateDialog(false);
   };
 
+  // 컨텐츠가 비어있는지 확인하는 함수
+  const isEmptyContent = (content: JSONContent) => {
+    if (!content || content.type !== "doc") return true;
+    if (!content.content || content.content.length === 0) return true;
+
+    const hasText = content.content.some((node) => {
+      if (node.type === "paragraph" && node.content) {
+        return node.content.some(
+          (child) => child.type === "text" && child.text?.trim()
+        );
+      }
+      return false;
+    });
+
+    return !hasText;
+  };
+
   const handleSubmit = async () => {
     if (!session?.user?.id) {
       toast({
@@ -132,6 +149,16 @@ export default function BoardEditForm({
       toast({
         title: "오류 발생",
         description: "카테고리를 선택해주세요",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 내용이 비어있는지 확인
+    if (isEmptyContent(content)) {
+      toast({
+        title: "오류 발생",
+        description: "내용을 입력해주세요",
         variant: "destructive",
       });
       return;
@@ -210,7 +237,7 @@ export default function BoardEditForm({
                 autoFocus
                 minLength={5}
                 maxLength={30}
-                className="text-lg"
+                className="text-2xl"
                 placeholder="제목을 입력해주세요"
                 onChange={(e) => setTitle(e.target.value)}
               />
@@ -308,7 +335,7 @@ export default function BoardEditForm({
               autoFocus
               minLength={5}
               maxLength={30}
-              className="font-medium border-0 px-0 focus-visible:ring-0 text-2xl"
+              className="font-medium border-0 px-0 focus-visible:ring-0 text-2xl md:text-2xl"
               placeholder="제목을 입력해주세요"
               onChange={(e) => setTitle(e.target.value)}
             />

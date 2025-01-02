@@ -22,7 +22,7 @@ export default async function BoardEditPage({ params }: PageProps) {
 
   const awaitParams = await params;
 
-  const result = await boardService.getBoardById(awaitParams.id);
+  const result = await boardService.getBoardDetail(awaitParams.id);
   if (!result.success || !result.data) {
     return redirect("/boards");
   }

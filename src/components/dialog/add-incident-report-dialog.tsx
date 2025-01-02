@@ -40,9 +40,11 @@ import { getGameNicknameByUserIdAction } from "@/actions/user-action";
 import { IncidentReasonCombobox } from "@/components/report/incident-reason-combobox";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
-import { addIncidentReportSchema } from "@/lib/validations/report";
+import {
+  addIncidentReportSchema,
+  IncidentReportFormData,
+} from "@/lib/validations/report";
 import { Session } from "next-auth";
-import { AddIncidentReportValues } from "@/lib/validations/report";
 import { ImageUpload } from "@/components/ui/image-upload";
 import Image from "next/image";
 
@@ -57,60 +59,76 @@ export default function AddIncidentReportDialog({
   const [isPermanentBan, setIsPermanentBan] = useState(false);
   const isStaff = session?.user?.role === "STAFF";
 
-  const form = useForm<AddIncidentReportValues>({
+  const form = useForm<IncidentReportFormData>({
     resolver: zodResolver(addIncidentReportSchema),
     defaultValues: {
+      reportingUserId: null,
+      reportingUserNickname: null,
+      warningCount: null,
+      detentionTimeMinutes: null,
+      banDurationHours: null,
+      image: null,
       reason: "",
       incidentDescription: "",
       incidentTime: new Date(),
-      penaltyType: "경고",
-      warningCount: 0,
-      detentionTimeMinutes: 0,
-      banDurationHours: 0,
       targetUserId: 0,
       targetUserNickname: "",
-      reportingUserId: 0,
-      reportingUserNickname: "",
-      image: "",
+      penaltyType: "구두경고",
     },
   });
 
   const watchPenaltyType = form.watch("penaltyType");
 
-  const onSubmit = async (data: AddIncidentReportValues) => {
-    const processedData = { ...data };
+  const onSubmit = async (data: IncidentReportFormData) => {
+    try {
+      const processedData = { ...data };
 
-    // 영구정지 처리 로직
-    if (watchPenaltyType === "게임정지" && isPermanentBan) {
-      processedData.banDurationHours = -1;
-    }
+      // 처벌 유형에 따른 필드 초기화
+      switch (data.penaltyType) {
+        case "게임정지":
+          processedData.warningCount = 0;
+          processedData.detentionTimeMinutes = 0;
+          break;
+        case "경고":
+          processedData.banDurationHours = 0;
+          break;
+        case "구두경고":
+          processedData.banDurationHours = 0;
+          processedData.detentionTimeMinutes = 0;
+          break;
+        case "정지해제":
+          processedData.warningCount = 0;
+          processedData.detentionTimeMinutes = 0;
+          processedData.banDurationHours = 0;
+          break;
+      }
 
-    const result = await createIncidentReportAction({
-      ...processedData,
-      reportingUserId: processedData.reportingUserId ?? undefined,
-      warningCount: processedData.warningCount ?? null,
-      detentionTimeMinutes: processedData.detentionTimeMinutes ?? null,
-      banDurationHours: processedData.banDurationHours ?? null,
-      image: processedData.image ?? null,
-    });
+      const result = await createIncidentReportAction(processedData);
 
-    if (result.success) {
-      if (isStaff && isPermanentBan) {
-        toast({
-          title: "영구정지 요청 등록 완료",
-          description: "관리자 승인 후 처리됩니다.",
-        });
+      if (result.success) {
+        if (isStaff && isPermanentBan) {
+          toast({
+            title: "영구정지 요청 등록 완료",
+            description: "관리자 승인 후 처리됩니다.",
+          });
+        } else {
+          toast({
+            title: "사건 처리 보고서 등록 완료",
+          });
+        }
+        setOpen(false);
+        form.reset();
       } else {
         toast({
-          title: "사건 처리 보고서 등록 완료",
+          title: "사건 처리 보고서 등록 실패",
+          description: result.error || "잠시 후 다시 시도해주세요",
+          variant: "destructive",
         });
       }
-      setOpen(false);
-      form.reset();
-    } else {
+    } catch (error) {
       toast({
         title: "사건 처리 보고서 등록 실패",
-        description: result.error || "잠시 후 다시 시도해주세요",
+        description: "잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     }
@@ -156,6 +174,20 @@ export default function AddIncidentReportDialog({
       form.setValue("reportingUserNickname", "");
     }
   }, [debouncedReportingUserId, form]);
+
+  const handleNumberInput = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onChange: (...event: any[]) => void,
+    allowNull = false
+  ) => {
+    const value = e.target.value;
+    if (value === "" && allowNull) {
+      onChange(null);
+    } else {
+      const numValue = parseInt(value) || 0;
+      onChange(numValue);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -292,7 +324,11 @@ export default function AddIncidentReportDialog({
                 <FormItem>
                   <FormLabel>대상자 닉네임</FormLabel>
                   <FormControl>
-                    <Input disabled={true} {...field} />
+                    <Input
+                      disabled={true}
+                      {...field}
+                      value={field.value || ""}
+                    />
                   </FormControl>
                 </FormItem>
               )}
@@ -310,10 +346,7 @@ export default function AddIncidentReportDialog({
                       min={0}
                       max={999999}
                       {...field}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        field.onChange(value === "" ? 0 : parseInt(value));
-                      }}
+                      value={field.value ?? ""}
                     />
                   </FormControl>
                   <FormMessage />
@@ -328,15 +361,18 @@ export default function AddIncidentReportDialog({
                 <FormItem>
                   <FormLabel>신고자 닉네임</FormLabel>
                   <FormControl>
-                    <Input disabled={true} {...field} />
+                    <Input
+                      disabled={true}
+                      {...field}
+                      value={field.value || ""}
+                    />
                   </FormControl>
                 </FormItem>
               )}
             />
 
             {/* 조건부 필드들 */}
-            {(watchPenaltyType === "구두경고" ||
-              watchPenaltyType === "경고") && (
+            {watchPenaltyType === "구두경고" && (
               <FormField
                 control={form.control}
                 name="warningCount"
@@ -345,15 +381,66 @@ export default function AddIncidentReportDialog({
                     <FormLabel>경고 횟수</FormLabel>
                     <FormControl>
                       <Input
-                        type="text"
+                        type="number"
                         {...field}
-                        onChange={(e) => field.onChange(e.target.value)}
+                        value={field.value ?? ""}
+                        onChange={(e) =>
+                          handleNumberInput(e, field.onChange, true)
+                        }
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            )}
+
+            {watchPenaltyType === "경고" && (
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="warningCount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>경고 횟수</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) =>
+                            handleNumberInput(e, field.onChange, true)
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="detentionTimeMinutes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>구금 시간 (분)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) =>
+                            handleNumberInput(e, field.onChange, true)
+                          }
+                          min={0}
+                          max={1440}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             )}
 
             {watchPenaltyType === "게임정지" && (
@@ -364,35 +451,20 @@ export default function AddIncidentReportDialog({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>정지 시간 (시간)</FormLabel>
-                      <div className="space-y-2">
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(parseInt(e.target.value))
-                            }
-                            disabled={isPermanentBan}
-                            min={-1}
-                            max={72}
-                          />
-                        </FormControl>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            checked={isPermanentBan}
-                            onCheckedChange={(checked) => {
-                              setIsPermanentBan(!!checked);
-                              if (checked) {
-                                form.setValue("banDurationHours", -1);
-                              } else {
-                                form.setValue("banDurationHours", 1);
-                              }
-                            }}
-                          />
-                          <span className="text-sm">영구정지</span>
-                        </div>
-                        <FormMessage />
-                      </div>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) =>
+                            handleNumberInput(e, field.onChange, true)
+                          }
+                          disabled={isPermanentBan}
+                          min={-1}
+                          max={72}
+                        />
+                      </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -404,7 +476,7 @@ export default function AddIncidentReportDialog({
               name="image"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>첨부 사진</FormLabel>
+                  <FormLabel>첨거 사진</FormLabel>
                   <FormControl>
                     <div className="grid gap-2">
                       {field.value && (
@@ -417,9 +489,9 @@ export default function AddIncidentReportDialog({
                         />
                       )}
                       <ImageUpload
-                        value={field.value ? field.value : ""}
+                        value={field.value ?? ""}
                         onChange={(url) => field.onChange(url)}
-                        onRemove={() => field.onChange("")}
+                        onRemove={() => field.onChange(null)}
                       />
                     </div>
                   </FormControl>

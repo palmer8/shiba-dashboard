@@ -1,6 +1,11 @@
 "use client";
 
-import { formatKoreanDateTime, formatRole } from "@/lib/utils";
+import {
+  formatKoreanDateTime,
+  formatRole,
+  getFirstNonEmojiCharacter,
+  isSameOrHigherRole,
+} from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -112,9 +117,20 @@ export default function AdminManagementTable({
     });
 
   const handlePageChange = (newPage: number) => {
+    const currentPage = Number(data.page);
+    const totalPages = Number(data.totalPages);
+
+    if (newPage < 1 || newPage > totalPages) return;
+
     const params = new URLSearchParams(searchParams.toString());
-    params.set("page", newPage.toString());
-    router.replace(`?${params.toString()}`);
+    params.set("page", String(newPage));
+
+    if (searchTerm) params.set("search", searchTerm);
+    if (roleFilter !== "ALL") params.set("role", roleFilter);
+    if (sortBy !== "createdAt") params.set("sortBy", sortBy);
+    if (sortDirection !== "desc") params.set("sortDirection", sortDirection);
+
+    router.push(`?${params.toString()}`);
   };
 
   return (
@@ -192,7 +208,7 @@ export default function AdminManagementTable({
             <Card key={admin.id} className="relative">
               <CardContent className="p-3">
                 <div className="absolute top-2 right-2 z-10">
-                  {session?.user?.role === "SUPERMASTER" && (
+                  {session.user && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
@@ -208,6 +224,10 @@ export default function AdminManagementTable({
                               value as UserRole
                             );
                           }}
+                          disabled={
+                            session.user.userId !== 1 &&
+                            isSameOrHigherRole(session.user.role, admin.role)
+                          }
                         >
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="권한 변경" />
@@ -233,6 +253,10 @@ export default function AdminManagementTable({
                               !admin.isPermissive
                             );
                           }}
+                          disabled={
+                            session.user.userId !== 1 &&
+                            isSameOrHigherRole(session.user.role, admin.role)
+                          }
                         >
                           {admin.isPermissive ? (
                             <>
@@ -252,6 +276,13 @@ export default function AdminManagementTable({
                             <DropdownMenuItem
                               onSelect={(e) => e.preventDefault()}
                               className="text-destructive"
+                              disabled={
+                                session.user.userId !== 1 &&
+                                isSameOrHigherRole(
+                                  session.user.role,
+                                  admin.role
+                                )
+                              }
                             >
                               <Trash className="mr-2 h-4 w-4" />
                               <span>탈퇴</span>
@@ -262,16 +293,12 @@ export default function AdminManagementTable({
                               <AlertDialogTitle>
                                 정말 탈퇴시키시겠습니까?
                               </AlertDialogTitle>
+                              <div className="text-sm grid gap-1">
+                                {admin.nickname} ({admin.userId})
+                              </div>
                               <AlertDialogDescription>
                                 계정을 삭제하면 모든 데이터가 영구적으로
                                 삭제되며 복구할 수 없습니다.
-                                <div className="mt-2 font-medium">
-                                  닉네임: {admin.nickname}
-                                  <br />
-                                  이디: {admin.name}
-                                  <br />
-                                  고유번호: {admin.userId}
-                                </div>
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -296,7 +323,9 @@ export default function AdminManagementTable({
                   <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={admin.image || undefined} />
-                      <AvatarFallback>{admin.nickname?.[0]}</AvatarFallback>
+                      <AvatarFallback>
+                        {getFirstNonEmojiCharacter(admin.nickname)}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <h3 className="font-medium truncate text-sm">
@@ -307,7 +336,6 @@ export default function AdminManagementTable({
                       </p>
                     </div>
                   </div>
-
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground text-xs">
@@ -364,21 +392,21 @@ export default function AdminManagementTable({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => handlePageChange(data.page - 1)}
-          disabled={data.page <= 1}
+          onClick={() => handlePageChange(Number(data.page) - 1)}
+          disabled={Number(data.page) <= 1}
         >
           이전
         </Button>
         <div className="flex items-center gap-1">
-          <span className="text-sm font-medium">
+          <span className="text-xs font-normal">
             {data.page} / {data.totalPages}
           </span>
         </div>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => handlePageChange(data.page + 1)}
-          disabled={data.page >= data.totalPages}
+          onClick={() => handlePageChange(Number(data.page) + 1)}
+          disabled={Number(data.page) >= Number(data.totalPages)}
         >
           다음
         </Button>

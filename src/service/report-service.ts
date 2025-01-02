@@ -166,6 +166,16 @@ class ReportService {
         }
       }
 
+      const processedData = {
+        ...data,
+        reportingUserId: data.reportingUserId || null,
+        reportingUserNickname: data.reportingUserNickname || null,
+        warningCount: data.warningCount || null,
+        detentionTimeMinutes: data.detentionTimeMinutes || null,
+        banDurationHours: data.banDurationHours || null,
+        image: data.image || null,
+      };
+
       const [result] = await pool.execute<ResultSetHeader>(
         `INSERT INTO dokku_incident_report (
           reason, incident_description, incident_time, 
@@ -175,19 +185,19 @@ class ReportService {
           ban_duration_hours, admin, image
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          data.reason,
-          data.incidentDescription,
-          formatKoreanDateTime(data.incidentTime),
-          data.targetUserId,
-          data.targetUserNickname,
-          data.reportingUserId,
-          data.reportingUserNickname,
-          data.penaltyType,
-          data.warningCount,
-          data.detentionTimeMinutes,
-          data.banDurationHours,
+          processedData.reason,
+          processedData.incidentDescription,
+          formatKoreanDateTime(processedData.incidentTime),
+          processedData.targetUserId,
+          processedData.targetUserNickname,
+          processedData.reportingUserId,
+          processedData.reportingUserNickname,
+          processedData.penaltyType,
+          processedData.warningCount,
+          processedData.detentionTimeMinutes,
+          processedData.banDurationHours,
           session.user.nickname,
-          data.image,
+          processedData.image,
         ]
       );
 
@@ -308,6 +318,16 @@ class ReportService {
         }
       }
 
+      const processedData = {
+        ...data,
+        reportingUserId: data.reportingUserId || null,
+        reportingUserNickname: data.reportingUserNickname || null,
+        warningCount: data.warningCount || null,
+        detentionTimeMinutes: data.detentionTimeMinutes || null,
+        banDurationHours: data.banDurationHours || null,
+        image: data.image || null,
+      };
+
       const [result] = await pool.execute<ResultSetHeader>(
         `UPDATE dokku_incident_report 
          SET reason = ?, 
@@ -323,18 +343,18 @@ class ReportService {
              reporting_user_nickname = ?
          WHERE report_id = ?`,
         [
-          data.reason,
-          data.incidentDescription,
-          formatKoreanDateTime(data.incidentTime),
-          data.image,
-          data.penaltyType,
-          data.warningCount || null,
-          data.banDurationHours || null,
-          data.targetUserId,
-          data.targetUserNickname,
-          data.reportingUserId || null,
-          data.reportingUserNickname || null,
-          data.reportId,
+          processedData.reason,
+          processedData.incidentDescription,
+          formatKoreanDateTime(processedData.incidentTime),
+          processedData.image,
+          processedData.penaltyType,
+          processedData.warningCount,
+          processedData.banDurationHours,
+          processedData.targetUserId,
+          processedData.targetUserNickname,
+          processedData.reportingUserId,
+          processedData.reportingUserNickname,
+          processedData.reportId,
         ]
       );
 
@@ -1214,6 +1234,62 @@ class ReportService {
             : "알 수 없는 에러가 발생했습니다.",
         data: null,
         success: false,
+      };
+    }
+  }
+
+  async getIncidentReportsByTargetUserId(
+    targetUserId: number
+  ): Promise<ApiResponse<any>> {
+    const session = await auth();
+
+    if (!session?.user) {
+      return redirect("/login");
+    }
+
+    try {
+      // 최근 10개의 제재 이력만 가져오도록 설정
+      const [records] = await pool.execute<RowDataPacket[]>(
+        `SELECT 
+          report_id,
+          reason,
+          incident_description,
+          incident_time,
+          target_user_id,
+          target_user_nickname,
+          reporting_user_id,
+          reporting_user_nickname,
+          penalty_type,
+          warning_count,
+          detention_time_minutes,
+          ban_duration_hours,
+          admin,
+          image
+        FROM dokku_incident_report 
+        WHERE target_user_id = ? 
+        ORDER BY incident_time DESC`,
+        [targetUserId]
+      );
+
+      return {
+        success: true,
+        data: {
+          records,
+          metadata: {
+            total: records.length,
+          },
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get incident reports by target user ID error:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생했습니다.",
       };
     }
   }

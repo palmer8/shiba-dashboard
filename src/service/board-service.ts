@@ -405,51 +405,50 @@ class BoardService {
     }
   }
 
-  // 게시글 상세 조회
-  async getBoardById(id: string): Promise<ApiResponse<BoardDetailView>> {
+  // 게시글 상세 조회 (조회수 증가 없이)
+  async getBoardDetail(id: string): Promise<ApiResponse<BoardDetailView>> {
     const session = await auth();
-    if (!session?.user) return redirect("/login");
+    if (!session || !session.user) return redirect("/login");
 
     try {
-      const board = await prisma.$transaction(async (tx) => {
-        await tx.board.update({
-          where: { id },
-          data: { views: { increment: 1 } },
-        });
-
-        // 게시글 조회
-        return tx.board.findUnique({
-          where: { id },
-          include: {
-            registrant: {
-              select: { id: true, nickname: true, image: true },
-            },
+      const board = await prisma.board.findFirst({
+        where: {
+          id,
+          ...(session.user.role !== UserRole.SUPERMASTER && {
             category: {
-              select: { id: true, name: true },
+              OR: [{ role: session.user.role }, { role: null }],
             },
-            comments: {
-              include: {
-                registrant: {
-                  select: { id: true, nickname: true, image: true },
-                },
+          }),
+        },
+        include: {
+          registrant: {
+            select: { id: true, nickname: true, image: true },
+          },
+          category: {
+            select: { id: true, name: true },
+          },
+          comments: {
+            include: {
+              registrant: {
+                select: { id: true, nickname: true, image: true },
               },
-              orderBy: { createdAt: "desc" },
             },
-            likes: {
-              include: {
-                user: {
-                  select: { id: true, nickname: true, userId: true },
-                },
+            orderBy: { createdAt: "desc" },
+          },
+          likes: {
+            include: {
+              user: {
+                select: { id: true, nickname: true, userId: true },
               },
             },
           },
-        });
+        },
       });
 
       if (!board) {
         return {
           success: false,
-          error: "게시글을 찾을 수 없습니다.",
+          error: "게시글을 찾을 수 없거나 접근 권한이 없습니다.",
           data: null,
         };
       }
@@ -508,42 +507,31 @@ class BoardService {
     }
   }
 
-  // 조회수 증가 여부를 확인하는 private 메서드
-  private async shouldIncreaseViewCount(
-    boardId: string,
-    userId: string
-  ): Promise<boolean> {
-    const key = `board_view_${boardId}_${userId}`;
-
-    if (typeof window !== "undefined") {
-      const lastViewTime = sessionStorage.getItem(key);
-      const now = Date.now();
-
-      if (!lastViewTime) {
-        // 첫 조회인 경우
-        sessionStorage.setItem(key, now.toString());
-        return true;
-      }
-
-      const timeDiff = now - parseInt(lastViewTime);
-      if (timeDiff > 1000 * 60 * 30) {
-        // 30분
-        // 마지막 조회로부터 30분이 지난 경우
-        sessionStorage.setItem(key, now.toString());
-        return true;
-      }
-    }
-
-    return false;
+  // 조회수만 증가시키는 함수
+  async incrementViewCount(id: string): Promise<void> {
+    await prisma.board.update({
+      where: { id },
+      data: { views: { increment: 1 } },
+    });
   }
 
   async getBoardList(filters: BoardFilter): Promise<ApiResponse<BoardList>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
     try {
       const itemsPerPage = 20;
       const skip = ((filters.page || 1) - 1) * itemsPerPage;
 
       // 필터 조건 설정
       const where: Prisma.BoardWhereInput = {};
+
+      // SUPERMASTER가 아닌 경우 카테고리 권한 체크 추가
+      if (session.user.role !== UserRole.SUPERMASTER) {
+        where.category = {
+          OR: [{ role: session.user.role }, { role: null }],
+        };
+      }
 
       // 날짜 필터
       if (filters.startDate && filters.endDate) {
@@ -583,7 +571,14 @@ class BoardService {
       // 최근 공지사항 5개와 일반 게시글 목록을 동시에 조회
       const [recentNotices, totalCount, boards] = await Promise.all([
         prisma.board.findMany({
-          where: { isNotice: true },
+          where: {
+            isNotice: true,
+            ...(session.user.role !== UserRole.SUPERMASTER && {
+              category: {
+                OR: [{ role: session.user.role }, { role: null }],
+              },
+            }),
+          },
           take: 5,
           orderBy: { createdAt: "desc" },
           include: {
@@ -855,9 +850,8 @@ class BoardService {
     }
   }
 
-  async getCategoryListByUsed() {
+  async getCategoryListByUsedAndRole() {
     const session = await auth();
-
     if (!session || !session.user)
       return {
         success: false,
@@ -866,8 +860,21 @@ class BoardService {
       };
 
     try {
+      console.log(session.user.role);
+
       const categories = await prisma.boardCategory.findMany({
-        where: { isUsed: true },
+        where: {
+          isUsed: true,
+          OR: [
+            {
+              role:
+                session.user.role === UserRole.SUPERMASTER
+                  ? undefined
+                  : session.user.role,
+            },
+            { role: null },
+          ],
+        },
         orderBy: { createdAt: "desc" },
       });
       return {

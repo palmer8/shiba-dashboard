@@ -30,6 +30,14 @@ import Editor from "@/components/editor/advanced-editor";
 import { Switch } from "@/components/ui/switch";
 import { sanitizeContent } from "@/lib/utils";
 import { categorySchema, CategoryForm } from "@/lib/validations/board";
+import { UserRole } from "@prisma/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function AddCategoryDialog() {
   const [open, setOpen] = useState(false);
@@ -39,6 +47,7 @@ export default function AddCategoryDialog() {
     defaultValues: {
       name: "",
       isUsed: false,
+      role: undefined,
       template: {},
     },
   });
@@ -106,6 +115,43 @@ export default function AddCategoryDialog() {
                       checked={field.value}
                       onCheckedChange={field.onChange}
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>권한</FormLabel>
+                  <FormDescription>
+                    카테고리를 볼 수 있는 권한을 설정합니다.
+                  </FormDescription>
+                  <FormControl>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) =>
+                        value === "ALL"
+                          ? field.onChange(undefined)
+                          : field.onChange(value as UserRole)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="전체" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">모두</SelectItem>
+                        <SelectItem value="STAFF">스태프</SelectItem>
+                        <SelectItem value="INGAME_ADMIN">
+                          인게임 관리자
+                        </SelectItem>
+                        <SelectItem value="MASTER">마스터</SelectItem>
+                        <SelectItem value="SUPERMASTER">슈퍼 마스터</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

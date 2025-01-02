@@ -9,6 +9,7 @@ import { ApiResponse } from "@/types/global.dto";
 import { cache } from "react";
 import { BoardList, BoardFilter } from "@/types/board";
 import { CategoryForm, EditCategoryForm } from "@/lib/validations/board";
+import { auth } from "@/lib/auth-config";
 
 // 게시글 목록 캐싱
 const getCachedBoardList = cache(async (filters: BoardFilter) => {
@@ -17,12 +18,12 @@ const getCachedBoardList = cache(async (filters: BoardFilter) => {
 
 // 카테고리 목록 캐싱
 const getCachedCategories = cache(async () => {
-  return boardService.getCategoryListByUsed();
+  return boardService.getCategoryListByUsedAndRole();
 });
 
 // 게시글 상세 정보 캐싱
 const getCachedBoardDetail = cache(async (id: string) => {
-  return boardService.getBoardById(id);
+  return boardService.getBoardDetail(id);
 });
 
 // 댓글 목록 캐싱
@@ -76,7 +77,7 @@ export async function updateCommentAction(data: {
   content: string;
 }): Promise<ApiResponse<BoardComment>> {
   const result = await boardService.updateComment(data);
-  if (result.success) revalidatePath("/board/[id]", "layout");
+  if (result.success) revalidatePath("/board/[id]");
   return result;
 }
 
@@ -123,7 +124,6 @@ export async function toggleBoardLikeAction(
   boardId: string
 ): Promise<ApiResponse<boolean>> {
   const result = await boardService.toggleBoardLike(boardId);
-  if (result.success) revalidatePath(`/board/${boardId}`);
   return result;
 }
 

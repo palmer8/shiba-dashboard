@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "@/hooks/use-toast";
@@ -29,11 +28,15 @@ import { updateCategoryAction } from "@/actions/board-action";
 import Editor from "@/components/editor/advanced-editor";
 import { Switch } from "@/components/ui/switch";
 import { sanitizeContent } from "@/lib/utils";
+import { EditCategoryForm, editCategorySchema } from "@/lib/validations/board";
 import {
-  CategoryForm,
-  EditCategoryForm,
-  editCategorySchema,
-} from "@/lib/validations/board";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { UserRole } from "@prisma/client";
 
 interface EditCategoryDialogProps {
   initialData: EditCategoryForm & { id: string };
@@ -51,6 +54,7 @@ export default function EditCategoryDialog({
     defaultValues: {
       name: initialData.name,
       isUsed: initialData.isUsed,
+      role: initialData.role || undefined,
       template:
         typeof initialData.template === "string"
           ? JSON.parse(initialData.template)
@@ -118,6 +122,43 @@ export default function EditCategoryDialog({
                       checked={field.value}
                       onCheckedChange={field.onChange}
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>권한</FormLabel>
+                  <FormDescription>
+                    카테고리를 볼 수 있는 권한을 설정합니다.
+                  </FormDescription>
+                  <FormControl>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) =>
+                        value === "ALL"
+                          ? field.onChange(undefined)
+                          : field.onChange(value as UserRole)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="전체" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">모두</SelectItem>
+                        <SelectItem value="STAFF">스태프</SelectItem>
+                        <SelectItem value="INGAME_ADMIN">
+                          인게임 관리자
+                        </SelectItem>
+                        <SelectItem value="MASTER">마스터</SelectItem>
+                        <SelectItem value="SUPERMASTER">슈퍼 마스터</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -1,33 +1,84 @@
 "use client";
 
 import { RealtimeGameUserData } from "@/types/user";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatKoreanDateTime, formatKoreanNumber } from "@/lib/utils";
 import { parseCustomDateString } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Undo2 } from "lucide-react";
+import IncidentReportTable from "@/components/report/incident-report-table";
+import { Session } from "next-auth";
+import { returnPlayerSkinAction } from "@/actions/realtime/realtime-action";
+import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
+
+interface RealtimeUserInfoProps {
+  data: RealtimeGameUserData;
+  isAdmin: boolean;
+  userId: number;
+  session: Session;
+}
 
 export default function RealtimeUserInfo({
   data,
   isAdmin,
-}: {
-  data: RealtimeGameUserData;
-  isAdmin: boolean;
-}) {
+  userId,
+  session,
+}: RealtimeUserInfoProps) {
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleRevokeSkin = async () => {
+    if (!userId) return;
+
+    try {
+      setIsLoading(true);
+      const result = await returnPlayerSkinAction(Number(userId));
+
+      if (result.success) {
+        toast({
+          title: "스킨 회수 성공",
+          description: "스킨이 성공적으로 회수되었습니다.",
+        });
+      } else {
+        toast({
+          title: "스킨 회수 실패",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "스킨 회수 실패",
+        description: "알 수 없는 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 하이드레이션 에러 해결을 위한 초기 렌더링 상태 관리
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return null; // 초기 렌더링 시 아무것도 표시하지 않음
+  }
+
   return (
     <>
       {/* 헤더 섹션 - 중요 정보 */}
       <div className="mb-6">
         <div className="flex items-start gap-4">
-          <Avatar className="h-20 w-20">
+          <Avatar className="h-20 w-20 relative z-0">
             <AvatarFallback className="text-lg">
               {data.last_nickname?.[0] || "U"}
             </AvatarFallback>
@@ -141,6 +192,46 @@ export default function RealtimeUserInfo({
                   </h3>
                   <p>{data?.chunoreason || "-"}</p>
                 </div>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    뉴비 코드
+                  </h3>
+                  <p>{data.newbieCode || "-"}</p>
+                </div>
+                <div className="space-y-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-muted-foreground">
+                      장착중인 스킨
+                    </h3>
+                    {data.skinName && isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700"
+                        onClick={() => {
+                          if (confirm("정말로 이 스킨을 회수하시겠습니까?")) {
+                            handleRevokeSkin();
+                          }
+                        }}
+                        disabled={isLoading}
+                      >
+                        <Undo2 className="w-4 h-4 mr-2" />
+                        {isLoading ? "처리중..." : "회수"}
+                      </Button>
+                    )}
+                  </div>
+                  <div className="p-4 rounded-lg bg-muted/30">
+                    {data.skinName ? (
+                      <div className="flex items-center justify-between">
+                        <span>{data.skinName}</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        장착중인 스킨 없음
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -202,8 +293,25 @@ export default function RealtimeUserInfo({
 
         <TabsContent value="ban">
           <Card>
-            <CardContent className="grid gap-4 pt-6">
+            <CardContent className="space-y-6 pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    경고 횟수
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <p>{data.warningCount || "-"}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    남은 구금 시간
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {/* <p>{data.warningCount || "-"}</p> */}
+                    <p>API 연동 필요</p>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-muted-foreground">
                     처리자
@@ -232,6 +340,21 @@ export default function RealtimeUserInfo({
                     <Badge variant="outline">정상</Badge>
                   )}
                 </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">제재 이력</h3>
+                <IncidentReportTable
+                  session={session}
+                  data={{
+                    records: data.incidentReports || [],
+                    metadata: {
+                      total: data.incidentReports?.length || 0,
+                      page: 1,
+                      totalPages: 1,
+                    },
+                  }}
+                />
               </div>
             </CardContent>
           </Card>

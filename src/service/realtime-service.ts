@@ -5,7 +5,7 @@ import { ROLE_HIERARCHY } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { RowDataPacket } from "mysql2";
 import { ApiResponse } from "@/types/global.dto";
-import { RealtimeGroupResponse } from "@/types/realtime";
+import { reportService } from "@/service/report-service";
 
 type ComparisonOperator = "gt" | "gte" | "lt" | "lte" | "eq";
 type PaginationParams = { page: number };
@@ -82,36 +82,77 @@ class RealtimeService {
 
   // 아이템 데이터 조회
   async getGameUserDataByUserId(userId: number) {
-    const userDataResponse = await fetch(
-      `${process.env.PRIVATE_API_URL}/DokkuApi/getPlayerData`,
-      {
-        method: "POST",
-        cache: "no-store",
-        body: JSON.stringify({ user_id: userId }),
-        headers: {
-          "Content-Type": "application/json",
-          key: process.env.PRIVATE_API_KEY || "",
-        },
+    try {
+      // MySQL 쿼리와 API 요청을 병렬로 실행
+      const [
+        userDataResponse,
+        [newbieResults],
+        [warningResults],
+        incidentReports,
+      ] = await Promise.all([
+        fetch(`${process.env.PRIVATE_API_URL}/DokkuApi/getPlayerData`, {
+          method: "POST",
+          cache: "no-store",
+          body: JSON.stringify({ user_id: userId }),
+          headers: {
+            "Content-Type": "application/json",
+            key: process.env.PRIVATE_API_KEY || "",
+          },
+        }).then((res) => res.json()),
+
+        // 뉴비코드 조회
+        pool.execute<RowDataPacket[]>(
+          "SELECT code FROM dokku_newbie WHERE user_id = ?",
+          [userId]
+        ),
+
+        // 경고 횟수 조회
+        pool.execute<RowDataPacket[]>(
+          "SELECT count FROM dokku_warning WHERE user_id = ?",
+          [userId]
+        ),
+
+        // 사건 처리 보고서 조회
+        reportService.getIncidentReportsByTargetUserId(userId),
+      ]);
+
+      if (userDataResponse.error) {
+        return {
+          success: false,
+          message: "유저 데이터 조회 실패",
+          data: null,
+          error: userDataResponse.error,
+        };
       }
-    );
 
-    const userData = await userDataResponse.json();
+      // API 응답에 MySQL 데이터 추가
+      const enrichedData = {
+        ...userDataResponse,
+        newbieCode: newbieResults?.[0]?.code ?? null,
+        warningCount: warningResults?.[0]?.count ?? 0,
+        incidentReports: incidentReports.success
+          ? incidentReports.data.records
+          : [],
+      };
 
-    if (userData.error) {
+      return {
+        success: true,
+        message: "유저 데이터 조회 성공",
+        data: enrichedData,
+        error: null,
+      };
+    } catch (error) {
+      console.error("getGameUserDataByUserId error:", error);
       return {
         success: false,
         message: "유저 데이터 조회 실패",
         data: null,
-        error: userData.error,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생했습니다",
       };
     }
-
-    return {
-      success: true,
-      message: "유저 데이터 조회 성공",
-      data: userData,
-      error: null,
-    };
   }
 
   async getGroupDataByGroupName(groupName: string, cursor?: number) {
@@ -823,6 +864,64 @@ class RealtimeService {
         success: true,
         data: defaultData,
         error: null,
+      };
+    }
+  }
+
+  async returnPlayerSkin(userId: number): Promise<ApiResponse<any>> {
+    try {
+      const response = await fetch(
+        `${process.env.PRIVATE_API_URL}/DokkuApi/returnPlayerSkin`,
+        {
+          method: "POST",
+          body: JSON.stringify({ user_id: userId }),
+          headers: {
+            "Content-Type": "application/json",
+            key: process.env.PRIVATE_API_KEY || "",
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!data.success) {
+        let errorMessage = "알 수 없는 오류가 발생했습니다.";
+        switch (data.type) {
+          case "MISSING_PARAMETER":
+            errorMessage = "필수 파라미터가 누락되었습니다.";
+            break;
+          case "NOT_WEARING_SKIN":
+            errorMessage = "플레이어가 스킨을 착용 중이지 않습니다.";
+            break;
+          case "USER_NOT_FOUND":
+            errorMessage = "존재하지 않는 플레이어입니다.";
+            break;
+          case "SERVER_ERROR":
+            errorMessage = "서버 오류가 발생했습니다.";
+            break;
+        }
+
+        return {
+          success: false,
+          data: null,
+          error: errorMessage,
+        };
+      }
+
+      return {
+        success: true,
+        data: data,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Return player skin error:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
       };
     }
   }

@@ -41,8 +41,11 @@ import { hasAccess } from "@/lib/utils";
 import { useDebounce } from "@/hooks/use-debounce";
 import { getGameNicknameByUserIdAction } from "@/actions/user-action";
 import { UserRole } from "@prisma/client";
-import { editIncidentReportSchema } from "@/lib/validations/report";
-import { EditIncidentReportValues } from "@/lib/validations/report";
+import {
+  EditIncidentReportFormData,
+  editIncidentReportSchema,
+  IncidentReportFormData,
+} from "@/lib/validations/report";
 import { ImageUpload } from "@/components/ui/image-upload";
 import Image from "next/image";
 
@@ -61,7 +64,7 @@ export default function EditIncidentReportDialog({
   );
   const { data: session } = useSession();
 
-  const form = useForm<EditIncidentReportValues>({
+  const form = useForm<EditIncidentReportFormData>({
     resolver: zodResolver(editIncidentReportSchema),
     defaultValues: {
       reportId: initialData.report_id,
@@ -76,6 +79,7 @@ export default function EditIncidentReportDialog({
       reportingUserId: initialData.reporting_user_id,
       reportingUserNickname: initialData.reporting_user_nickname,
       image: initialData.image || "",
+      detentionTimeMinutes: initialData.detention_time_minutes || 0,
     },
   });
 
@@ -115,12 +119,31 @@ export default function EditIncidentReportDialog({
     }
   }, [debouncedReportingUserId, form]);
 
-  const onSubmit = async (data: EditIncidentReportValues) => {
+  const onSubmit = async (data: EditIncidentReportFormData) => {
     try {
-      const result = await updateIncidentReportAction({
-        ...data,
-        image: data.image || null,
-      });
+      const processedData = { ...data };
+
+      // 처벌 유형에 따른 필드 초기화
+      switch (data.penaltyType) {
+        case "게임정지":
+          processedData.warningCount = 0;
+          processedData.detentionTimeMinutes = 0;
+          break;
+        case "경고":
+          processedData.banDurationHours = 0;
+          break;
+        case "구두경고":
+          processedData.banDurationHours = 0;
+          processedData.detentionTimeMinutes = 0;
+          break;
+        case "정지해제":
+          processedData.warningCount = 0;
+          processedData.detentionTimeMinutes = 0;
+          processedData.banDurationHours = 0;
+          break;
+      }
+
+      const result = await updateIncidentReportAction(processedData);
 
       if (result.success) {
         toast({
@@ -321,6 +344,54 @@ export default function EditIncidentReportDialog({
               </div>
             )}
 
+            {watchPenaltyType === "경고" && (
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="warningCount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>경고 횟수</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) =>
+                            field.onChange(parseInt(e.target.value) || "")
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="detentionTimeMinutes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>구금 시간 (분)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          value={field.value ?? ""}
+                          min={0}
+                          max={1440}
+                          onChange={(e) =>
+                            field.onChange(parseInt(e.target.value) || "")
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="targetUserId"
@@ -333,7 +404,7 @@ export default function EditIncidentReportDialog({
                       min={0}
                       max={999999}
                       {...field}
-                      value={field.value || ""}
+                      value={field.value ?? ""}
                       onChange={(e) => {
                         const value = e.target.value;
                         field.onChange(value === "" ? 0 : parseInt(value) || 0);
@@ -389,7 +460,11 @@ export default function EditIncidentReportDialog({
                 <FormItem>
                   <FormLabel>신고자 닉네임</FormLabel>
                   <FormControl>
-                    <Input disabled={true} {...field} />
+                    <Input
+                      disabled={true}
+                      {...field}
+                      value={field.value ?? ""}
+                    />
                   </FormControl>
                 </FormItem>
               )}
@@ -413,9 +488,9 @@ export default function EditIncidentReportDialog({
                         />
                       )}
                       <ImageUpload
-                        value={field.value ? field.value : ""}
+                        value={field.value ?? ""}
                         onChange={(url) => field.onChange(url)}
-                        onRemove={() => field.onChange("")}
+                        onRemove={() => field.onChange(null)}
                       />
                     </div>
                   </FormControl>

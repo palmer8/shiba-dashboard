@@ -88,7 +88,6 @@ export function BoardTable({
       toast({
         title: "게시글 삭제 성공",
       });
-      router.refresh();
     } else {
       toast({
         title: "게시글 삭제 실패",
@@ -104,9 +103,9 @@ export function BoardTable({
     isNotice: boolean = false
   ) => (
     <Card
-      onClick={() => router.push(`/board/${board.id}`)}
       key={board.id}
       className="hover:bg-muted/50 transition-colors cursor-pointer"
+      onClick={() => router.push(`/board/${board.id}`)}
     >
       <div className="p-4">
         <div className="flex items-start gap-4">
@@ -123,16 +122,11 @@ export function BoardTable({
             <div className="flex items-center gap-2 mb-2">
               {isNotice && <Badge variant="secondary">공지</Badge>}
               <Badge variant="outline">{board.category.name}</Badge>
-              <span className="text-sm text-muted-foreground">
-                #{metadata.totalCount - ((page - 1) * 50 + index)}
-              </span>
             </div>
 
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <Link href={`/board/${board.id}`} className="hover:underline">
-                  <h3 className="font-medium line-clamp-2">{board.title}</h3>
-                </Link>
+                <h3 className="font-medium line-clamp-2">{board.title}</h3>
 
                 <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">

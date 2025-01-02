@@ -1,5 +1,6 @@
 import { Groups, Prisma, User } from "@prisma/client";
 import { UserRole } from "@prisma/client";
+import { IncidentReport } from "./report";
 
 type SignUpUser = Omit<Prisma.UserCreateInput, "hashedPassword">;
 type RealtimeGameUserData = {
@@ -26,11 +27,15 @@ type RealtimeGameUserData = {
   online: boolean | null;
   phone: string | null;
   registration: string | null;
+  newbieCode: string | null;
+  warningCount: number | null;
   sanctions: Record<string, never>[] | null;
   tier_reward: string | null;
   vehicles: Record<string, string> | null;
   wallet: string | null;
   weapons: Record<string, string> | null;
+  skinName?: string;
+  incidentReports: IncidentReport[];
 };
 
 type UpdateUserData = {

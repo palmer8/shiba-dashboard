@@ -377,15 +377,16 @@ model AccountUsingQuerylog {
 }
 
 model BoardCategory {
-  id           String   @id @default(uuid())
-  name         String   @unique
-  registrantId String?  @map("registrant_id")
-  template     Json?    @map("template")
-  isUsed       Boolean  @default(false) @map("is_used")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id           String    @id @default(uuid())
+  name         String    @unique
+  registrantId String?   @map("registrant_id")
+  template     Json?     @map("template")
+  isUsed       Boolean   @default(false) @map("is_used")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
   boards       Board[]
-  registrant   User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
+  role         UserRole? @map("role")
+  registrant   User?     @relation(fields: [registrantId], references: [id], onDelete: SetNull)
 
   @@map("board_category")
 }

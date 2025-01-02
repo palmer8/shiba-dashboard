@@ -84,6 +84,16 @@ export const IncidentReportExpandedRow: React.FC<
                 : "정보 없음"}
             </p>
           </div>
+          {incidentReport.detention_time_minutes ? (
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-1">
+                구금 시간
+              </h4>
+              <p className="font-medium">
+                {`${incidentReport.detention_time_minutes}분`}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         {/* 관련자 정보 섹션 */}

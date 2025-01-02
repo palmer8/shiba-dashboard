@@ -1,6 +1,6 @@
 import prisma from "@/db/prisma";
 import { auth } from "@/lib/auth-config";
-import { hasAccess } from "@/lib/utils";
+import { hasAccess, ROLE_HIERARCHY } from "@/lib/utils";
 import {
   AdminFilter,
   AdminGroupFilter,
@@ -84,7 +84,7 @@ class AdminService {
   ): Promise<ApiResponse<Pick<User, "id" | "role">>> {
     const session = await auth();
 
-    if (!session) {
+    if (!session?.user) {
       return {
         success: false,
         error: "로그인이 필요합니다.",
@@ -92,15 +92,18 @@ class AdminService {
       };
     }
 
-    const registrant = await prisma.user.findUnique({
-      where: { id: session.user?.id },
-      select: {
-        role: true,
-        id: true,
-      },
-    });
+    const [registrant, targetUser] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true, id: true, userId: true },
+      }),
+      prisma.user.findUnique({
+        where: { id },
+        select: { role: true, userId: true },
+      }),
+    ]);
 
-    if (!registrant) {
+    if (!registrant || !targetUser) {
       return {
         success: false,
         error: "유저를 찾을 수 없습니다.",
@@ -108,10 +111,27 @@ class AdminService {
       };
     }
 
-    if (!hasAccess(registrant.role, UserRole.SUPERMASTER)) {
+    // SUPERMASTER 간의 권한 관리 규칙
+    if (targetUser.role === UserRole.SUPERMASTER) {
+      // userId가 1인 SUPERMASTER만 다른 SUPERMASTER 수정 가능
+      if (registrant.userId !== 1) {
+        return {
+          success: false,
+          error: "다른 슈퍼마스터의 권한을 수정할 수 없습니다.",
+          data: null,
+        };
+      }
+    }
+
+    // 나머지 권한 체크 로직
+    if (
+      registrant.role !== UserRole.SUPERMASTER &&
+      ROLE_HIERARCHY[targetUser.role] >= ROLE_HIERARCHY[registrant.role]
+    ) {
       return {
         success: false,
-        error: "권한이 없습니다.",
+        error:
+          "본인과 동일하거나 상위 권한을 가진 사용자의 권한을 수정할 수 없습니다.",
         data: null,
       };
     }
@@ -135,7 +155,7 @@ class AdminService {
   async removeDashboardUser(id: string): Promise<ApiResponse<User>> {
     const session = await auth();
 
-    if (!session) {
+    if (!session?.user) {
       return {
         success: false,
         error: "로그인이 필요합니다.",
@@ -143,20 +163,34 @@ class AdminService {
       };
     }
 
-    const registrant = await prisma.user.findUnique({
-      where: { id: session.user?.id },
-      select: {
-        role: true,
-        id: true,
-      },
-    });
+    const [registrant, targetUser] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true, id: true, userId: true },
+      }),
+      prisma.user.findUnique({
+        where: { id },
+        select: { role: true, userId: true },
+      }),
+    ]);
 
-    if (!registrant || !hasAccess(registrant.role, UserRole.SUPERMASTER)) {
+    if (!registrant || !targetUser) {
       return {
         success: false,
-        error: "권한이 없습니다.",
+        error: "유저를 찾을 수 없습니다.",
         data: null,
       };
+    }
+
+    // SUPERMASTER 간의 권한 관리 규칙
+    if (targetUser.role === UserRole.SUPERMASTER) {
+      if (registrant.userId !== 1) {
+        return {
+          success: false,
+          error: "다른 슈퍼마스터를 삭제할 수 없습니다.",
+          data: null,
+        };
+      }
     }
 
     const user = await prisma.user.delete({
@@ -175,7 +209,7 @@ class AdminService {
   ): Promise<ApiResponse<User>> {
     const session = await auth();
 
-    if (!session) {
+    if (!session?.user) {
       return {
         success: false,
         error: "로그인이 필요합니다.",
@@ -183,20 +217,34 @@ class AdminService {
       };
     }
 
-    const registrant = await prisma.user.findUnique({
-      where: { id: session?.user?.id },
-      select: {
-        role: true,
-        id: true,
-      },
-    });
+    const [registrant, targetUser] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true, id: true, userId: true },
+      }),
+      prisma.user.findUnique({
+        where: { id },
+        select: { role: true, userId: true },
+      }),
+    ]);
 
-    if (!registrant || !hasAccess(registrant.role, UserRole.SUPERMASTER)) {
+    if (!registrant || !targetUser) {
       return {
         success: false,
-        error: "권한이 없습니다.",
+        error: "유저를 찾을 수 없습니다.",
         data: null,
       };
+    }
+
+    // SUPERMASTER 간의 권한 관리 규칙
+    if (targetUser.role === UserRole.SUPERMASTER) {
+      if (registrant.userId !== 1) {
+        return {
+          success: false,
+          error: "다른 슈퍼마스터의 상태를 수정할 수 없습니다.",
+          data: null,
+        };
+      }
     }
 
     const result = await prisma.user.update({

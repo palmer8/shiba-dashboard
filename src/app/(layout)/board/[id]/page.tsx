@@ -21,7 +21,9 @@ export default async function BoardPage({ params }: BoardPageProps) {
     return redirect("/pending");
   }
 
-  const result = await boardService.getBoardById(awaitParams.id);
+  await boardService.incrementViewCount(awaitParams.id);
+
+  const result = await boardService.getBoardDetail(awaitParams.id);
 
   if (!result.success || !result.data) {
     redirect("/boards");

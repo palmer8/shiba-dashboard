@@ -289,6 +289,27 @@ export default function BoardWriteForm() {
     setHasDraft(false);
   };
 
+  // 컨텐츠가 비어있는지 확인하는 함수
+  const isEmptyContent = (content: JSONContent) => {
+    // content가 없거나 type이 'doc'가 아닌 경우
+    if (!content || content.type !== "doc") return true;
+
+    // content의 content 배열이 없거나 비어있는 경우
+    if (!content.content || content.content.length === 0) return true;
+
+    // content 내의 모든 텍스트 노드를 검사
+    const hasText = content.content.some((node) => {
+      if (node.type === "paragraph" && node.content) {
+        return node.content.some(
+          (child) => child.type === "text" && child.text?.trim()
+        );
+      }
+      return false;
+    });
+
+    return !hasText;
+  };
+
   const handleSubmit = async () => {
     if (!session?.user?.id) {
       return router.replace("/login");
@@ -305,6 +326,15 @@ export default function BoardWriteForm() {
     if (!category) {
       toast({
         title: "카테고리를 선택해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 내용이 비어있는지 확인
+    if (isEmptyContent(content)) {
+      toast({
+        title: "내용을 입력해주세요.",
         variant: "destructive",
       });
       return;
@@ -381,7 +411,7 @@ export default function BoardWriteForm() {
                 autoFocus
                 minLength={5}
                 maxLength={30}
-                className="text-lg"
+                className="text-2xl"
                 placeholder="제목을 입력해주세요"
                 onChange={(e) => setTitle(e.target.value)}
               />
@@ -491,7 +521,7 @@ export default function BoardWriteForm() {
               autoFocus
               minLength={5}
               maxLength={30}
-              className="font-medium border-0 px-0 focus-visible:ring-0 text-2xl"
+              className="font-medium border-0 px-0 focus-visible:ring-0 text-2xl md:text-2xl"
               placeholder="제목을 입력해주세요"
               onChange={(e) => setTitle(e.target.value)}
             />

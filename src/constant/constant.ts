@@ -59,9 +59,9 @@ const ROLE_LINKS = {
         role: ["STAFF", "INGAME_ADMIN", "MASTER", "SUPERMASTER"],
       },
       {
-        name: "단체 우편",
-        href: "/game/group-mail",
-        role: ["MASTER", "SUPERMASTER"],
+        name: "아이템 지급/회수",
+        href: "/game/item",
+        role: ["INGAME_ADMIN", "MASTER", "STAFF", "SUPERMASTER"],
       },
       {
         name: "개인 우편",
@@ -69,9 +69,9 @@ const ROLE_LINKS = {
         role: ["MASTER", "SUPERMASTER"],
       },
       {
-        name: "아이템 지급/회수",
-        href: "/game/item",
-        role: ["INGAME_ADMIN", "MASTER", "STAFF", "SUPERMASTER"],
+        name: "단체 우편",
+        href: "/game/group-mail",
+        role: ["MASTER", "SUPERMASTER"],
       },
     ],
   },

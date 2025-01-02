@@ -1,3 +1,4 @@
+import { UserRole } from "@prisma/client";
 import { z } from "zod";
 
 export const categorySchema = z.object({
@@ -5,6 +6,7 @@ export const categorySchema = z.object({
     message: "카테고리 이름을 입력해주세요.",
   }),
   isUsed: z.boolean(),
+  role: z.nativeEnum(UserRole).optional(),
   template: z.any(),
 });
 
@@ -15,6 +17,7 @@ export const editCategorySchema = z.object({
     message: "카테고리 이름을 입력해주세요.",
   }),
   isUsed: z.boolean(),
+  role: z.nativeEnum(UserRole).optional(),
   template: z.any(),
 });
 

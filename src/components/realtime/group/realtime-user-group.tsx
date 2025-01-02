@@ -32,10 +32,12 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Download } from "lucide-react";
+import { Session } from "next-auth";
 
 interface RealtimeUserGroupProps {
   data: RealtimeGameUserData;
   userId: number;
+  session: Session;
 }
 
 export default function RealtimeUserGroup({

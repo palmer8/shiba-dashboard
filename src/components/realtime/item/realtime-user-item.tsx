@@ -36,6 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Session } from "next-auth";
 
 interface RealtimeUserItemProps {
   data: {
@@ -45,6 +46,7 @@ interface RealtimeUserItemProps {
   };
   userId: number;
   isAdmin: boolean;
+  session: Session;
 }
 
 export default function RealtimeUserItem({
@@ -53,7 +55,6 @@ export default function RealtimeUserItem({
   isAdmin,
 }: RealtimeUserItemProps) {
   const [editingItem, setEditingItem] = useState<string | null>(null);
-  const [tempAmount, setTempAmount] = useState<number | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{
     id: string;

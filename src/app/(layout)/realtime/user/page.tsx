@@ -39,7 +39,7 @@ export default async function RealtimeUserPage({
         title="유저 정보"
         description="유저 정보 메뉴에서 고유번호를 통해 유저를 조회하고 관리하세요."
       />
-      <RealtimeUseridSearch userId={userId} />
+      <RealtimeUseridSearch userId={userId} data={response?.data} />
       {response?.data && userId && (
         <Tabs defaultValue="info">
           <TabsList>
@@ -49,8 +49,10 @@ export default async function RealtimeUserPage({
           </TabsList>
           <TabsContent value="info">
             <RealtimeUserInfo
+              userId={userId}
               data={response.data}
-              isAdmin={hasAccess(session.user.role, UserRole.INGAME_ADMIN)}
+              isAdmin={hasAccess(session.user.role, UserRole.MASTER)}
+              session={session}
             />
           </TabsContent>
           <TabsContent value="item">
@@ -58,10 +60,15 @@ export default async function RealtimeUserPage({
               data={response.data}
               userId={userId}
               isAdmin={hasAccess(session.user.role, UserRole.INGAME_ADMIN)}
+              session={session}
             />
           </TabsContent>
           <TabsContent value="group">
-            <RealtimeUserGroup data={response.data} userId={userId} />
+            <RealtimeUserGroup
+              data={response.data}
+              userId={userId}
+              session={session}
+            />
           </TabsContent>
         </Tabs>
       )}

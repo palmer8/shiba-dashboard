@@ -477,7 +477,7 @@ class CreditService {
       console.error("Update reward revoke error:", error);
       return {
         success: false,
-        error: "재화 지급/회수 정보 수정에 실패��습니다.",
+        error: "재화 지급/회수 정보 수정에 실패했습니다.",
         data: null,
       };
     }

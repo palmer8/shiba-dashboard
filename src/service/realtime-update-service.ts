@@ -179,13 +179,20 @@ class RealtimeUpdateService {
       };
     }
 
-    // 그룹 정보 조회
     const group = await prisma.groups.findUnique({
       where: { groupId: data.group },
       select: { minRole: true },
     });
 
-    if (!group) {
+    if (group) {
+      if (!hasAccess(user.role, group.minRole)) {
+        return {
+          data: null,
+          success: false,
+          error: "해당 그룹을 수정할 권한이 없습니다",
+        };
+      }
+    } else if (!group && data.action !== "remove") {
       return {
         data: null,
         success: false,
@@ -193,22 +200,11 @@ class RealtimeUpdateService {
       };
     }
 
-    // 권한 체크
-    if (!hasAccess(user.role, group.minRole)) {
-      return {
-        data: null,
-        success: false,
-        error: "해당 그룹을 수정할 권한이 없습니다",
-      };
-    }
-
     const response = await fetch(
       `${process.env.PRIVATE_API_URL}/DokkuApi/updateplayerGroup`,
       {
         method: "POST",
-        headers: {
-          key: process.env.PRIVATE_API_KEY || "",
-        },
+        headers: { key: process.env.PRIVATE_API_KEY || "" },
         body: JSON.stringify(data),
       }
     );

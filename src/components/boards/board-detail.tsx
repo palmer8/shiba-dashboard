@@ -64,36 +64,39 @@ export const BoardDetail = memo(function BoardDetail({
   userRole,
 }: BoardDetailProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
   const { data: session } = useSession();
   const [showLikes, setShowLikes] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [isLiked, setIsLiked] = useState(board.isLiked);
+  const [likeCount, setLikeCount] = useState(board._count.likes);
 
   const canModify =
     userId === board.registrant.id || userRole === UserRole.SUPERMASTER;
 
   const handleLikeClick = useCallback(async () => {
-    startTransition(async () => {
-      if (!session?.user) {
-        toast({
-          title: "로그인이 필요합니다",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!session?.user) {
+      toast({
+        title: "로그인이 필요합니다",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      const result = await toggleBoardLikeAction(board.id);
-      if (result.success) {
-        router.refresh();
-      } else {
-        toast({
-          title: "좋아요 처리 실패",
-          description: result.error || "잠시 후 다시 시도해주세요",
-          variant: "destructive",
-        });
-      }
-    });
-  }, [board.id, session?.user, router]);
+    setIsLiked((prev) => !prev);
+    setLikeCount((prev) => prev + (isLiked ? -1 : 1));
+
+    const result = await toggleBoardLikeAction(board.id);
+    if (!result.success) {
+      setIsLiked((prev) => !prev);
+      setLikeCount((prev) => prev + (isLiked ? 1 : -1));
+
+      toast({
+        title: "좋아요 처리 실패",
+        description: result.error || "잠시 후 다시 시도해주세요",
+        variant: "destructive",
+      });
+    }
+  }, [board.id, session?.user, isLiked]);
 
   const handleDelete = async () => {
     const result = await deleteBoardAction(board.id);
@@ -168,10 +171,10 @@ export const BoardDetail = memo(function BoardDetail({
                 >
                   <Heart
                     className={`h-4 w-4 ${
-                      board.isLiked ? "fill-current text-red-500" : ""
+                      isLiked ? "fill-current text-red-500" : ""
                     }`}
                   />
-                  <span>{board._count.likes}</span>
+                  <span>{likeCount}</span>
                 </Button>
               </div>
             </div>

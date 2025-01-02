@@ -21,10 +21,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import EditUserDialog from "@/components/dialog/edit-user-dialog";
-import { formatRole } from "@/lib/utils";
+import { formatRole, getFirstNonEmojiCharacter } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Button } from "../ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
 interface NavUserProps {
@@ -58,7 +58,9 @@ export function NavUser({ session }: NavUserProps) {
         >
           <Avatar className="h-8 w-8">
             <AvatarImage src={session.user?.image || undefined} />
-            <AvatarFallback>{session.user?.nickname?.[0]}</AvatarFallback>
+            <AvatarFallback>
+              {getFirstNonEmojiCharacter(session.user?.nickname)}
+            </AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden text-left">
             <p className="truncate text-sm font-medium">
