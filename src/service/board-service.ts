@@ -860,8 +860,6 @@ class BoardService {
       };
 
     try {
-      console.log(session.user.role);
-
       const categories = await prisma.boardCategory.findMany({
         where: {
           isUsed: true,

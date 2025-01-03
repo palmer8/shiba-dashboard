@@ -114,20 +114,6 @@ export default function RealtimeGroupTable({
           );
         },
       },
-      {
-        id: "action",
-        header: "",
-        cell: ({ row }) => (
-          <Button
-            variant="destructive"
-            onClick={() =>
-              handleRemoveGroup(row.original.user_id, row.original.name)
-            }
-          >
-            추방
-          </Button>
-        ),
-      },
     ],
     []
   );
