@@ -35,6 +35,8 @@ type RealtimeGameUserData = {
   wallet: string | null;
   weapons: Record<string, string> | null;
   skinName?: string;
+  lbPhoneNumber?: string;
+  lbPhonePin?: string;
   incidentReports: IncidentReport[];
 };
 

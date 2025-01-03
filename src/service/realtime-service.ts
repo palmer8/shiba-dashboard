@@ -1,11 +1,18 @@
 import pool from "@/db/mysql";
 import prisma from "@/db/prisma";
 import { auth } from "@/lib/auth-config";
-import { ROLE_HIERARCHY } from "@/lib/utils";
+import {
+  formatKoreanNumber,
+  hasAccess,
+  parseCustomDateString,
+  ROLE_HIERARCHY,
+} from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { RowDataPacket } from "mysql2";
 import { ApiResponse } from "@/types/global.dto";
 import { reportService } from "@/service/report-service";
+import { CompanyResult, InstagramResult } from "@/types/game";
+import { redirect } from "next/navigation";
 
 type ComparisonOperator = "gt" | "gte" | "lt" | "lte" | "eq";
 type PaginationParams = { page: number };
@@ -13,8 +20,8 @@ type BaseQueryResult = {
   id: number;
   nickname: string;
   first_join: Date;
-  amount: number;
-  type?: string;
+  result: string;
+  type: string;
 };
 
 interface PaginatedResult<T> {
@@ -89,6 +96,8 @@ class RealtimeService {
         [newbieResults],
         [warningResults],
         incidentReports,
+        [lbphoneResults],
+        [discordIdentifier],
       ] = await Promise.all([
         fetch(`${process.env.PRIVATE_API_URL}/DokkuApi/getPlayerData`, {
           method: "POST",
@@ -114,6 +123,18 @@ class RealtimeService {
 
         // 사건 처리 보고서 조회
         reportService.getIncidentReportsByTargetUserId(userId),
+
+        //lb폰 조회
+        pool.execute<RowDataPacket[]>(
+          "SELECT phone_number, pin FROM phone_phones WHERE id = ?",
+          [userId]
+        ),
+
+        // Discord 식별자 조회 추가
+        pool.execute<RowDataPacket[]>(
+          "SELECT identifier FROM vrp_user_ids WHERE user_id = ? AND identifier LIKE 'discord:%' LIMIT 1",
+          [userId]
+        ),
       ]);
 
       if (userDataResponse.error) {
@@ -133,6 +154,10 @@ class RealtimeService {
         incidentReports: incidentReports.success
           ? incidentReports.data.records
           : [],
+        lbPhoneNumber: lbphoneResults?.[0]?.phone_number ?? null,
+        lbPhonePin: lbphoneResults?.[0]?.pin ?? null,
+        discordId:
+          discordIdentifier?.[0]?.identifier?.replace("discord:", "") ?? null,
       };
 
       return {
@@ -307,6 +332,7 @@ class RealtimeService {
       itemId: string;
       value: number;
       condition: ComparisonOperator;
+      type: "ITEM_CODE" | "ITEM_NAME";
     } & PaginationParams
   ): Promise<PaginatedResult<BaseQueryResult>> {
     try {
@@ -366,8 +392,8 @@ class RealtimeService {
             id: row.id,
             nickname: row.nickname,
             first_join: row.first_join,
-            amount: Number(row.amount),
-            type: "item",
+            result: `${formatKoreanNumber(row.amount)}개`,
+            type: query.type,
           })
         ),
         total,
@@ -433,7 +459,7 @@ class RealtimeService {
             id: row.id,
             nickname: row.nickname,
             first_join: row.first_join,
-            amount: Number(row.amount),
+            result: `${formatKoreanNumber(row.amount)}원`,
             type: "registration",
           })
         ),
@@ -505,8 +531,8 @@ class RealtimeService {
           (row: RowDataPacket): BaseQueryResult => ({
             id: row.id,
             nickname: row.nickname,
-            first_join: row.first_join,
-            amount: Number(row.amount),
+            first_join: parseCustomDateString(row.first_join),
+            result: `${formatKoreanNumber(row.amount)}개`,
             type: creditType,
           })
         ),
@@ -578,8 +604,8 @@ class RealtimeService {
           (row: RowDataPacket): BaseQueryResult => ({
             id: row.id,
             nickname: row.nickname,
-            first_join: row.first_join,
-            amount: Number(row.amount),
+            first_join: parseCustomDateString(row.first_join),
+            result: `${formatKoreanNumber(row.amount)}원`,
             type: moneyType,
           })
         ),
@@ -649,8 +675,8 @@ class RealtimeService {
             id: row.id,
             nickname: row.nickname,
             first_join: row.first_join,
-            amount: Number(row.amount),
-            type: "mileage",
+            result: `${formatKoreanNumber(row.amount)}`,
+            type: "MILEAGE",
           })
         ),
         total,
@@ -675,6 +701,15 @@ class RealtimeService {
       condition: ComparisonOperator;
     } & PaginationParams
   ): Promise<PaginatedResult<BaseQueryResult>> {
+    const session = await auth();
+    if (!session || !session.user) {
+      return redirect("/");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) {
+      return redirect("/");
+    }
+
     try {
       const { cashType, value, condition, page } = query;
       const pageSize = 50;
@@ -722,7 +757,7 @@ class RealtimeService {
             id: row.id,
             nickname: row.nickname,
             first_join: row.first_join,
-            amount: Number(row.amount),
+            result: `${formatKoreanNumber(row.amount)}원`,
             type: cashType,
           })
         ),
@@ -922,6 +957,229 @@ class RealtimeService {
           error instanceof Error
             ? error.message
             : "알 수 없는 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  async getGameDataByUsername(query: {
+    value: string;
+    page: number;
+  }): Promise<PaginatedResult<BaseQueryResult>> {
+    try {
+      const { value, page } = query;
+      const pageSize = 50;
+      const offset = (page - 1) * pageSize;
+
+      // 단일 쿼리로 통합하고 COUNT(*) OVER() 사용
+      const dataQuery = `
+        SELECT 
+          u.id,
+          SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname,
+          ui.first_join,
+          u.last_login as result,
+          COUNT(*) OVER() as total
+        FROM vrp_users u
+        LEFT JOIN vrp_user_identities ui ON ui.user_id = u.id
+        WHERE SUBSTRING_INDEX(u.last_login, ' ', -1) LIKE ?
+        ORDER BY u.id DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
+        `%${value}%`,
+        pageSize,
+        offset,
+      ]);
+
+      const total = rows[0]?.total || 0;
+
+      return {
+        data: rows.map((row) => ({
+          id: row.id,
+          nickname: row.nickname,
+          first_join: row.first_join,
+          result: row.result,
+          type: "NICKNAME",
+        })),
+        total,
+        currentPage: page,
+        totalPages: Math.ceil(total / pageSize),
+        pageSize,
+      };
+    } catch (error) {
+      console.error("유저 닉네임 조회 에러:", error);
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : "알 수 없는 오류가 발생했습니다."
+      );
+    }
+  }
+
+  async getGameDataByInstagram(query: {
+    value: string;
+    page: number;
+  }): Promise<PaginatedResult<InstagramResult>> {
+    try {
+      const { value, page } = query;
+      const pageSize = 50;
+      const offset = (page - 1) * pageSize;
+
+      const dataQuery = `
+        SELECT 
+          u.id,
+          SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname,
+          ui.first_join,
+          i.display_name,
+          i.username,
+          i.phone_number,
+          i.date_joined,
+          COUNT(*) OVER() as total
+        FROM phone_instagram_accounts i
+        INNER JOIN phone_phones p ON i.phone_number = p.phone_number
+        INNER JOIN vrp_users u ON p.id = u.id
+        LEFT JOIN vrp_user_identities ui ON ui.user_id = u.id
+        WHERE i.username LIKE ?
+        ORDER BY u.id DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
+        `%${value}%`,
+        pageSize,
+        offset,
+      ]);
+
+      const total = rows[0]?.total || 0;
+      const totalPages = Math.ceil(total / pageSize);
+
+      return {
+        data: rows.map(
+          (row: RowDataPacket): InstagramResult => ({
+            id: row.id,
+            nickname: row.nickname,
+            first_join: row.first_join,
+            display_name: row.display_name,
+            username: row.username,
+            phone_number: row.phone_number,
+            date_joined: row.date_joined,
+          })
+        ),
+        total,
+        currentPage: page,
+        totalPages,
+        pageSize,
+      };
+    } catch (error) {
+      console.error("인스타그램 계정 조회 에러:", error);
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : "알 수 없는 오류가 발생했습니다."
+      );
+    }
+  }
+
+  async getGameDataByCompany(query: {
+    value: string;
+    page: number;
+  }): Promise<PaginatedResult<CompanyResult>> {
+    const session = await auth();
+    if (!session || !session.user) {
+      return redirect("/");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
+      return redirect("/");
+    }
+
+    try {
+      const { value, page } = query;
+      const pageSize = 50;
+      const offset = (page - 1) * pageSize;
+
+      const dataQuery = `
+        SELECT 
+          c.id,
+          c.name,
+          c.capital,
+          COUNT(*) OVER() as total
+        FROM dokku_company c
+        WHERE c.name LIKE ?
+        ORDER BY c.capital DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
+        `%${value}%`,
+        pageSize,
+        offset,
+      ]);
+
+      const total = rows[0]?.total || 0;
+      const totalPages = Math.ceil(total / pageSize);
+
+      return {
+        data: rows.map(
+          (row: RowDataPacket): CompanyResult => ({
+            id: row.id,
+            name: row.name,
+            capital: row.capital,
+          })
+        ),
+        total,
+        currentPage: page,
+        totalPages,
+        pageSize,
+      };
+    } catch (error) {
+      console.error("팩션 데이터 조회 에러:", error);
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : "알 수 없는 오류가 발생했습니다."
+      );
+    }
+  }
+
+  async updateCompanyCapital(
+    companyId: number,
+    capital: number
+  ): Promise<ApiResponse<any>> {
+    const session = await auth();
+    if (!session || !session.user) {
+      return {
+        success: false,
+        data: null,
+        error: "로그인이 필요합니다.",
+      };
+    }
+
+    if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) {
+      return {
+        success: false,
+        data: null,
+        error: "권한이 없습니다.",
+      };
+    }
+
+    try {
+      const query = `UPDATE dokku_company SET capital = ? WHERE id = ?`;
+      const [result] = await pool.execute<RowDataPacket[]>(query, [
+        capital,
+        companyId,
+      ]);
+      return {
+        success: true,
+        data: null,
+        error: null,
+      };
+    } catch (error) {
+      console.error("팩션 잔고 업데이트 에러:", error);
+      return {
+        success: false,
+        data: null,
+        error: "알 수 없는 오류가 발생했습니다.",
       };
     }
   }

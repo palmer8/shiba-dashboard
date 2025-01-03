@@ -15,11 +15,17 @@ import { GameDataTable } from "./game-data-table";
 import { useRouter } from "next/navigation";
 import { GameDataType } from "@/types/game";
 import { toast } from "@/hooks/use-toast";
+import { ItemComboBox } from "@/components/global/item-combo-box";
+import { RotateCcw } from "lucide-react";
+import { Session } from "next-auth";
+import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
 
 interface GameDataFilterProps {
   data: any;
   currentPage: number;
   type: GameDataType;
+  session: Session;
   error: string | null;
 }
 
@@ -28,12 +34,13 @@ export default function GameDataFilter({
   data,
   currentPage,
   type,
+  session,
 }: GameDataFilterProps) {
   const router = useRouter();
 
   const initialQuery = useMemo(() => {
     return {
-      type: "ITEM",
+      type: type || "ITEM_CODE",
       itemId: "",
       value: "",
       condition: "gt",
@@ -47,8 +54,29 @@ export default function GameDataFilter({
     setQuery(initialQuery);
   };
 
-  const handleSearch = () => {
-    if (query.type === "ITEM") {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    // 입력값 검증
+    if (!query.type) return;
+
+    // ITEM_CODE나 ITEM_NAME인 경우 itemId 필수
+    if (
+      (query.type === "ITEM_CODE" || query.type === "ITEM_NAME") &&
+      !query.itemId
+    ) {
+      return;
+    }
+
+    // 값이 필요한 경우 검증
+    if (
+      !["INSTAGRAM", "NICKNAME", "REGISTRATION"].includes(query.type) &&
+      !query.value
+    ) {
+      return;
+    }
+
+    if (query.type === "ITEM_CODE" || query.type === "ITEM_NAME") {
       router.replace(
         `/log/game?type=${query.type}&itemId=${query.itemId}&value=${query.value}&condition=${query.condition}&page=1`
       );
@@ -57,12 +85,6 @@ export default function GameDataFilter({
         `/log/game?type=${query.type}&value=${query.value}&condition=${query.condition}&page=1`
       );
     }
-  };
-
-  const handlePageChange = (page: number) => {
-    const searchParams = new URLSearchParams(window.location.search);
-    searchParams.set("page", page.toString());
-    router.replace(`/log/game?${searchParams.toString()}`);
   };
 
   useEffect(() => {
@@ -75,95 +97,116 @@ export default function GameDataFilter({
   }, [data, error]);
 
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-4 sm:flex sm:flex-wrap sm:items-end">
-        <div className="grid gap-2">
-          <Label>유형 선택</Label>
-          <Select
-            value={query.type}
-            onValueChange={(value) =>
-              setQuery({ ...initialQuery, type: value })
-            }
-          >
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="아이템" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ITEM">아이템</SelectItem>
-              <SelectItem value="CURRENT_CASH">보유 캐시</SelectItem>
-              <SelectItem value="ACCUMULATED_CASH">누적 캐시</SelectItem>
-              <SelectItem value="CREDIT">골드 박스</SelectItem>
-              <SelectItem value="CREDIT2">프리미엄 박스</SelectItem>
-              <SelectItem value="WALLET">현금</SelectItem>
-              <SelectItem value="BANK">계좌</SelectItem>
-              <SelectItem value="MILEAGE">마일리지</SelectItem>
-              <SelectItem value="REGISTRATION">차량번호</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {query.type === "ITEM" && (
-          <div className="grid w-full gap-2 sm:w-auto">
-            <Label>아이템 ID</Label>
-            <Input
-              className="w-full sm:w-[200px]"
-              placeholder="아이템 ID"
-              value={query.itemId}
-              onChange={(e) => setQuery({ ...query, itemId: e.target.value })}
-            />
-          </div>
-        )}
-        <div className="grid gap-2">
-          <Label>값 입력</Label>
-          <Input
-            className="w-full sm:w-[200px]"
-            placeholder="값 입력 (수치)"
-            value={query.value}
-            onChange={(e) => setQuery({ ...query, value: e.target.value })}
-          />
-        </div>
-        {query.type !== "REGISTRATION" && (
-          <div className="grid gap-2">
-            <Label>조건 선택</Label>
+    <div className="grid gap-6">
+      <form onSubmit={handleSubmit} className="contents">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Label>유형 선택</Label>
             <Select
-              value={query.condition}
+              value={query.type}
               onValueChange={(value) =>
-                setQuery({ ...query, condition: value })
+                setQuery({ ...initialQuery, type: value as GameDataType })
               }
             >
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="조건 선택" />
+              <SelectTrigger>
+                <SelectValue placeholder="유형 선택" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="gt">{">"}</SelectItem>
-                <SelectItem value="lt">{"<"}</SelectItem>
-                <SelectItem value="gte">{">="}</SelectItem>
-                <SelectItem value="lte">{"<="}</SelectItem>
-                <SelectItem value="eq">{"="}</SelectItem>
+                <SelectItem value="ITEM_CODE">아이템 코드</SelectItem>
+                <SelectItem value="ITEM_NAME">아이템 이름</SelectItem>
+                <SelectItem value="NICKNAME">닉네임</SelectItem>
+                <SelectItem value="INSTAGRAM">인스타그램 계정</SelectItem>
+                {hasAccess(session.user?.role, UserRole.SUPERMASTER) && (
+                  <>
+                    <SelectItem value="CURRENT_CASH">보유 캐시</SelectItem>
+                    <SelectItem value="ACCUMULATED_CASH">누적 캐시</SelectItem>
+                  </>
+                )}
+                <SelectItem value="CREDIT">골드 박스</SelectItem>
+                <SelectItem value="CREDIT2">프리미엄 박스</SelectItem>
+                <SelectItem value="WALLET">현금</SelectItem>
+                <SelectItem value="BANK">계좌</SelectItem>
+                <SelectItem value="MILEAGE">마일리지</SelectItem>
+                <SelectItem value="REGISTRATION">차량번호</SelectItem>
+                {hasAccess(session.user?.role, UserRole.INGAME_ADMIN) && (
+                  <SelectItem value="COMPANY">팩션 공동 계좌 잔고</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
-        )}
-        <div className="flex gap-2 sm:self-end">
-          <Button className="flex-1 sm:flex-none" onClick={handleSearch}>
-            조회
-          </Button>
+
+          {query.type === "ITEM_CODE" && (
+            <div className="space-y-2">
+              <Label>아이템 코드</Label>
+              <Input
+                placeholder="아이템 코드"
+                value={query.itemId}
+                onChange={(e) => setQuery({ ...query, itemId: e.target.value })}
+              />
+            </div>
+          )}
+
+          {query.type === "ITEM_NAME" && (
+            <div className="grid gap-2">
+              <Label className="mt-2">아이템 이름</Label>
+              <ItemComboBox
+                key={query.type}
+                value={query.itemId}
+                onChange={(item) => setQuery({ ...query, itemId: item.id })}
+                placeholder="아이템 이름 검색..."
+                className="w-full sm:w-[300px]"
+              />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label>값 입력</Label>
+            <Input
+              placeholder="값 입력"
+              value={query.value}
+              onChange={(e) => setQuery({ ...query, value: e.target.value })}
+            />
+          </div>
+
+          {!["INSTAGRAM", "NICKNAME", "REGISTRATION", "COMPANY"].includes(
+            query.type
+          ) && (
+            <div className="space-y-2">
+              <Label>조건 선택</Label>
+              <Select
+                value={query.condition}
+                onValueChange={(value) =>
+                  setQuery({ ...query, condition: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="조건 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gt">{">"}</SelectItem>
+                  <SelectItem value="lt">{"<"}</SelectItem>
+                  <SelectItem value="gte">{">="}</SelectItem>
+                  <SelectItem value="lte">{"<="}</SelectItem>
+                  <SelectItem value="eq">{"="}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
           <Button
-            variant="secondary"
-            className="flex-1 sm:flex-none"
+            type="button"
+            variant="outline"
             onClick={handleReset}
+            className="gap-2"
           >
+            <RotateCcw className="h-4 w-4" />
             초기화
           </Button>
+          <Button type="submit">조회</Button>
         </div>
-      </div>
-      <GameDataTable
-        type={query.type as GameDataType}
-        queryType={type}
-        data={data}
-        currentPage={currentPage}
-        onPageChange={handlePageChange}
-        totalPages={data?.totalPages || 1}
-      />
+      </form>
     </div>
   );
 }

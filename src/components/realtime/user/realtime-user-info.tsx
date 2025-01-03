@@ -4,12 +4,16 @@ import { RealtimeGameUserData } from "@/types/user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatKoreanDateTime, formatKoreanNumber } from "@/lib/utils";
+import {
+  formatKoreanDateTime,
+  formatKoreanNumber,
+  getFirstNonEmojiCharacter,
+} from "@/lib/utils";
 import { parseCustomDateString } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Undo2 } from "lucide-react";
+import { Undo2, Copy } from "lucide-react";
 import IncidentReportTable from "@/components/report/incident-report-table";
 import { Session } from "next-auth";
 import { returnPlayerSkinAction } from "@/actions/realtime/realtime-action";
@@ -62,7 +66,6 @@ export default function RealtimeUserInfo({
     }
   };
 
-  // 하이드레이션 에러 해결을 위한 초기 렌더링 상태 관리
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -70,7 +73,7 @@ export default function RealtimeUserInfo({
   }, []);
 
   if (!isMounted) {
-    return null; // 초기 렌더링 시 아무것도 표시하지 않음
+    return null;
   }
 
   return (
@@ -80,7 +83,7 @@ export default function RealtimeUserInfo({
         <div className="flex items-start gap-4">
           <Avatar className="h-20 w-20 relative z-0">
             <AvatarFallback className="text-lg">
-              {data.last_nickname?.[0] || "U"}
+              {getFirstNonEmojiCharacter(data.last_nickname || "?")}
             </AvatarFallback>
           </Avatar>
           <div className="space-y-1">
@@ -197,6 +200,38 @@ export default function RealtimeUserInfo({
                     뉴비 코드
                   </h3>
                   <p>{data.newbieCode || "-"}</p>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    LB폰 번호
+                  </h3>
+                  <p>{data.lbPhoneNumber || "-"}</p>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    LB폰 Pin
+                  </h3>
+                  {data.lbPhonePin ? (
+                    <div
+                      className="group relative cursor-pointer inline-block"
+                      onClick={() => {
+                        navigator.clipboard.writeText(data.lbPhonePin || "");
+                        toast({
+                          title: "PIN 복사됨",
+                          description: "클립보드에 복사되었습니다.",
+                        });
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <p className="blur-sm group-hover:blur-none transition-all duration-200">
+                          {data.lbPhonePin}
+                        </p>
+                        <Copy className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                  ) : (
+                    <p>-</p>
+                  )}
                 </div>
                 <div className="space-y-0">
                   <div className="flex items-center justify-between mb-2">

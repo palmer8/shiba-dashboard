@@ -249,7 +249,7 @@ export function CouponTable({ data, page, session }: CouponTableProps) {
         { data: result.data.coupons, fileName: "coupons" },
       ]);
       toast({
-        title: "CSV 다운로드 완료",
+        title: "CSV 다운로드 성공",
       });
     } else {
       toast({

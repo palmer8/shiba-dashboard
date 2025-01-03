@@ -24,12 +24,14 @@ interface ItemComboBoxProps {
   value?: string;
   onChange?: (value: { id: string; name: string }) => void;
   placeholder?: string;
+  className?: string;
 }
 
 export function ItemComboBox({
   value,
   onChange,
   placeholder,
+  className,
 }: ItemComboBoxProps) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState("");
@@ -70,7 +72,7 @@ export function ItemComboBox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className={cn("w-full justify-between", className)}
         >
           <span className="text-ellipsis overflow-hidden whitespace-nowrap">
             {value

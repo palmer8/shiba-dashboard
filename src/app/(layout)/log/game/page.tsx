@@ -7,6 +7,7 @@ import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { redirect } from "next/navigation";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
+import { GameDataTable } from "@/components/game/game-data-table";
 
 interface LogGamePageProps {
   searchParams: Promise<{
@@ -34,11 +35,30 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
   try {
     const { type, itemId, value, condition, page = "1" } = params;
 
-    if (type === "ITEM" && itemId && value && condition) {
+    if (type === "ITEM_CODE" && itemId && value && condition) {
       data = await realtimeService.getGameDataByItemType({
         itemId,
         value: Number(value),
         condition: condition as ComparisonOperator,
+        type: "ITEM_CODE",
+        page: Number(page),
+      });
+    } else if (type === "ITEM_NAME" && itemId && value && condition) {
+      data = await realtimeService.getGameDataByItemType({
+        itemId,
+        value: Number(value),
+        condition: condition as ComparisonOperator,
+        type: "ITEM_NAME",
+        page: Number(page),
+      });
+    } else if (type === "NICKNAME" && value) {
+      data = await realtimeService.getGameDataByUsername({
+        value,
+        page: Number(page),
+      });
+    } else if (type === "INSTAGRAM" && value) {
+      data = await realtimeService.getGameDataByInstagram({
+        value,
         page: Number(page),
       });
     } else if (
@@ -81,6 +101,11 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
         condition: condition as ComparisonOperator,
         page: Number(page),
       });
+    } else if (type === "COMPANY" && value) {
+      data = await realtimeService.getGameDataByCompany({
+        value,
+        page: Number(page),
+      });
     }
   } catch (e) {
     error =
@@ -102,6 +127,13 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
         type={params.type as GameDataType}
         data={data}
         currentPage={Number(params.page) || 1}
+        session={session}
+      />
+      <GameDataTable
+        data={data}
+        currentPage={Number(params.page) || 1}
+        totalPages={data?.totalPages || 1}
+        queryType={params.type as GameDataType}
       />
     </main>
   );

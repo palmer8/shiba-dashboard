@@ -139,7 +139,10 @@ export function formatKoreanNumber(num: number) {
 
 export function formatGameDataType(type: string): string {
   const types: Record<string, string> = {
-    item: "아이템",
+    ITEM_CODE: "아이템 코드",
+    ITEM_NAME: "아이템 이름",
+    NICKNAME: "닉네임",
+    INSTAGRAM: "인스타그램",
     CREDIT: "골드 박스",
     CREDIT2: "프리미엄 박스",
     WALLET: "현금",

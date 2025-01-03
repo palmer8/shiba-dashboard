@@ -235,7 +235,7 @@ export function BoardTable({
           이전
         </Button>
         <span className="text-sm">
-          {metadata.currentPage} / {metadata.totalPages}
+          {metadata.currentPage} / {metadata.totalPages || 1}
         </span>
         <Button
           variant="outline"
