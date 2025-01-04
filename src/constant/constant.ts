@@ -45,7 +45,12 @@ const ROLE_LINKS = {
       {
         name: "게임 데이터 조회",
         href: "/log/game",
-        role: ["INGAME_ADMIN", "MASTER", "SUPERMASTER"],
+        role: ["INGAME_ADMIN", "MASTER", "SUPERMASTER", "STAFF"],
+      },
+      {
+        name: "스태프 로그 조회",
+        href: "/log/staff",
+        role: ["INGAME_ADMIN", "MASTER", "SUPERMASTER", "STAFF"],
       },
     ],
   },
@@ -114,7 +119,7 @@ const ROLE_LINKS = {
       {
         name: "IP 관리",
         href: "/block/ip",
-        role: ["MASTER", "SUPERMASTER"],
+        role: ["STAFF", "INGAME_ADMIN", "MASTER", "SUPERMASTER"],
       },
     ],
   },

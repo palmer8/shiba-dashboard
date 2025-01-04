@@ -3,6 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/db/prisma";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { Adapter } from "next-auth/adapters";
+import bcrypt from "bcrypt";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 2 },
@@ -28,6 +29,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             name: credentials.name as string,
           },
         });
+
+        const validPassword = await bcrypt.compare(
+          credentials.password as string,
+          user?.hashedPassword || ""
+        );
+
+        if (!validPassword) {
+          return null;
+        }
 
         return user;
       },

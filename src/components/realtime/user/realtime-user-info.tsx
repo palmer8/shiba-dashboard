@@ -89,13 +89,15 @@ export default function RealtimeUserInfo({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h2 className="text-2xl font-bold">{data.last_nickname}</h2>
-              {data.online ? (
-                <Badge variant="outline" className="bg-green-500/50">
-                  온라인
-                </Badge>
-              ) : (
-                <Badge variant="secondary">오프라인</Badge>
-              )}
+              {data.banned && <Badge variant="destructive">정지</Badge>}
+              {!data.banned &&
+                (data.online ? (
+                  <Badge variant="outline" className="bg-green-500/50">
+                    온라인
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary">오프라인</Badge>
+                ))}
             </div>
             <div className="flex gap-2 text-sm text-muted-foreground">
               <span>{data.job}</span>

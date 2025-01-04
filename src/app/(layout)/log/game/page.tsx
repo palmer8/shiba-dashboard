@@ -5,8 +5,6 @@ import GameDataFilter from "@/components/game/game-data-filter";
 import { ComparisonOperator, GameDataType } from "@/types/game";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { redirect } from "next/navigation";
-import { hasAccess } from "@/lib/utils";
-import { UserRole } from "@prisma/client";
 import { GameDataTable } from "@/components/game/game-data-table";
 
 interface LogGamePageProps {
@@ -23,9 +21,6 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
   const session = await auth();
 
   if (!session || !session.user) return redirect("/login");
-
-  if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN))
-    return redirect("/404");
 
   const params = await searchParams;
 

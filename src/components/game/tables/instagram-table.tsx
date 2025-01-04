@@ -67,6 +67,7 @@ export function InstagramTable({ data }: InstagramTableProps) {
     {
       header: "닉네임",
       accessorKey: "nickname",
+      cell: ({ row }) => `${row.getValue("nickname")} (${row.original.id})`,
     },
     {
       header: "최초 접속일",

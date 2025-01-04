@@ -92,63 +92,56 @@ export default function WhitelistTable({ data }: WhitelistTableProps) {
         accessorKey: "date",
         cell: ({ row }) => formatKoreanDateTime(row.original.date),
       },
-      ...(session?.user?.role === "SUPERMASTER"
-        ? [
-            {
-              id: "actions",
-              header: "관리",
-              cell: ({ row }: { row: Row<WhitelistIP> }) => {
-                const handleDelete = async () => {
-                  if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
-                    const result = await deleteWhitelistAction(row.original.id);
-                    if (result.success) {
-                      toast({
-                        title: "IP 관리 항목 삭제 성공",
-                      });
-                    } else {
-                      toast({
-                        title: "IP 관리 항목 삭제 실패",
-                        description:
-                          result.error || "잠시 후 다시 시도해주세요",
-                        variant: "destructive",
-                      });
-                    }
-                  }
-                };
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }: { row: Row<WhitelistIP> }) => {
+          const handleDelete = async () => {
+            if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
+              const result = await deleteWhitelistAction(row.original.id);
+              if (result.success) {
+                toast({
+                  title: "IP 관리 항목 삭제 성공",
+                });
+              } else {
+                toast({
+                  title: "IP 관리 항목 삭제 실패",
+                  description: result.error || "잠시 후 다시 시도해주세요",
+                  variant: "destructive",
+                });
+              }
+            }
+          };
 
-                return (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <EditWhitelistDialog
-                        initialData={row.original}
-                        trigger={
-                          <DropdownMenuItem
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            <span>수정</span>
-                          </DropdownMenuItem>
-                        }
-                      />
-                      <DropdownMenuItem
-                        onClick={handleDelete}
-                        className="text-red-600"
-                      >
-                        <Trash className="mr-2 h-4 w-4" />
-                        <span>삭제</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              },
-            },
-          ]
-        : []),
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <EditWhitelistDialog
+                  initialData={row.original}
+                  trigger={
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      <span>수정</span>
+                    </DropdownMenuItem>
+                  }
+                />
+                <DropdownMenuItem
+                  onClick={handleDelete}
+                  className="text-red-600"
+                >
+                  <Trash className="mr-2 h-4 w-4" />
+                  <span>삭제</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
     ],
     [session, router]
   );

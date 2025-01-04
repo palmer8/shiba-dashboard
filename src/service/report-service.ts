@@ -386,14 +386,6 @@ class ReportService {
       return redirect("/login");
     }
 
-    if (!hasAccess(session.user.role, UserRole.MASTER)) {
-      return {
-        success: false,
-        data: null,
-        error: "권한이 없습니다",
-      };
-    }
-
     try {
       const pageSize = 50;
       const page = filters.page || 1;
@@ -475,14 +467,6 @@ class ReportService {
         return redirect("/login");
       }
 
-      if (!hasAccess(session.user.role, UserRole.MASTER)) {
-        return {
-          success: false,
-          data: null,
-          error: "권한이 없습니다",
-        };
-      }
-
       const values = data.user_ip.map((ip) => [
         ip,
         data.status ?? 0,
@@ -534,14 +518,6 @@ class ReportService {
 
       if (!session?.user) {
         return redirect("/login");
-      }
-
-      if (!hasAccess(session.user.role, UserRole.MASTER)) {
-        return {
-          success: false,
-          data: null,
-          error: "권한이 없습니다",
-        };
       }
 
       const setClauses: string[] = [];
@@ -604,14 +580,6 @@ class ReportService {
 
       if (!session?.user) {
         return redirect("/login");
-      }
-
-      if (!hasAccess(session.user.role, UserRole.MASTER)) {
-        return {
-          success: false,
-          data: null,
-          error: "권한이 없습니다",
-        };
       }
 
       const [result] = await pool.execute<ResultSetHeader>(

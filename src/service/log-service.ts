@@ -1,15 +1,20 @@
 import { prisma } from "@/db/prisma";
+import pool from "@/db/mysql";
 import db from "@/db/pg";
 import {
   AdminLogFilters,
   AdminLogListResponse,
   GameLogFilters,
   GameLogResponse,
+  StaffLog,
+  StaffLogFilter,
+  StaffLogResponse,
 } from "@/types/log";
 import { auth } from "@/lib/auth-config";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { ApiResponse } from "@/types/global.dto";
+import { RowDataPacket } from "mysql2";
 
 export class LogService {
   async getAdminLogs(
@@ -198,6 +203,80 @@ export class LogService {
             : "알 수 없는 에러가 발생하였습니다",
         data: null,
         success: false,
+      };
+    }
+  }
+
+  async getStaffLogs(
+    filters: StaffLogFilter
+  ): Promise<ApiResponse<StaffLogResponse>> {
+    try {
+      const pageSize = 50;
+      const page = filters.page || 1;
+      const offset = (page - 1) * pageSize;
+
+      let query = `
+        SELECT 
+          SQL_CALC_FOUND_ROWS
+          staff_id,
+          staff_name,
+          target_id,
+          target_name,
+          description,
+          time
+        FROM dokku_stafflog
+        WHERE 1=1
+      `;
+
+      const params: any[] = [];
+
+      if (filters.staffId) {
+        query += ` AND staff_id = ?`;
+        params.push(filters.staffId);
+      }
+
+      if (filters.targetId) {
+        query += ` AND target_id = ?`;
+        params.push(filters.targetId);
+      }
+
+      if (filters.startDate && filters.endDate) {
+        query += ` AND time BETWEEN ? AND ?`;
+        params.push(filters.startDate, filters.endDate);
+      }
+
+      query += ` ORDER BY time DESC LIMIT ? OFFSET ?`;
+      params.push(pageSize, offset);
+
+      const [rows] = await pool.execute<RowDataPacket[]>(query, params);
+      const [countResult] = await pool.execute<RowDataPacket[]>(
+        "SELECT FOUND_ROWS() as total"
+      );
+      const total = countResult[0].total;
+
+      return {
+        success: true,
+        data: {
+          records: rows as StaffLog[],
+          total,
+          page,
+          totalPages: Math.ceil(total / pageSize),
+          pageSize,
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("스태프 로그 조회 에러:", error);
+      return {
+        success: false,
+        data: {
+          records: [],
+          total: 0,
+          page: 1,
+          totalPages: 1,
+          pageSize: 50,
+        },
+        error: "스태프 로그 조회에 실패했습니다.",
       };
     }
   }

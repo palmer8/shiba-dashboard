@@ -44,3 +44,28 @@ export interface GameLogResponse {
   page: number;
   totalPages: number;
 }
+
+export interface StaffLog {
+  staff_id: number;
+  staff_name: string;
+  target_id: number;
+  target_name: string;
+  description: string;
+  time: Date;
+}
+
+export interface StaffLogFilter {
+  staffId?: string;
+  targetId?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+}
+
+export interface StaffLogResponse {
+  records: StaffLog[];
+  total: number;
+  page: number;
+  totalPages: number;
+  pageSize: number;
+}

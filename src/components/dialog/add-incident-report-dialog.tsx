@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -34,8 +33,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createIncidentReportAction } from "@/actions/report-action";
-import { useSession } from "next-auth/react";
-import { useDebounce } from "@/hooks/use-debounce";
 import { getGameNicknameByUserIdAction } from "@/actions/user-action";
 import { IncidentReasonCombobox } from "@/components/report/incident-reason-combobox";
 import { hasAccess } from "@/lib/utils";
@@ -47,6 +44,7 @@ import {
 import { Session } from "next-auth";
 import { ImageUpload } from "@/components/ui/image-upload";
 import Image from "next/image";
+import { useDebounce } from "@/hooks/use-debounce";
 
 interface AddIncidentReportDialogProps {
   session: Session;
@@ -64,13 +62,13 @@ export default function AddIncidentReportDialog({
     defaultValues: {
       reportingUserId: null,
       reportingUserNickname: null,
-      warningCount: null,
-      detentionTimeMinutes: null,
-      banDurationHours: null,
+      warningCount: 0,
+      detentionTimeMinutes: 0,
+      banDurationHours: 0,
       image: null,
       reason: "",
       incidentDescription: "",
-      incidentTime: new Date(),
+      incidentTime: new Date(new Date().getTime() + 9 * 60 * 60 * 1000),
       targetUserId: 0,
       targetUserNickname: "",
       penaltyType: "구두경고",
@@ -246,19 +244,34 @@ export default function AddIncidentReportDialog({
                 <FormItem>
                   <FormLabel>사건 발생 시간</FormLabel>
                   <FormControl>
-                    <Input
-                      className="w-2/5 max-md:w-full"
-                      type="datetime-local"
-                      value={
-                        field.value
-                          ? new Date(field.value).toISOString().slice(0, 16)
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const date = new Date(e.target.value);
-                        field.onChange(date);
-                      }}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Input
+                        className="w-[220px] max-md:w-full"
+                        type="datetime-local"
+                        value={
+                          field.value
+                            ? new Date(field.value).toISOString().slice(0, 16)
+                            : ""
+                        }
+                        onChange={(e) => {
+                          const date = new Date(e.target.value);
+                          field.onChange(date);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const now = new Date(
+                            new Date().setHours(new Date().getHours() + 9)
+                          );
+                          field.onChange(now);
+                        }}
+                      >
+                        현재 시간
+                      </Button>
+                    </div>
                   </FormControl>
                 </FormItem>
               )}

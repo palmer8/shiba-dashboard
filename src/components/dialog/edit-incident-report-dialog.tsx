@@ -229,19 +229,34 @@ export default function EditIncidentReportDialog({
                 <FormItem>
                   <FormLabel>사건 발생 시간</FormLabel>
                   <FormControl>
-                    <Input
-                      className="w-2/5 max-md:w-full"
-                      type="datetime-local"
-                      value={
-                        field.value
-                          ? new Date(field.value).toISOString().slice(0, 16)
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const date = new Date(e.target.value);
-                        field.onChange(date);
-                      }}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Input
+                        className="w-[220px] max-md:w-full"
+                        type="datetime-local"
+                        value={
+                          field.value
+                            ? new Date(field.value).toISOString().slice(0, 16)
+                            : ""
+                        }
+                        onChange={(e) => {
+                          const date = new Date(e.target.value);
+                          field.onChange(date);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const now = new Date(
+                            new Date().setHours(new Date().getHours() + 9)
+                          );
+                          field.onChange(now);
+                        }}
+                      >
+                        현재 시간
+                      </Button>
+                    </div>
                   </FormControl>
                 </FormItem>
               )}

@@ -16,7 +16,7 @@ export const whitelistSchema = z.object({
         "올바른 IP 형식이 아닙니다. (예: 111.111.111.111 또는 111.111.*.*)",
     }
   ),
-  comment: z.string().optional(),
+  comment: z.string().min(1, "설명을 입력해주세요").optional(),
   status: z.enum(Object.keys(WHITELIST_STATUS) as [string, ...string[]]),
 });
 
@@ -36,7 +36,7 @@ export const editWhitelistSchema = z.object({
           "올바른 IP 형식이 아닙니다. (예: 111.111.111.111 또는 111.111.*.*)",
       }
     ),
-  comment: z.string().optional(),
+  comment: z.string().min(1, "설명을 입력해주세요").optional(),
   status: z.enum(Object.keys(WHITELIST_STATUS) as [string, ...string[]]),
 });
 

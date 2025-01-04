@@ -233,16 +233,16 @@ export default function AdminManagementTable({
                             <SelectValue placeholder="권한 변경" />
                           </SelectTrigger>
                           <SelectContent>
-                            {ROLE_OPTIONS.filter((option) => option.value).map(
-                              (option) => (
-                                <SelectItem
-                                  key={option.value}
-                                  value={option.value}
-                                >
-                                  {option.label}
-                                </SelectItem>
-                              )
-                            )}
+                            {ROLE_OPTIONS.filter(
+                              (option) => option.value !== "ALL"
+                            ).map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <DropdownMenuSeparator />
