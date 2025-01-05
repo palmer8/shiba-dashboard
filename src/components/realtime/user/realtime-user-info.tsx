@@ -19,6 +19,7 @@ import { Session } from "next-auth";
 import { returnPlayerSkinAction } from "@/actions/realtime/realtime-action";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
+import BanPlayerDialog from "@/components/dialog/ban-player-dialog";
 
 interface RealtimeUserInfoProps {
   data: RealtimeGameUserData;
@@ -35,6 +36,16 @@ export default function RealtimeUserInfo({
 }: RealtimeUserInfoProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [banDialogOpen, setBanDialogOpen] = useState(false);
+  const [currentBanStatus, setCurrentBanStatus] = useState(data.banned);
+
+  useEffect(() => {
+    setCurrentBanStatus(data.banned);
+  }, [data.banned]);
+
+  const handleBanStatusChange = (newStatus: boolean) => {
+    setCurrentBanStatus(newStatus);
+  };
 
   const handleRevokeSkin = async () => {
     if (!userId) return;
@@ -79,7 +90,7 @@ export default function RealtimeUserInfo({
   return (
     <>
       {/* 헤더 섹션 - 중요 정보 */}
-      <div className="mb-6">
+      <div className="my-6">
         <div className="flex items-start gap-4">
           <Avatar className="h-20 w-20 relative z-0">
             <AvatarFallback className="text-lg">
@@ -89,7 +100,7 @@ export default function RealtimeUserInfo({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h2 className="text-2xl font-bold">{data.last_nickname}</h2>
-              {data.banned && <Badge variant="destructive">정지</Badge>}
+              {data.banned && <Badge variant="destructive">비정상</Badge>}
               {!data.banned &&
                 (data.online ? (
                   <Badge variant="outline" className="bg-green-500/50">
@@ -150,12 +161,17 @@ export default function RealtimeUserInfo({
 
       {/* 상세 정보 탭 */}
       <Tabs defaultValue="details" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="details">상세 정보</TabsTrigger>
-          <TabsTrigger value="game">게임 정보</TabsTrigger>
-          {isAdmin && <TabsTrigger value="admin">관리자 정보</TabsTrigger>}
-          <TabsTrigger value="ban">제재 정보</TabsTrigger>
-        </TabsList>
+        <div className="flex justify-between items-center">
+          <TabsList>
+            <TabsTrigger value="details">상세 정보</TabsTrigger>
+            <TabsTrigger value="game">게임 정보</TabsTrigger>
+            {isAdmin && <TabsTrigger value="admin">관리자 정보</TabsTrigger>}
+            <TabsTrigger value="ban">제재 정보</TabsTrigger>
+          </TabsList>
+          <Button onClick={() => setBanDialogOpen(true)}>
+            {currentBanStatus ? "정지 해제" : "이용 정지"}
+          </Button>
+        </div>
 
         <TabsContent value="details">
           <Card>
@@ -397,6 +413,17 @@ export default function RealtimeUserInfo({
           </Card>
         </TabsContent>
       </Tabs>
+
+      {data.last_nickname && (
+        <BanPlayerDialog
+          userId={userId}
+          data={data}
+          open={banDialogOpen}
+          setOpen={setBanDialogOpen}
+          isBanned={currentBanStatus || false}
+          onStatusChange={handleBanStatusChange}
+        />
+      )}
     </>
   );
 }

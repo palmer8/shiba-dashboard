@@ -17,3 +17,19 @@ export async function updateCompanyCapitalAction(
   if (result.success) revalidatePath("/log/game");
   return result;
 }
+
+export async function playerBanAction(
+  userId: number,
+  reason: string,
+  duration: number,
+  type: "ban" | "unban"
+) {
+  const result = await realtimeService.playerBan(
+    userId,
+    reason,
+    duration,
+    type
+  );
+  if (result.success) revalidatePath("/realtime/user", "layout");
+  return result;
+}

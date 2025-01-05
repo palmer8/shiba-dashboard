@@ -143,10 +143,20 @@ export function ServerMetricsChart() {
   }, []);
 
   const formatChartData = (historyData: number[], label: string) => {
-    return historyData.map((value, index) => ({
-      time: `${23 - Math.floor(index / 12)}:${59 - (index % 12) * 5}`,
-      [label]: value,
-    }));
+    const now = new Date();
+
+    return historyData.map((value, index) => {
+      const time = new Date(
+        now.getTime() - (historyData.length - 1 - index) * 5 * 60 * 1000
+      );
+      const hours = time.getHours().toString().padStart(2, "0");
+      const minutes = time.getMinutes().toString().padStart(2, "0");
+
+      return {
+        time: `${hours}:${minutes}`,
+        [label]: value,
+      };
+    });
   };
 
   if (loading) {

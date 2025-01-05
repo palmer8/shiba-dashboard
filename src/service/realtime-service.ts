@@ -1183,6 +1183,52 @@ class RealtimeService {
       };
     }
   }
+
+  async playerBan(
+    userId: number,
+    reason: string,
+    duration: number,
+    type: "ban" | "unban"
+  ): Promise<ApiResponse<boolean>> {
+    const session = await auth();
+    if (!session || !session.user) {
+      redirect("/login");
+    }
+
+    const result = await fetch(
+      `${process.env.PRIVATE_API_URL}/DokkuApi/playerBan`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: userId,
+          banreason: reason,
+          bantime: duration,
+          type: type,
+          banadmin: session.user.nickname,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          key: process.env.PRIVATE_API_KEY || "",
+        },
+      }
+    );
+
+    const data = await result.json();
+
+    if (data.success) {
+      return {
+        success: true,
+        data: true,
+        error: null,
+      };
+    }
+
+    return {
+      success: false,
+      data: null,
+      error: data.message,
+    };
+  }
 }
 
 export const realtimeService = new RealtimeService();
