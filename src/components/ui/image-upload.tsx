@@ -11,6 +11,7 @@ interface ImageUploadProps {
   onUploadStart?: () => void;
   onUploadEnd?: () => void;
   onRemove?: () => void;
+  isRemove?: boolean;
 }
 
 export function ImageUpload({
@@ -20,6 +21,7 @@ export function ImageUpload({
   onUploadStart,
   onUploadEnd,
   onRemove = () => {},
+  isRemove = true,
 }: ImageUploadProps) {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
@@ -71,7 +73,7 @@ export function ImageUpload({
         onChange={handleUpload}
         disabled={disabled}
       />
-      {value && (
+      {value && isRemove && (
         <Button variant="outline" size="icon" onClick={onRemove}>
           <X className="h-4 w-4" />
         </Button>

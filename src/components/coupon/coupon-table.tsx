@@ -268,11 +268,13 @@ export function CouponTable({ data, page, session }: CouponTableProps) {
           onClick={handleDownloadCSV}
           disabled={!table.getSelectedRowModel().rows.length}
           className="gap-2"
+          size="sm"
         >
           <Download className="h-4 w-4" />
           CSV 다운로드
         </Button>
         <Button
+          size="sm"
           disabled={table.getSelectedRowModel().rows.length === 0}
           onClick={handleIssueCoupon}
           className="gap-2"
@@ -280,7 +282,7 @@ export function CouponTable({ data, page, session }: CouponTableProps) {
           <BookDown className="h-4 w-4" />
           쿠폰 발급
         </Button>
-        <Button onClick={() => setOpen(true)} className="gap-2">
+        <Button onClick={() => setOpen(true)} className="gap-2" size="sm">
           <Plus className="h-4 w-4" />
           추가
         </Button>

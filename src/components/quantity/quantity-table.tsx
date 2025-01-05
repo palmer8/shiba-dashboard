@@ -25,7 +25,7 @@ import {
 } from "@tanstack/react-table";
 import { useState, useMemo, useCallback } from "react";
 import { ItemQuantityTableData, ItemQuantity } from "@/types/quantity";
-import AddItemQuantityDialog from "../dialog/add-item-quantity-dialog";
+import AddItemQuantityDialog from "@/components/dialog/add-item-quantity-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   approveItemQuantitiesAction,
@@ -37,9 +37,9 @@ import {
   deleteItemQuantityAction,
 } from "@/actions/quantity-action";
 import { toast } from "@/hooks/use-toast";
-import { Status, ActionType } from "@prisma/client";
+import { Status, ActionType, UserRole } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { Edit, MoreHorizontal, Trash } from "lucide-react";
+import { Edit, MoreHorizontal, Trash, Plus, Download } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,9 +49,11 @@ import {
 import { useSession } from "next-auth/react";
 import Empty from "../ui/empty";
 import { ConfirmDialog } from "@/components/dialog/confirm-dialog";
+import EditItemQuantityDialog from "@/components/dialog/edit-quantity-dialog";
 
 interface ItemQuantityTableProps {
   data: ItemQuantityTableData;
+  session: any;
 }
 
 const STATUS_MAP: Record<Status, string> = {
@@ -66,10 +68,9 @@ const ACTION_TYPE_MAP: Record<ActionType, string> = {
   REMOVE: "회수",
 } as const;
 
-export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
+export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [columnVisibility, setColumnVisibility] = useState({
@@ -80,6 +81,10 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [targetId, setTargetId] = useState<string>("");
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedQuantity, setSelectedQuantity] = useState<ItemQuantity | null>(
+    null
+  );
 
   const columns = useMemo<ColumnDef<ItemQuantity>[]>(
     () => [
@@ -162,37 +167,75 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
         header: "승인자",
         cell: ({ row }) => row.original.approver?.nickname || "-",
       },
-      ...(session?.user?.role === "SUPERMASTER"
-        ? [
-            {
-              id: "actions",
-              header: "관리",
-              cell: ({ row }: { row: Row<ItemQuantity> }) => {
-                return (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost">
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[160px]">
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          setTargetId(row.original.id);
-                          setIsDeleteDialogOpen(true);
-                        }}
-                        className="text-red-600"
-                      >
-                        <Trash className="mr-2 h-4 w-4" />
-                        <span>삭제</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              },
-            },
-          ]
-        : []),
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          const quantity = row.original;
+          const canModify =
+            (quantity.status === "PENDING" &&
+              quantity.registrantId === session?.user?.id) ||
+            hasAccess(session?.user?.role, UserRole.MASTER);
+
+          if (!canModify) return null;
+
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="h-8 w-8 p-0 hover:bg-muted"
+                  aria-label="더보기"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[160px]">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedQuantity(quantity);
+                    setIsEditDialogOpen(true);
+                  }}
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  <span>수정</span>
+                </DropdownMenuItem>
+                {hasAccess(session?.user?.role, UserRole.SUPERMASTER) && (
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (!confirm("정말로 이 항목을 삭제하시겠습니까?"))
+                        return;
+
+                      setIsLoading(true);
+                      try {
+                        const result = await deleteItemQuantityAction(
+                          quantity.id
+                        );
+                        if (result.success) {
+                          toast({ title: "삭제 성공" });
+                        } else {
+                          throw new Error(result.error || "삭제 실패");
+                        }
+                      } catch (error) {
+                        toast({
+                          title: "삭제 실패",
+                          description: "잠시 후 다시 시도해주세요",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    }}
+                    className="text-red-600"
+                  >
+                    <Trash className="mr-2 h-4 w-4" />
+                    <span>삭제</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
     ],
     [session]
   );
@@ -434,52 +477,61 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {isPending && hasManageAccess && (
-            <>
-              <Button
-                onClick={handleApprove}
-                disabled={isLoading || !table.getSelectedRowModel().rows.length}
-              >
-                승인
-              </Button>
-              <Button
-                onClick={handleReject}
-                disabled={isLoading || !table.getSelectedRowModel().rows.length}
-                variant="destructive"
-              >
-                거절
-              </Button>
-              <Button onClick={handleApproveAll} disabled={isLoading}>
-                전체 승인
-              </Button>
-              <Button
-                onClick={handleRejectAll}
-                disabled={isLoading}
-                variant="destructive"
-              >
-                전체 거절
-              </Button>
-              <Button
-                disabled={isLoading || !table.getSelectedRowModel().rows.length}
-                onClick={handleCancel}
-              >
-                취소
-              </Button>
-            </>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {isPending && hasManageAccess && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleApprove}
+              disabled={isLoading || !table.getSelectedRowModel().rows.length}
+            >
+              승인
+            </Button>
+            <Button size="sm" onClick={handleApproveAll} disabled={isLoading}>
+              전체 승인
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleReject}
+              disabled={isLoading || !table.getSelectedRowModel().rows.length}
+            >
+              거절
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleRejectAll}
+              disabled={isLoading}
+            >
+              전체 거절
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleCancel}
+              disabled={isLoading || !table.getSelectedRowModel().rows.length}
+            >
+              취소
+            </Button>
+          </div>
+        )}
+        <div className="w-full flex justify-end items-center gap-2">
+          {hasManageAccess && (
+            <Button size="sm" onClick={() => setOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              티켓 추가
+            </Button>
           )}
-        </div>
-        <div className="flex items-center gap-2">
           <Button
+            variant="outline"
+            size="sm"
             onClick={handleDownloadCSV}
             disabled={isLoading || !table.getSelectedRowModel().rows.length}
           >
+            <Download className="h-4 w-4 mr-2" />
             CSV 다운로드
           </Button>
-          {hasManageAccess && (
-            <AddItemQuantityDialog open={open} setOpen={setOpen} />
-          )}
         </div>
       </div>
 
@@ -588,6 +640,16 @@ export function ItemQuantityTable({ data }: ItemQuantityTableProps) {
         description="정말로 이 아이템을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
         confirmText="삭제"
       />
+
+      <AddItemQuantityDialog open={open} setOpen={setOpen} />
+      {selectedQuantity && (
+        <EditItemQuantityDialog
+          open={isEditDialogOpen}
+          setOpen={setIsEditDialogOpen}
+          itemQuantity={selectedQuantity}
+          session={session}
+        />
+      )}
     </div>
   );
 }

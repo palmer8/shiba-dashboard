@@ -11,6 +11,7 @@ import { realtimeService } from "@/service/realtime-service";
 import RealtimeUserGroup from "@/components/realtime/group/realtime-user-group";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
+import { RealtimeGameUserData } from "@/types/user";
 
 export default async function RealtimeUserPage({
   searchParams,
@@ -39,7 +40,10 @@ export default async function RealtimeUserPage({
         title="유저 정보"
         description="유저 정보 메뉴에서 고유번호를 통해 유저를 조회하고 관리하세요."
       />
-      <RealtimeUseridSearch userId={userId} data={response?.data} />
+      <RealtimeUseridSearch
+        userId={userId}
+        data={response?.data as unknown as RealtimeGameUserData}
+      />
       {response?.data && userId && (
         <Tabs defaultValue="info">
           <TabsList>
@@ -50,14 +54,18 @@ export default async function RealtimeUserPage({
           <TabsContent value="info">
             <RealtimeUserInfo
               userId={userId}
-              data={response.data}
+              data={response?.data as unknown as RealtimeGameUserData}
               isAdmin={hasAccess(session.user.role, UserRole.MASTER)}
               session={session}
             />
           </TabsContent>
           <TabsContent value="item">
             <RealtimeUserItem
-              data={response.data}
+              data={{
+                weapons: response?.data?.weapons || {},
+                inventory: response?.data?.inventory || {},
+                vehicles: response?.data?.vehicles || {},
+              }}
               userId={userId}
               isAdmin={hasAccess(session.user.role, UserRole.INGAME_ADMIN)}
               session={session}
@@ -65,7 +73,7 @@ export default async function RealtimeUserPage({
           </TabsContent>
           <TabsContent value="group">
             <RealtimeUserGroup
-              data={response.data}
+              data={response?.data as unknown as RealtimeGameUserData}
               userId={userId}
               session={session}
             />

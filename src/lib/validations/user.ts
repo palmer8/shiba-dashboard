@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const editUserSchema = z
   .object({
-    image: z.string().url("올바른 URL을 입력해주세요").nullable().optional(),
+    image: z.string().nullable().optional(),
     currentPassword: z.string().optional(),
     password: z
       .string()

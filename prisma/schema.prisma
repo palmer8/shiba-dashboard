@@ -102,9 +102,6 @@ model User {
   registeredItemQuantities ItemQuantity[] @relation("ItemQuantityRegistrant")
   approvedItemQuantities   ItemQuantity[] @relation("ItemQuantityApprover")
 
-  registeredCreditManagements CreditManagement[] @relation("CreditManagementRegistrant")
-  approvedCreditManagements   CreditManagement[] @relation("CreditManagementApprover")
-
   registeredBlockTickets BlockTicket[] @relation("BlockTicketRegistrant")
   approvedBlockTickets   BlockTicket[] @relation("BlockTicketApprover")
 
@@ -255,6 +252,12 @@ model ItemQuantity {
   registrant   User?      @relation("ItemQuantityRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
   approver     User?      @relation("ItemQuantityApprover", fields: [approverId], references: [id], onDelete: SetNull)
 
+  @@index([status, createdAt(sort: Desc)], name: "idx_item_quantity_status_created")
+  @@index([registrantId], name: "idx_item_quantity_registrant")
+  @@index([approverId], name: "idx_item_quantity_approver")
+  @@index([userId], name: "idx_item_quantity_user")
+  @@index([status, approvedAt], name: "idx_item_quantity_status_approved")
+
   @@map("item_quantity")
 }
 
@@ -275,6 +278,13 @@ model RewardRevoke {
   registrant   User?                  @relation("RewardRevokeRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
   approver     User?                  @relation("RewardRevokeApprover", fields: [approverId], references: [id], onDelete: SetNull)
 
+  @@index([status, createdAt(sort: Desc)], name: "idx_reward_revoke_status_created")
+  @@index([userId, createdAt(sort: Desc)], name: "idx_reward_revoke_user_created")
+  @@index([registrantId], name: "idx_reward_revoke_registrant")
+  @@index([approverId], name: "idx_reward_revoke_approver")
+  @@index([creditType, status], name: "idx_reward_revoke_type_status")
+  @@index([status, approvedAt], name: "idx_reward_revoke_status_approved")
+
   @@map("reward_revoke")
 }
 
@@ -285,6 +295,7 @@ model Items {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([itemName], name: "idx_items_name")
   @@map("items")
 }
 
@@ -296,27 +307,10 @@ model Groups {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  @@index([minRole], name: "idx_groups_role")
   @@map("groups")
 }
 
-model CreditManagement {
-  id           String     @id @default(uuid())
-  userId       Int        @map("user_id")
-  type         ActionType
-  creditType   CreditType @map("credit_type")
-  amount       String
-  status       Status     @default(PENDING)
-  registrantId String?    @map("registrant_id")
-  approverId   String?    @map("approver_id")
-  isApproved   Boolean    @default(false) @map("is_approved")
-  approvedAt   DateTime?  @map("approved_at")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-  registrant   User?      @relation("CreditManagementRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
-  approver     User?      @relation("CreditManagementApprover", fields: [approverId], references: [id], onDelete: SetNull)
-
-  @@map("credit_management")
-}
 
 model BlockTicket {
   id           String    @id @default(uuid())
@@ -330,6 +324,12 @@ model BlockTicket {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   registrant   User?     @relation("BlockTicketRegistrant", fields: [registrantId], references: [id], onDelete: SetNull)
   approver     User?     @relation("BlockTicketApprover", fields: [approverId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt(sort: Desc)], name: "idx_block_ticket_status_created")
+  @@index([registrantId], name: "idx_block_ticket_registrant")
+  @@index([approverId], name: "idx_block_ticket_approver")
+  @@index([reportId], name: "idx_block_ticket_report")
+  @@index([status, approvedAt], name: "idx_block_ticket_status_approved")
 
   @@map("block_ticket")
 }
@@ -349,6 +349,9 @@ model Board {
   comments     BoardComment[]
   likes        BoardLike[]
 
+  @@index([categoryId, createdAt(sort: Desc)], name: "idx_board_category_date")
+  @@index([isNotice, createdAt(sort: Desc)], name: "idx_board_notice_date")
+  @@index([registrantId], name: "idx_board_registrant")
   @@map("board")
 }
 
@@ -362,6 +365,8 @@ model BoardComment {
   board        Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
   registrant   User     @relation(fields: [registrantId], references: [id], onDelete: Cascade)
 
+  @@index([boardId, createdAt(sort: Desc)], name: "idx_comment_board_date")
+  @@index([registrantId], name: "idx_comment_registrant")
   @@map("board_comment")
 }
 
@@ -388,6 +393,8 @@ model BoardCategory {
   role         UserRole? @map("role")
   registrant   User?     @relation(fields: [registrantId], references: [id], onDelete: SetNull)
 
+  @@index([isUsed, role], name: "idx_category_used_role")
+  @@index([registrantId], name: "idx_category_registrant")
   @@map("board_category")
 }
 
@@ -402,6 +409,7 @@ model BoardLike {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([boardId, userId])
+  @@index([userId], name: "idx_like_user")
   @@map("board_like")
 }
 

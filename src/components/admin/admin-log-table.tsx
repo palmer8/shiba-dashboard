@@ -24,6 +24,7 @@ import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getAccountUsingLogsByIdsAction } from "@/actions/log-action";
 import { toast } from "@/hooks/use-toast";
+import { Download } from "lucide-react";
 
 interface AdminLogTableProps {
   data: AdminLogListResponse;
@@ -137,7 +138,10 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
           disabled={table.getSelectedRowModel().rows.length === 0}
           onClick={handleCSVDownload}
           size="sm"
+          variant="outline"
+          className="gap-2"
         >
+          <Download className="h-4 w-4" />
           CSV 다운로드
         </Button>
       </div>

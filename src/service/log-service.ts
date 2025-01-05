@@ -25,59 +25,54 @@ export class LogService {
       const page = filters.page || 1;
       const skip = (page - 1) * pageSize;
 
-      const where: any = {};
+      const where: any = {
+        ...(filters.content && {
+          content: { contains: filters.content },
+        }),
+        ...(filters.registrantUserId && {
+          registrant: { userId: filters.registrantUserId },
+        }),
+        ...(filters.date?.length === 2 && {
+          createdAt: {
+            gte: filters.date[0],
+            lte: filters.date[1],
+          },
+        }),
+      };
 
-      if (filters.content) {
-        where.content = {
-          contains: filters.content,
-        };
-      }
-
-      if (filters.registrantUserId) {
-        where.registrant = {
-          userId: filters.registrantUserId,
-        };
-      }
-
-      if (filters.date && filters.date.length === 2) {
-        where.createdAt = {
-          gte: filters.date[0],
-          lte: filters.date[1],
-        };
-      }
-
-      const [total, records] = await Promise.all([
-        prisma.accountUsingQuerylog.count({ where }),
+      const [records, total] = await prisma.$transaction([
         prisma.accountUsingQuerylog.findMany({
           where,
           include: {
-            registrant: true,
+            registrant: {
+              select: {
+                userId: true,
+                nickname: true,
+              },
+            },
           },
-          orderBy: {
-            createdAt: "desc",
-          },
+          orderBy: { createdAt: "desc" },
           skip,
           take: pageSize,
         }),
+        prisma.accountUsingQuerylog.count({ where }),
       ]);
-
-      const totalPages = Math.ceil(total / pageSize);
 
       return {
         success: true,
         data: {
-          records: records.map((record) => ({
+          records: records.map(({ registrant, ...record }) => ({
             id: record.id,
             content: record.content,
             registrantId: record.registrantId,
-            registrantUserId: record.registrant?.userId || null,
-            registrantNickname: record.registrant?.nickname || null,
+            registrantUserId: registrant?.userId || null,
+            registrantNickname: registrant?.nickname || null,
             createdAt: record.createdAt,
             updatedAt: record.updatedAt,
           })),
           total,
           page,
-          totalPages,
+          totalPages: Math.ceil(total / pageSize),
         },
         error: null,
       };
@@ -109,19 +104,22 @@ export class LogService {
         offset,
       });
 
-      const totalCount = parseInt(result[0]?.total_count?.toString() || "0");
-      const totalPages = Math.ceil(totalCount / limit);
+      const totalCount = result[0]?.total_count || 0;
 
       return {
         success: true,
         data: {
-          records: result.map((row: any) => ({
-            ...row,
-            total_count: undefined,
+          records: result.map(({ total_count, ...row }) => ({
+            id: row.id,
+            timestamp: row.timestamp,
+            level: row.level,
+            type: row.type,
+            message: row.message,
+            metadata: row.metadata,
           })),
           total: totalCount,
           page: filters.page || 1,
-          totalPages,
+          totalPages: Math.ceil(totalCount / limit),
         },
         error: null,
       };
@@ -142,19 +140,31 @@ export class LogService {
 
   async exportGameLogs(ids: number[]) {
     const session = await auth();
-    if (!session || !session.user)
+    if (!session?.user) {
       return {
         success: false,
         message: "세션이 존재하지 않습니다",
         data: null,
         error: "세션이 존재하지 않습니다",
       };
+    }
+
     try {
-      const logs = await db.queryLogsByIds(ids);
+      const chunkSize = 1000;
+      const chunks = [];
+
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        chunks.push(ids.slice(i, i + chunkSize));
+      }
+
+      const logs = await Promise.all(
+        chunks.map((chunk) => db.queryLogsByIds(chunk))
+      );
+
       return {
         success: true,
         message: "유저 데이터 로드 성공",
-        data: logs,
+        data: logs.flat(),
         error: null,
       };
     } catch (error) {
@@ -170,29 +180,41 @@ export class LogService {
 
   async getAccountUsingLogs(ids: string[]) {
     const session = await auth();
-    if (!session || !session.user)
+    if (!session?.user) {
       return {
         error: "세션이 존재하지 않습니다.",
         data: null,
         success: false,
       };
-    if (!hasAccess(session.user.role, UserRole.MASTER))
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
       return {
         error: "권한이 없습니다.",
         data: null,
         success: false,
       };
+    }
+
     try {
-      const result = await prisma.accountUsingQuerylog.findMany({
-        where: {
-          id: {
-            in: ids,
-          },
-        },
-      });
+      const chunkSize = 1000;
+      const chunks = [];
+
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        chunks.push(ids.slice(i, i + chunkSize));
+      }
+
+      const results = await Promise.all(
+        chunks.map((chunk) =>
+          prisma.accountUsingQuerylog.findMany({
+            where: { id: { in: chunk } },
+          })
+        )
+      );
+
       return {
         success: true,
-        data: result,
+        data: results.flat(),
         error: null,
       };
     } catch (err) {
@@ -215,49 +237,45 @@ export class LogService {
       const page = filters.page || 1;
       const offset = (page - 1) * pageSize;
 
-      let query = `
+      const query = `
         SELECT 
-          SQL_CALC_FOUND_ROWS
           staff_id,
           staff_name,
           target_id,
           target_name,
           description,
-          time
+          time,
+          COUNT(*) OVER() as total
         FROM dokku_stafflog
         WHERE 1=1
+        ${filters.staffId ? " AND staff_id = ?" : ""}
+        ${filters.targetId ? " AND target_id = ?" : ""}
+        ${
+          filters.startDate && filters.endDate
+            ? " AND time BETWEEN ? AND ?"
+            : ""
+        }
+        ORDER BY time DESC
+        LIMIT ? OFFSET ?
       `;
 
-      const params: any[] = [];
-
-      if (filters.staffId) {
-        query += ` AND staff_id = ?`;
-        params.push(filters.staffId);
-      }
-
-      if (filters.targetId) {
-        query += ` AND target_id = ?`;
-        params.push(filters.targetId);
-      }
-
-      if (filters.startDate && filters.endDate) {
-        query += ` AND time BETWEEN ? AND ?`;
-        params.push(filters.startDate, filters.endDate);
-      }
-
-      query += ` ORDER BY time DESC LIMIT ? OFFSET ?`;
-      params.push(pageSize, offset);
+      const params = [
+        ...(filters.staffId ? [filters.staffId] : []),
+        ...(filters.targetId ? [filters.targetId] : []),
+        ...(filters.startDate && filters.endDate
+          ? [filters.startDate, filters.endDate]
+          : []),
+        pageSize,
+        offset,
+      ];
 
       const [rows] = await pool.execute<RowDataPacket[]>(query, params);
-      const [countResult] = await pool.execute<RowDataPacket[]>(
-        "SELECT FOUND_ROWS() as total"
-      );
-      const total = countResult[0].total;
+      const total = rows[0]?.total || 0;
 
       return {
         success: true,
         data: {
-          records: rows as StaffLog[],
+          records: rows.map(({ total, ...row }) => row) as StaffLog[],
           total,
           page,
           totalPages: Math.ceil(total / pageSize),

@@ -106,11 +106,14 @@ export default function AdminLogFilter({ filter }: AdminLogFilterProps) {
           variant="outline"
           onClick={handleReset}
           className="gap-2"
+          size="sm"
         >
           <RotateCcw className="h-4 w-4" />
           초기화
         </Button>
-        <Button onClick={handleSearch}>검색</Button>
+        <Button onClick={handleSearch} size="sm">
+          검색
+        </Button>
       </div>
     </div>
   );

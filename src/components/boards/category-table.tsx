@@ -29,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash } from "lucide-react";
+import { Download, MoreHorizontal, Pencil, Trash } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { BoardCategory } from "@prisma/client";
 import AddCategoryDialog from "@/components/dialog/add-category-dialog";
@@ -224,7 +224,10 @@ export default function CategoryTable({ data }: CategoryTableProps) {
           size="sm"
           disabled={table.getSelectedRowModel().rows.length === 0}
           onClick={handleDownloadCSV}
+          variant="outline"
+          className="gap-2"
         >
+          <Download className="h-4 w-4" />
           CSV 다운로드
         </Button>
         <AddCategoryDialog />

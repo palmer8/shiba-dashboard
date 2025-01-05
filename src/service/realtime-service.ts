@@ -13,6 +13,7 @@ import { ApiResponse } from "@/types/global.dto";
 import { reportService } from "@/service/report-service";
 import { CompanyResult, InstagramResult } from "@/types/game";
 import { redirect } from "next/navigation";
+import { RealtimeGameUserData } from "@/types/user";
 
 type ComparisonOperator = "gt" | "gte" | "lt" | "lte" | "eq";
 type PaginationParams = { page: number };
@@ -55,7 +56,7 @@ class RealtimeService {
   private readonly API_KEY = process.env.PRIVATE_API_KEY || "";
   private readonly DEFAULT_TIMEOUT = 5000;
 
-  private async fetchWithTimeout<T>(
+  private async fetchWithRetry<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
@@ -74,7 +75,7 @@ class RealtimeService {
           ...options.headers,
         },
         signal: controller.signal,
-        next: { revalidate: 30 },
+        next: { revalidate: 15 }, // 브라우저 캐시 15초 활용
       });
 
       if (!response.ok) {
@@ -82,95 +83,83 @@ class RealtimeService {
       }
 
       return await response.json();
+    } catch (error) {
+      // 타임아웃이나 네트워크 에러시 한 번만 재시도
+      if (
+        error instanceof Error &&
+        (error.name === "AbortError" || error.name === "TypeError")
+      ) {
+        clearTimeout(timeoutId);
+        return this.fetchWithRetry<T>(endpoint, options);
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
   }
 
-  // 아이템 데이터 조회
-  async getGameUserDataByUserId(userId: number) {
+  async getGameUserDataByUserId(
+    userId: number
+  ): Promise<ApiResponse<RealtimeGameUserData>> {
     try {
-      // MySQL 쿼리와 API 요청을 병렬로 실행
-      const [
-        userDataResponse,
-        [newbieResults],
-        [warningResults],
-        incidentReports,
-        [lbphoneResults],
-        [discordIdentifier],
-      ] = await Promise.all([
-        fetch(`${process.env.PRIVATE_API_URL}/DokkuApi/getPlayerData`, {
-          method: "POST",
-          cache: "no-store",
-          body: JSON.stringify({ user_id: userId }),
-          headers: {
-            "Content-Type": "application/json",
-            key: process.env.PRIVATE_API_KEY || "",
-          },
-        }).then((res) => res.json()),
+      // 1. 기본 유저 데이터를 하나의 쿼리로 조회
+      const userDataQuery = `
+        SELECT 
+          n.code as newbie_code,
+          COALESCE(w.count, 0) as warning_count,
+          p.phone_number,
+          p.pin,
+          REPLACE(v.identifier, 'discord:', '') as discord_id
+        FROM (SELECT ? as user_id) as u
+        LEFT JOIN dokku_newbie n ON n.user_id = u.user_id
+        LEFT JOIN dokku_warning w ON w.user_id = u.user_id
+        LEFT JOIN phone_phones p ON p.id = u.user_id
+        LEFT JOIN vrp_user_ids v ON v.user_id = u.user_id 
+          AND v.identifier LIKE 'discord:%'
+        LIMIT 1
+      `;
 
-        // 뉴비코드 조회
-        pool.execute<RowDataPacket[]>(
-          "SELECT code FROM dokku_newbie WHERE user_id = ?",
-          [userId]
-        ),
+      // 2. 병렬로 실행: DB 쿼리와 API 요청
+      const [[[basicUserData]], userDataResponse, incidentReports] =
+        await Promise.all([
+          pool.execute<RowDataPacket[]>(userDataQuery, [userId]),
+          this.fetchWithRetry("/DokkuApi/getPlayerData", {
+            method: "POST",
+            body: JSON.stringify({ user_id: userId }),
+          }),
+          reportService.getIncidentReportsByTargetUserId(userId),
+        ]);
 
-        // 경고 횟수 조회
-        pool.execute<RowDataPacket[]>(
-          "SELECT count FROM dokku_warning WHERE user_id = ?",
-          [userId]
-        ),
-
-        // 사건 처리 보고서 조회
-        reportService.getIncidentReportsByTargetUserId(userId),
-
-        //lb폰 조회
-        pool.execute<RowDataPacket[]>(
-          "SELECT phone_number, pin FROM phone_phones WHERE id = ?",
-          [userId]
-        ),
-
-        // Discord 식별자 조회 추가
-        pool.execute<RowDataPacket[]>(
-          "SELECT identifier FROM vrp_user_ids WHERE user_id = ? AND identifier LIKE 'discord:%' LIMIT 1",
-          [userId]
-        ),
-      ]);
-
-      if (userDataResponse.error) {
+      if (!userDataResponse) {
         return {
           success: false,
-          message: "유저 데이터 조회 실패",
           data: null,
-          error: userDataResponse.error,
+          error: "유저 데이터 조회 실패",
         };
       }
 
-      // API 응답에 MySQL 데이터 추가
+      // 3. 데이터 통합
       const enrichedData = {
         ...userDataResponse,
-        newbieCode: newbieResults?.[0]?.code ?? null,
-        warningCount: warningResults?.[0]?.count ?? 0,
+        newbieCode: basicUserData?.newbie_code ?? null,
+        warningCount: basicUserData?.warning_count ?? 0,
         incidentReports: incidentReports.success
           ? incidentReports.data.records
           : [],
-        lbPhoneNumber: lbphoneResults?.[0]?.phone_number ?? null,
-        lbPhonePin: lbphoneResults?.[0]?.pin ?? null,
-        discordId:
-          discordIdentifier?.[0]?.identifier?.replace("discord:", "") ?? null,
+        lbPhoneNumber: basicUserData?.phone_number ?? null,
+        lbPhonePin: basicUserData?.pin ?? null,
+        discordId: basicUserData?.discord_id ?? null,
       };
 
       return {
         success: true,
-        message: "유저 데이터 조회 성공",
-        data: enrichedData,
+        data: enrichedData as unknown as RealtimeGameUserData,
         error: null,
       };
     } catch (error) {
       console.error("getGameUserDataByUserId error:", error);
       return {
         success: false,
-        message: "유저 데이터 조회 실패",
         data: null,
         error:
           error instanceof Error
@@ -340,14 +329,16 @@ class RealtimeService {
       const pageSize = 50;
       const offset = (page - 1) * pageSize;
       const operator = getComparisonOperator(condition);
+      const amountPath = `$.${itemId}.amount`;
 
-      // 데이터 조회 쿼리
+      // 단일 쿼리로 통합
       const dataQuery = `
         SELECT 
           u.id,
           SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname,
           ui.first_join,
-          CAST(JSON_EXTRACT(ud.inventory, ?) AS SIGNED) as amount
+          CAST(JSON_EXTRACT(ud.inventory, ?) AS SIGNED) as amount,
+          COUNT(*) OVER() as total
         FROM vrp_user_data ud
         INNER JOIN vrp_users u ON u.id = ud.user_id
         LEFT JOIN vrp_user_identities ui ON ui.user_id = u.id
@@ -356,17 +347,6 @@ class RealtimeService {
         ORDER BY amount DESC
         LIMIT ? OFFSET ?
       `;
-
-      // 전체 개수 조회 쿼리
-      const countQuery = `
-        SELECT COUNT(*) as total
-        FROM vrp_user_data ud
-        INNER JOIN vrp_users u ON u.id = ud.user_id
-        WHERE JSON_EXTRACT(ud.inventory, ?) IS NOT NULL
-        AND CAST(JSON_EXTRACT(ud.inventory, ?) AS SIGNED) ${operator} ?
-      `;
-
-      const amountPath = `$.${itemId}.amount`;
 
       const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
         amountPath,
@@ -377,13 +357,7 @@ class RealtimeService {
         offset,
       ]);
 
-      const [countRows] = await pool.execute<RowDataPacket[]>(countQuery, [
-        amountPath,
-        amountPath,
-        value,
-      ]);
-
-      const total = countRows[0].total;
+      const total = rows[0]?.total || 0;
       const totalPages = Math.ceil(total / pageSize);
 
       return {
@@ -422,22 +396,19 @@ class RealtimeService {
       const pageSize = 50;
       const offset = (page - 1) * pageSize;
 
+      // 단일 쿼리로 통합, 인덱스 활용 최적화
       const dataQuery = `
         SELECT 
           u.id,
           SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname,
           ui.first_join,
-          ui.registration as amount
+          ui.registration as amount,
+          COUNT(*) OVER() as total
         FROM vrp_user_identities ui
         INNER JOIN vrp_users u ON u.id = ui.user_id
         WHERE ui.registration = ?
+        ORDER BY ui.registration
         LIMIT ? OFFSET ?
-      `;
-
-      const countQuery = `
-        SELECT COUNT(*) as total
-        FROM vrp_user_identities
-        WHERE registration = ?
       `;
 
       const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
@@ -446,11 +417,7 @@ class RealtimeService {
         offset,
       ]);
 
-      const [countRows] = await pool.execute<RowDataPacket[]>(countQuery, [
-        value,
-      ]);
-
-      const total = countRows[0].total;
+      const total = rows[0]?.total || 0;
       const totalPages = Math.ceil(total / pageSize);
 
       return {
@@ -459,7 +426,7 @@ class RealtimeService {
             id: row.id,
             nickname: row.nickname,
             first_join: row.first_join,
-            result: `${formatKoreanNumber(row.amount)}원`,
+            result: row.amount,
             type: "registration",
           })
         ),
@@ -493,12 +460,14 @@ class RealtimeService {
       const operator = getComparisonOperator(condition);
       const creditField = creditType.toLowerCase();
 
+      // 단일 쿼리로 통합
       const dataQuery = `
         SELECT 
           u.id,
           SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname,
           ui.first_join,
-          um.${creditField} as amount
+          um.${creditField} as amount,
+          COUNT(*) OVER() as total
         FROM vrp_user_moneys um
         INNER JOIN vrp_users u ON u.id = um.user_id
         LEFT JOIN vrp_user_identities ui ON ui.user_id = u.id
@@ -507,23 +476,13 @@ class RealtimeService {
         LIMIT ? OFFSET ?
       `;
 
-      const countQuery = `
-        SELECT COUNT(*) as total
-        FROM vrp_user_moneys
-        WHERE ${creditField} ${operator} ?
-      `;
-
       const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
         value,
         pageSize,
         offset,
       ]);
 
-      const [countRows] = await pool.execute<RowDataPacket[]>(countQuery, [
-        value,
-      ]);
-
-      const total = countRows[0].total;
+      const total = rows[0]?.total || 0;
       const totalPages = Math.ceil(total / pageSize);
 
       return {
@@ -778,7 +737,7 @@ class RealtimeService {
 
   async getRealtimeUser(): Promise<ApiResponse<number>> {
     try {
-      const data = await this.fetchWithTimeout<{ playerNum: number }>(
+      const data = await this.fetchWithRetry<{ playerNum: number }>(
         "/DokkuApi/getPlayersCount",
         { method: "POST" }
       );
@@ -804,7 +763,7 @@ class RealtimeService {
     }>
   > {
     try {
-      const data = await this.fetchWithTimeout<{
+      const data = await this.fetchWithRetry<{
         count: number;
         users: Array<{ user_id: number; name: string }>;
       }>("/DokkuApi/getAdmin", { method: "POST" });
@@ -1147,7 +1106,7 @@ class RealtimeService {
     capital: number
   ): Promise<ApiResponse<any>> {
     const session = await auth();
-    if (!session || !session.user) {
+    if (!session?.user) {
       return {
         success: false,
         data: null,
@@ -1164,16 +1123,22 @@ class RealtimeService {
     }
 
     try {
-      const query = `UPDATE dokku_company SET capital = ? WHERE id = ?`;
-      const [result] = await pool.execute<RowDataPacket[]>(query, [
-        capital,
-        companyId,
-      ]);
-      return {
-        success: true,
-        data: null,
-        error: null,
-      };
+      // 트랜잭션 사용하여 데이터 일관성 보장
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
+
+        const query = `UPDATE dokku_company SET capital = ? WHERE id = ?`;
+        await connection.execute(query, [capital, companyId]);
+
+        await connection.commit();
+        return { success: true, data: null, error: null };
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
     } catch (error) {
       console.error("팩션 잔고 업데이트 에러:", error);
       return {
@@ -1191,13 +1156,12 @@ class RealtimeService {
     type: "ban" | "unban"
   ): Promise<ApiResponse<boolean>> {
     const session = await auth();
-    if (!session || !session.user) {
+    if (!session?.user) {
       redirect("/login");
     }
 
-    const result = await fetch(
-      `${process.env.PRIVATE_API_URL}/DokkuApi/playerBan`,
-      {
+    try {
+      const response = await fetch(`${this.BASE_URL}/DokkuApi/playerBan`, {
         method: "POST",
         body: JSON.stringify({
           user_id: userId,
@@ -1208,26 +1172,80 @@ class RealtimeService {
         }),
         headers: {
           "Content-Type": "application/json",
-          key: process.env.PRIVATE_API_KEY || "",
+          key: this.API_KEY,
         },
-      }
-    );
+        next: { revalidate: 0 }, // 밴은 캐시 사용하지 않음
+      });
 
-    const data = await result.json();
-
-    if (data.success) {
+      const data = await response.json();
       return {
-        success: true,
-        data: true,
-        error: null,
+        success: data.success,
+        data: data.success,
+        error: data.success ? null : data.message,
+      };
+    } catch (error) {
+      console.error("플레이어 밴 처리 에러:", error);
+      return {
+        success: false,
+        data: null,
+        error: "밴 처리 중 오류가 발생했습니다.",
       };
     }
+  }
 
-    return {
-      success: false,
-      data: null,
-      error: data.message,
-    };
+  async getGameDataByCompanyName(
+    query: {
+      value: string;
+    } & PaginationParams
+  ): Promise<PaginatedResult<CompanyResult>> {
+    try {
+      const { value, page } = query;
+      const pageSize = 50;
+      const offset = (page - 1) * pageSize;
+
+      // LIKE 쿼리 최적화를 위한 인덱스 활용
+      const dataQuery = `
+        SELECT 
+          c.id,
+          c.name,
+          c.capital,
+          COUNT(*) OVER() as total
+        FROM dokku_company c
+        WHERE c.name LIKE ?
+        ORDER BY c.capital DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
+        `%${value}%`,
+        pageSize,
+        offset,
+      ]);
+
+      const total = rows[0]?.total || 0;
+      const totalPages = Math.ceil(total / pageSize);
+
+      return {
+        data: rows.map(
+          (row: RowDataPacket): CompanyResult => ({
+            id: row.id,
+            name: row.name,
+            capital: row.capital,
+          })
+        ),
+        total,
+        currentPage: page,
+        totalPages,
+        pageSize,
+      };
+    } catch (error) {
+      console.error("팩션 데이터 조회 에러:", error);
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : "알 수 없는 오류가 발생했습니다."
+      );
+    }
   }
 }
 

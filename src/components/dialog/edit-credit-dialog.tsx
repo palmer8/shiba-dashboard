@@ -42,7 +42,7 @@ import {
 import { useMemo, useState, useEffect } from "react";
 import { formatKoreanNumber } from "@/lib/utils";
 import { useDebounce } from "@/hooks/use-debounce";
-import { editCreditAction } from "@/actions/credit-action";
+import { updateCreditAction } from "@/actions/credit-action";
 import { Session } from "next-auth";
 
 interface EditCreditDialogProps {
@@ -115,7 +115,7 @@ export default function EditCreditDialog({
 
   const handleSubmit = form.handleSubmit(async (data) => {
     try {
-      const result = await editCreditAction(credit.id, data);
+      const result = await updateCreditAction(credit.id, data);
       if (result.success) {
         toast({ title: "재화 지급/회수 티켓 수정 완료" });
         setOpen(false);

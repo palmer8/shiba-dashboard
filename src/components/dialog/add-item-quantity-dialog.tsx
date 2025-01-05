@@ -119,9 +119,6 @@ export default function AddItemQuantityDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button>티켓 추가</Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>아이템 지급/회수</DialogTitle>

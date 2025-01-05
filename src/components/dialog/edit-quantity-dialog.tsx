@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { getGameNicknameByUserIdAction } from "@/actions/user-action";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "@/hooks/use-toast";
@@ -42,17 +41,20 @@ import {
   ItemQuantityValues,
 } from "@/lib/validations/quantity";
 import { ItemQuantity } from "@prisma/client";
+import { Session } from "next-auth";
 
 interface EditItemQuantityDialogProps {
   open: boolean;
   setOpen: (open: boolean) => void;
   itemQuantity: ItemQuantity;
+  session: Session;
 }
 
 export default function EditItemQuantityDialog({
   open,
   setOpen,
   itemQuantity,
+  session,
 }: EditItemQuantityDialogProps) {
   const [nickname, setNickname] = useState<string>("");
   const [isLoadingNickname, setIsLoadingNickname] = useState(false);
@@ -125,14 +127,11 @@ export default function EditItemQuantityDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button>티켓 추가</Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>아이템 지급/회수</DialogTitle>
+          <DialogTitle>아이템 지급/회수 티켓 수정</DialogTitle>
           <DialogDescription>
-            해당 유저에게 아이템 지급/회수 티켓을 작성합니다.
+            해당 유저의 아이템 지급/회수 티켓을 수정합니다.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

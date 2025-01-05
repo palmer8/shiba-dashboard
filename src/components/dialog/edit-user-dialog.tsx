@@ -90,10 +90,22 @@ export default function EditUserDialog({
   }, [isOpen, session?.user?.id]);
 
   const onSubmit = async (data: EditUserFormValues) => {
+    if (data.password || data.currentPassword || data.confirmPassword) {
+      if (!data.password || !data.currentPassword || !data.confirmPassword) {
+        toast({
+          title: "비밀번호 변경 실패",
+          description:
+            "비밀번호 변경을 위해서는 모든 비밀번호 필드를 입력해주세요",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
       const result = await updateUserAction(session.user.id, {
         image: data.image,
-        ...(data.password && data.currentPassword
+        ...(data.password && data.currentPassword && data.confirmPassword
           ? {
               password: data.password,
               currentPassword: data.currentPassword,
@@ -188,12 +200,18 @@ export default function EditUserDialog({
                             onChange={field.onChange}
                             onUploadStart={() => setIsUploading(true)}
                             onUploadEnd={() => setIsUploading(false)}
+                            isRemove={false}
                           />
                           {field.value && (
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => field.onChange(null)}
+                              onClick={() => {
+                                field.onChange("");
+                                form.setValue("image", "", {
+                                  shouldDirty: true,
+                                });
+                              }}
                             >
                               이미지 제거
                             </Button>
@@ -233,62 +251,64 @@ export default function EditUserDialog({
 
               <div className="space-y-4">
                 <h4 className="text-sm font-medium">비밀번호 변경</h4>
-                <FormField
-                  control={form.control}
-                  name="currentPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>현재 비밀번호</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="현재 비밀번호를 입력해주세요"
-                          type="password"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="space-y-4 rounded-lg border p-4">
+                  <FormField
+                    control={form.control}
+                    name="currentPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>현재 비밀번호</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="현재 비밀번호를 입력해주세요"
+                            type="password"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>새 비밀번호</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="변경할 비밀번호를 입력해주세요"
-                          type="password"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>새 비밀번호</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="변경할 비밀번호를 입력해주세요"
+                            type="password"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>새 비밀번호 확인</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="변경할 비밀번호를 한번 더 입력해주세요"
-                          type="password"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>새 비밀번호 확인</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="변경할 비밀번호를 한번 더 입력해주세요"
+                            type="password"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               <DialogFooter className="gap-2 sm:gap-0">

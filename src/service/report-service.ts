@@ -653,7 +653,7 @@ class ReportService {
         return redirect("/login");
       }
 
-      if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
         return {
           success: false,
           data: null,
@@ -1173,13 +1173,6 @@ class ReportService {
     const session = await auth();
 
     if (!session || !session.user) return redirect("/login");
-
-    if (!hasAccess(session.user.role, UserRole.MASTER))
-      return {
-        error: "권한이 존재하지 않습니다.",
-        data: null,
-        success: false,
-      };
 
     try {
       const result = await prisma.blockTicket.findMany({

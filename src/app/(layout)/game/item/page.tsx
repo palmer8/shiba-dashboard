@@ -65,7 +65,7 @@ export default async function ItemQuantityPage({ searchParams }: PageProps) {
       />
       <ItemQuantitySearchFilter filters={filterParams} />
       <ItemQuantityTabs />
-      <ItemQuantityTable data={tableData} />
+      <ItemQuantityTable data={tableData} session={session} />
     </main>
   );
 }

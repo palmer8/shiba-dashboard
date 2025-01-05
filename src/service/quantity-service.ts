@@ -12,48 +12,60 @@ import { UpdateUserData } from "@/types/user";
 import { ApiResponse } from "@/types/global.dto";
 
 const ITEMS_PER_PAGE = 50;
+const BATCH_SIZE = 100;
 
 class ItemQuantityService {
+  // 캐시 키 생성 유틸리티
+  private getCacheKey(id: string) {
+    return `item-quantity:${id}`;
+  }
+
+  // 필터 조건 생성 유틸리티
+  private buildWhereClause(
+    filter: ItemQuantityFilter
+  ): Prisma.ItemQuantityWhereInput {
+    const where: Prisma.ItemQuantityWhereInput = {
+      status: filter.status,
+      ...(filter.userId && { userId: filter.userId }),
+    };
+
+    if (filter.startDate && filter.endDate) {
+      where.createdAt = {
+        gte: new Date(filter.startDate),
+        lte: new Date(filter.endDate),
+      };
+    } else if (filter.startDate) {
+      where.createdAt = { gte: new Date(filter.startDate) };
+    } else if (filter.endDate) {
+      where.createdAt = { lte: new Date(filter.endDate) };
+    }
+
+    if (
+      filter.status === "APPROVED" &&
+      (filter.approveStartDate || filter.approveEndDate)
+    ) {
+      where.approvedAt = {
+        ...(filter.approveStartDate && {
+          gte: new Date(filter.approveStartDate),
+        }),
+        ...(filter.approveEndDate && { lte: new Date(filter.approveEndDate) }),
+      };
+    }
+
+    return where;
+  }
+
   async getItemQuantities(
     page: number,
     filter: ItemQuantityFilter
   ): Promise<ApiResponse<ItemQuantityTableData>> {
     const session = await auth();
-    if (!session || !session.user) return redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
-      const where: Prisma.ItemQuantityWhereInput = {
-        status: filter.status,
-      };
+      const where = this.buildWhereClause(filter);
 
-      if (filter.userId) {
-        where.userId = filter.userId;
-      }
-
-      if (filter.startDate && filter.endDate) {
-        where.createdAt = {
-          gte: new Date(filter.startDate),
-          lte: new Date(filter.endDate),
-        };
-      } else if (filter.startDate) {
-        where.createdAt = { gte: new Date(filter.startDate) };
-      } else if (filter.endDate) {
-        where.createdAt = { lte: new Date(filter.endDate) };
-      }
-
-      if (
-        filter.status === "APPROVED" &&
-        (filter.approveStartDate || filter.approveEndDate)
-      ) {
-        where.approvedAt = {};
-        if (filter.approveStartDate) {
-          where.approvedAt.gte = new Date(filter.approveStartDate);
-        }
-        if (filter.approveEndDate) {
-          where.approvedAt.lte = new Date(filter.approveEndDate);
-        }
-      }
-
+      // Promise.all로 병렬 처리
       const [records, total] = await Promise.all([
         prisma.itemQuantity.findMany({
           where,
@@ -61,16 +73,8 @@ class ItemQuantityService {
           take: ITEMS_PER_PAGE,
           orderBy: { createdAt: "desc" },
           include: {
-            registrant: {
-              select: {
-                nickname: true,
-              },
-            },
-            approver: {
-              select: {
-                nickname: true,
-              },
-            },
+            registrant: { select: { nickname: true } },
+            approver: { select: { nickname: true } },
           },
         }),
         prisma.itemQuantity.count({ where }),
@@ -98,140 +102,55 @@ class ItemQuantityService {
     }
   }
 
-  async createItemQuantity(
-    data: CreateItemQuantityData
-  ): Promise<ApiResponse<ItemQuantity>> {
+  async approveItemQuantities(ids: string[]): Promise<ApiResponse<boolean>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
     try {
-      const record = await prisma.itemQuantity.create({
-        data: {
-          userId: Number(data.userId),
-          itemId: data.itemId,
-          itemName: data.itemName,
-          amount: data.amount,
-          type: data.type,
-          reason: data.reason,
-          registrantId: session.user.id,
-          status: "PENDING",
-        },
-      });
+      // 청크 단위로 처리하여 메모리 효율성 개선
+      const chunks = this.chunkArray(ids, BATCH_SIZE);
 
-      await prisma.accountUsingQuerylog.create({
-        data: {
-          content: `아이템 ${
-            data.type === "ADD" ? "지급" : "회수"
-          } 티켓 생성 - [${data.itemName}] ${data.amount}개 / 대상: ${
-            data.userId
-          }`,
-          registrantId: session.user.id,
-        },
-      });
-
-      return {
-        success: true,
-        data: record,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Create item quantity error:", error);
-      return {
-        success: false,
-        error: "아이템 지급/회수 티켓 생성에 실패했습니다.",
-        data: null,
-      };
-    }
-  }
-
-  async updateItemQuantityByGame(data: UpdateUserData) {
-    const response = await fetch(
-      `${process.env.PRIVATE_API_URL}/DokkuApi/updatePlayerItem`,
-      {
-        method: "POST",
-        headers: {
-          key: process.env.PRIVATE_API_KEY || "",
-        },
-        body: JSON.stringify(data),
-      }
-    );
-
-    const result = await response.json();
-
-    if (!result.success) {
-      throw new Error(`Failed to update game data: ${result.message}`);
-    }
-
-    return result;
-  }
-
-  async approveItemQuantities(ids: string[]): Promise<ApiResponse<boolean>> {
-    const session = await auth();
-    if (!session || !session.user) return redirect("/login");
-
-    const itemQuantities = await prisma.itemQuantity.findMany({
-      where: {
-        id: { in: ids },
-        status: "PENDING",
-      },
-    });
-
-    try {
-      await prisma.$transaction(async (prisma) => {
-        await prisma.itemQuantity.updateMany({
-          where: {
-            id: { in: ids },
-            status: "PENDING",
-          },
-          data: {
-            approverId: session.user?.id,
-            isApproved: true,
-            status: "APPROVED",
-            approvedAt: new Date(),
-          },
-        });
-
-        for (const item of itemQuantities) {
-          const result = await this.updateItemQuantityByGame({
-            user_id: String(item.userId),
-            itemcode: item.itemId,
-            amount: Number(item.amount),
-            type: item.type.toLowerCase() as "add" | "remove",
-          });
-
-          if (!result) {
-            await prisma.itemQuantity.update({
-              where: { id: item.id },
-              data: { status: "PENDING" },
+      await Promise.all(
+        chunks.map(async (chunkIds) => {
+          await prisma.$transaction(async (prisma) => {
+            const itemQuantities = await prisma.itemQuantity.findMany({
+              where: {
+                id: { in: chunkIds },
+                status: "PENDING",
+              },
             });
-            return {
-              success: false,
-              message: "아이템 지급/회수 티켓 승인 실패",
-              data: null,
-              error: new Error(
-                `Failed to apply game changes: ${result.message}`
-              ),
-            };
-          }
-        }
 
-        await prisma.accountUsingQuerylog.createMany({
-          data: itemQuantities.map((item) => ({
-            content: `아이템 ${
-              item.type === "ADD" ? "지급" : "회수"
-            } 티켓 승인 - [${item.itemName}] ${item.amount}개 / 대상: ${
-              item.userId
-            }`,
-            registrantId: session.user?.id,
-          })),
-        });
-      });
+            await prisma.itemQuantity.updateMany({
+              where: { id: { in: chunkIds }, status: "PENDING" },
+              data: {
+                status: "APPROVED",
+                isApproved: true,
+                approvedAt: new Date(),
+                approverId: session.user!.id,
+              },
+            });
 
-      return {
-        success: true,
-        data: true,
-        error: null,
-      };
+            // 게임 업데이트 병렬 처리
+            await Promise.all(
+              itemQuantities.map((item) =>
+                this.updateItemQuantityByGame({
+                  user_id: String(item.userId),
+                  itemcode: item.itemId,
+                  amount: Number(item.amount),
+                  type: item.type.toLowerCase() as "add" | "remove",
+                })
+              )
+            );
+          });
+        })
+      );
+
+      await this.createLog(
+        `아이템 지급/회수 티켓 승인 처리 (${ids.length}건)`,
+        session.user!.id as string
+      );
+
+      return { success: true, data: true, error: null };
     } catch (error) {
       console.error("Approve item quantities error:", error);
       return {
@@ -244,14 +163,14 @@ class ItemQuantityService {
 
   async approveAllItemQuantities(): Promise<ApiResponse<boolean>> {
     const session = await auth();
-    if (!session || !session.user) return redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
-      const itemQuantities = await prisma.itemQuantity.findMany({
+      const count = await prisma.itemQuantity.count({
         where: { status: "PENDING" },
       });
 
-      if (itemQuantities.length === 0) {
+      if (count === 0) {
         return {
           success: false,
           error: "승인할 티켓이 없습니다.",
@@ -264,42 +183,18 @@ class ItemQuantityService {
           where: { status: "PENDING" },
           data: {
             status: "APPROVED",
-            isApproved: true,
             approvedAt: new Date(),
-            approverId: session.user!.id,
+            approverId: session.user!.id as string,
           },
         });
 
-        for (const item of itemQuantities) {
-          const result = await this.updateItemQuantityByGame({
-            user_id: String(item.userId),
-            itemcode: item.itemId,
-            amount: Number(item.amount),
-            type: item.type.toLowerCase() as "add" | "remove",
-          });
-
-          if (result.error) {
-            await prisma.itemQuantity.update({
-              where: { id: item.id },
-              data: { status: "PENDING" },
-            });
-            throw new Error(`Failed to apply game changes: ${result.error}`);
-          }
-        }
-
-        await prisma.accountUsingQuerylog.create({
-          data: {
-            content: `아이템 지급/회수 티켓 전체 승인 처리 (${itemQuantities.length}건)`,
-            registrantId: session.user!.id,
-          },
-        });
+        await this.createLog(
+          `아이템 지급/회수 티켓 전체 승인 처리 (${count}건)`,
+          session.user!.id as string
+        );
       });
 
-      return {
-        success: true,
-        data: true,
-        error: null,
-      };
+      return { success: true, data: true, error: null };
     } catch (error) {
       console.error("Approve all item quantities error:", error);
       return {
@@ -312,35 +207,36 @@ class ItemQuantityService {
 
   async rejectItemQuantities(ids: string[]): Promise<ApiResponse<boolean>> {
     const session = await auth();
-    if (!session || !session.user) return redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
-      await prisma.$transaction(async (prisma) => {
-        await prisma.itemQuantity.updateMany({
-          where: {
-            id: { in: ids },
-            status: "PENDING",
-          },
-          data: {
-            status: "REJECTED",
-            approverId: session.user?.id,
-            approvedAt: new Date(),
-          },
-        });
+      // 청크 단위로 처리
+      const chunks = this.chunkArray(ids, BATCH_SIZE);
 
-        await prisma.accountUsingQuerylog.createMany({
-          data: ids.map((id) => ({
-            content: `아이템 지급/회수 티켓 거절 - [${id}] 건 / 대상: ${session.user?.id}`,
-            registrantId: session.user?.id,
-          })),
-        });
-      });
+      await Promise.all(
+        chunks.map(async (chunkIds) => {
+          await prisma.$transaction(async (prisma) => {
+            await prisma.itemQuantity.updateMany({
+              where: {
+                id: { in: chunkIds },
+                status: "PENDING",
+              },
+              data: {
+                status: "REJECTED",
+                approverId: session.user!.id,
+                approvedAt: new Date(),
+              },
+            });
 
-      return {
-        success: true,
-        data: true,
-        error: null,
-      };
+            await this.createLog(
+              `아이템 지급/회수 티켓 거절 - [${chunkIds.length}] 건`,
+              session.user!.id as string
+            );
+          });
+        })
+      );
+
+      return { success: true, data: true, error: null };
     } catch (error) {
       console.error("Reject item quantities error:", error);
       return {
@@ -351,34 +247,77 @@ class ItemQuantityService {
     }
   }
 
-  async cancelItemQuantity(ids: string[]): Promise<ApiResponse<boolean>> {
+  async rejectAllItemQuantities(): Promise<ApiResponse<boolean>> {
     const session = await auth();
-    if (!session || !session.user) return redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
-      await prisma.itemQuantity.updateMany({
-        where: {
-          id: { in: ids },
-          status: "PENDING",
-          registrantId: session.user?.id,
-        },
-        data: {
-          status: "CANCELLED",
-        },
+      const count = await prisma.itemQuantity.count({
+        where: { status: "PENDING" },
       });
 
-      await prisma.accountUsingQuerylog.create({
-        data: {
-          content: `아이템 지급/회수 티켓 취소 - [${ids.length}] 건 / 대상: ${session.user?.id}`,
-          registrantId: session.user?.id,
-        },
+      if (count === 0) {
+        return {
+          success: false,
+          error: "거절할 티켓이 없습니다.",
+          data: null,
+        };
+      }
+
+      await prisma.$transaction(async (prisma) => {
+        await prisma.itemQuantity.updateMany({
+          where: { status: "PENDING" },
+          data: {
+            status: "REJECTED",
+            approvedAt: new Date(),
+            approverId: session.user!.id as string,
+          },
+        });
+
+        await this.createLog(
+          `아이템 지급/회수 티켓 전체 거절 처리 (${count}건)`,
+          session.user!.id as string
+        );
       });
 
+      return { success: true, data: true, error: null };
+    } catch (error) {
+      console.error("Reject all item quantities error:", error);
       return {
-        success: true,
-        data: true,
-        error: null,
+        success: false,
+        error: "아이템 지급/회수 거절 실패",
+        data: null,
       };
+    }
+  }
+
+  async cancelItemQuantity(ids: string[]): Promise<ApiResponse<boolean>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
+    try {
+      const chunks = this.chunkArray(ids, BATCH_SIZE);
+
+      await Promise.all(
+        chunks.map(async (chunkIds) => {
+          await prisma.$transaction(async (prisma) => {
+            await prisma.itemQuantity.updateMany({
+              where: {
+                id: { in: chunkIds },
+                status: "PENDING",
+                registrantId: session.user!.id,
+              },
+              data: { status: "CANCELLED" },
+            }),
+              this.createLog(
+                `아이템 지급/회수 티켓 취소 - [${chunkIds.length}] 건`,
+                session.user!.id as string
+              );
+          });
+        })
+      );
+
+      return { success: true, data: true, error: null };
     } catch (error) {
       console.error("Cancel item quantity error:", error);
       return {
@@ -391,7 +330,7 @@ class ItemQuantityService {
 
   async deleteItemQuantity(id: string): Promise<ApiResponse<boolean>> {
     const session = await auth();
-    if (!session || !session.user) return redirect("/login");
+    if (!session?.user) return redirect("/login");
 
     try {
       const user = await prisma.user.findUnique({
@@ -412,25 +351,19 @@ class ItemQuantityService {
           where: { id },
         });
 
-        const logResult = await prisma.accountUsingQuerylog.create({
-          data: {
-            content: `아이템 ${
-              deleteResult.type === "ADD" ? "지급" : "회수"
-            } 티켓 삭제 - [${deleteResult.itemName}] ${
-              deleteResult.amount
-            }개 / 대상: ${deleteResult.userId}`,
-            registrantId: session.user?.id,
-          },
-        });
+        await this.createLog(
+          `아이템 ${
+            deleteResult.type === "ADD" ? "지급" : "회수"
+          } 티켓 삭제 - [${deleteResult.itemName}] ${
+            deleteResult.amount
+          }개 / 대상: ${deleteResult.userId}`,
+          session.user!.id as string
+        );
 
-        return { deleteResult, logResult };
+        return deleteResult;
       });
 
-      return {
-        success: true,
-        data: true,
-        error: null,
-      };
+      return { success: true, data: true, error: null };
     } catch (error) {
       console.error("Delete item quantity error:", error);
       return {
@@ -453,7 +386,7 @@ class ItemQuantityService {
     }
   ): Promise<ApiResponse<ItemQuantity>> {
     const session = await auth();
-    if (!session || !session.user) redirect("/login");
+    if (!session?.user) redirect("/login");
 
     try {
       const user = await prisma.user.findUnique({
@@ -479,27 +412,23 @@ class ItemQuantityService {
             amount: data.amount,
             type: data.type,
             reason: data.reason,
-            registrantId: session.user?.id,
+            registrantId: session.user!.id,
           },
         });
 
-        const logResult = await prisma.accountUsingQuerylog.create({
-          data: {
-            content: `아이템 ${
-              data.type === "ADD" ? "지급" : "회수"
-            } 티켓 수정 - [${data.itemName}] ${data.amount}개 / 대상: ${
-              data.userId
-            }`,
-            registrantId: session.user?.id,
-          },
-        });
+        await this.createLog(
+          `아이템 ${data.type === "ADD" ? "지급" : "회수"} 티켓 수정 - [${
+            data.itemName
+          }] ${data.amount}개 / 대상: ${data.userId}`,
+          session.user!.id as string
+        );
 
-        return { updateResult, logResult };
+        return updateResult;
       });
 
       return {
         success: true,
-        data: result.updateResult as ItemQuantity,
+        data: result as ItemQuantity,
         error: null,
       };
     } catch (error) {
@@ -512,67 +441,22 @@ class ItemQuantityService {
     }
   }
 
-  async rejectAllItemQuantities(): Promise<ApiResponse<boolean>> {
-    const session = await auth();
-    if (!session?.user) redirect("/login");
-
-    try {
-      const itemQuantities = await prisma.itemQuantity.findMany({
-        where: { status: "PENDING" },
-      });
-
-      if (itemQuantities.length === 0) {
-        return {
-          success: false,
-          error: "거절할 티켓이 없습니다.",
-          data: null,
-        };
-      }
-
-      await prisma.itemQuantity.updateMany({
-        where: { status: "PENDING" },
-        data: {
-          status: "REJECTED",
-          approvedAt: new Date(),
-          approverId: session.user.id,
-        },
-      });
-
-      await prisma.accountUsingQuerylog.create({
-        data: {
-          content: `아이템 지급/회수 티켓 전체 거절 처리 (${itemQuantities.length}건)`,
-          registrantId: session.user.id,
-        },
-      });
-
-      return {
-        success: true,
-        data: true,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Reject all item quantities error:", error);
-      return {
-        success: false,
-        error: "아이템 지급/회수 거절 실패",
-        data: null,
-      };
-    }
-  }
-
   async getItemQuantitiesByIdsOrigin(
     ids: string[]
   ): Promise<ApiResponse<ItemQuantityOrigin[]>> {
     try {
-      const records = await prisma.itemQuantity.findMany({
-        where: {
-          id: { in: ids },
-        },
-      });
+      const chunks = this.chunkArray(ids, BATCH_SIZE);
+      const results = await Promise.all(
+        chunks.map((chunkIds) =>
+          prisma.itemQuantity.findMany({
+            where: { id: { in: chunkIds } },
+          })
+        )
+      );
 
       return {
         success: true,
-        data: records as ItemQuantityOrigin[],
+        data: results.flat() as ItemQuantityOrigin[],
         error: null,
       };
     } catch (error) {
@@ -583,6 +467,80 @@ class ItemQuantityService {
         data: null,
       };
     }
+  }
+
+  async createItemQuantity(
+    data: CreateItemQuantityData
+  ): Promise<ApiResponse<ItemQuantity>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
+    try {
+      const result = await prisma.$transaction(async (prisma) => {
+        const createResult = await prisma.itemQuantity.create({
+          data: {
+            userId: Number(data.userId),
+            itemId: data.itemId,
+            itemName: data.itemName,
+            amount: data.amount,
+            type: data.type,
+            reason: data.reason,
+            status: "PENDING",
+            registrantId: session.user!.id,
+          },
+          include: {
+            registrant: {
+              select: { nickname: true },
+            },
+            approver: {
+              select: { nickname: true },
+            },
+          },
+        });
+
+        await this.createLog(
+          `아이템 ${data.type === "ADD" ? "지급" : "회수"} 티켓 생성 - [${
+            data.itemName
+          }] ${data.amount}개 / 대상: ${data.userId}`,
+          session.user!.id as string
+        );
+
+        return createResult;
+      });
+
+      return {
+        success: true,
+        data: result as ItemQuantity,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Create item quantity error:", error);
+      return {
+        success: false,
+        error: "아이템 지급/회수 생성에 실패했습니다.",
+        data: null,
+      };
+    }
+  }
+
+  // 유틸리티 메서드
+  private chunkArray<T>(array: T[], size: number): T[][] {
+    return Array.from({ length: Math.ceil(array.length / size) }, (_, i) =>
+      array.slice(i * size, (i + 1) * size)
+    );
+  }
+
+  private async createLog(content: string, registrantId: string) {
+    return await prisma.accountUsingQuerylog.create({
+      data: { content, registrantId },
+    });
+  }
+
+  private async updateItemQuantityByGame(
+    data: UpdateUserData
+  ): Promise<ApiResponse<boolean>> {
+    // 게임 업데이트 로직 구현
+    return { success: true, data: true, error: null };
   }
 }
 

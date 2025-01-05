@@ -21,7 +21,6 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
-  Row,
   useReactTable,
 } from "@tanstack/react-table";
 import { useState, useMemo, useCallback } from "react";
@@ -176,7 +175,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
           const canModify =
             (credit.status === "PENDING" &&
               credit.registrantId === session?.user?.id) ||
-            hasAccess(session?.user?.role, UserRole.SUPERMASTER);
+            hasAccess(session?.user?.role, UserRole.MASTER);
 
           if (!canModify) return null;
 
@@ -213,7 +212,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
                       try {
                         const result = await deleteCreditAction(credit.id);
                         if (result.success) {
-                          toast({ title: "삭제되었습니다" });
+                          toast({ title: "삭제 성공" });
                         } else {
                           throw new Error(result.error || "삭제 실패");
                         }
@@ -506,7 +505,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
             </Button>
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="w-full flex justify-end items-center gap-2">
           <Button size="sm" onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" />
             티켓 추가

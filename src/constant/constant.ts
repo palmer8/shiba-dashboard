@@ -121,6 +121,11 @@ const ROLE_LINKS = {
         href: "/block/ip",
         role: ["STAFF", "INGAME_ADMIN", "MASTER", "SUPERMASTER"],
       },
+      {
+        name: "사건처리 보고 승인",
+        href: "/admin/report",
+        role: ["INGAME_ADMIN", "MASTER", "SUPERMASTER"],
+      },
     ],
   },
 };
@@ -138,11 +143,6 @@ export const ADMIN_LINKS = {
       {
         name: "운영툴 조회 로그",
         href: "/admin/log",
-        role: ["MASTER", "SUPERMASTER"],
-      },
-      {
-        name: "사건처리 보고 승인",
-        href: "/admin/report",
         role: ["MASTER", "SUPERMASTER"],
       },
       {
