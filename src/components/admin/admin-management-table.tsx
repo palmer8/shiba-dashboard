@@ -5,6 +5,7 @@ import {
   formatRole,
   getFirstNonEmojiCharacter,
   isSameOrHigherRole,
+  ROLE_HIERARCHY,
 } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -216,35 +217,43 @@ export default function AdminManagementTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-[200px]">
-                        <Select
-                          defaultValue={admin.role}
-                          onValueChange={async (value) => {
-                            await updateDashboardUserRoleAction(
-                              admin.id,
-                              value as UserRole
-                            );
-                          }}
-                          disabled={
-                            session.user.userId !== 1 &&
-                            isSameOrHigherRole(session.user.role, admin.role)
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="권한 변경" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ROLE_OPTIONS.filter(
-                              (option) => option.value !== "ALL"
-                            ).map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {isSameOrHigherRole(session.user.role, admin.role) ? (
+                          <div className="px-3 py-2 text-sm">
+                            {formatRole(admin.role)}
+                          </div>
+                        ) : (
+                          <Select
+                            defaultValue={admin.role}
+                            onValueChange={async (value) => {
+                              await updateDashboardUserRoleAction(
+                                admin.id,
+                                value as UserRole
+                              );
+                            }}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="권한 변경" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROLE_OPTIONS.filter(
+                                (option) =>
+                                  option.value !== "ALL" &&
+                                  // 자신보다 낮은 권한만 표시
+                                  ROLE_HIERARCHY[option.value as UserRole] <
+                                    ROLE_HIERARCHY[
+                                      session.user?.role as UserRole
+                                    ]
+                              ).map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={async () => {
