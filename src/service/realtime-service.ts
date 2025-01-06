@@ -14,6 +14,7 @@ import { reportService } from "@/service/report-service";
 import { CompanyResult, InstagramResult } from "@/types/game";
 import { redirect } from "next/navigation";
 import { RealtimeGameUserData } from "@/types/user";
+import { MemoResponse, UserMemo } from "@/types/realtime";
 
 type ComparisonOperator = "gt" | "gte" | "lt" | "lte" | "eq";
 type PaginationParams = { page: number };
@@ -102,7 +103,7 @@ class RealtimeService {
     userId: number
   ): Promise<ApiResponse<RealtimeGameUserData>> {
     try {
-      // 1. 기본 유저 데이터를 하나의 쿼리로 조회
+      // 1. 기본 유저 데이터 쿼리
       const userDataQuery = `
         SELECT 
           n.code as newbie_code,
@@ -119,10 +120,21 @@ class RealtimeService {
         LIMIT 1
       `;
 
-      // 2. 병렬로 실행: DB 쿼리와 API 요청
-      const [[[basicUserData]], userDataResponse, incidentReports] =
+      // 메모 데이터를 위한 별도 쿼리
+      const memoQuery = `
+        SELECT 
+          adminName,
+          text,
+          time
+        FROM dokku_usermemo 
+        WHERE user_id = ?
+      `;
+
+      // 2. 병렬로 실행: DB 쿼리들과 API 요청
+      const [[[basicUserData]], [memoRows], userDataResponse, incidentReports] =
         await Promise.all([
           pool.execute<RowDataPacket[]>(userDataQuery, [userId]),
+          pool.execute<RowDataPacket[]>(memoQuery, [userId]),
           this.fetchWithRetry("/DokkuApi/getPlayerData", {
             method: "POST",
             body: JSON.stringify({ user_id: userId }),
@@ -138,6 +150,15 @@ class RealtimeService {
         };
       }
 
+      // 메모 데이터를 객체로 변환
+      const memo = memoRows[0]
+        ? {
+            adminName: memoRows[0].adminName,
+            text: memoRows[0].text,
+            time: memoRows[0].time,
+          }
+        : null;
+
       // 3. 데이터 통합
       const enrichedData = {
         ...userDataResponse,
@@ -149,6 +170,7 @@ class RealtimeService {
         lbPhoneNumber: basicUserData?.phone_number ?? null,
         lbPhonePin: basicUserData?.pin ?? null,
         discordId: basicUserData?.discord_id ?? null,
+        memo: memo, // 메모 데이터 추가
       };
 
       return {
@@ -1152,15 +1174,24 @@ class RealtimeService {
   async playerBan(
     userId: number,
     reason: string,
-    duration: number,
+    duration: string,
     type: "ban" | "unban"
   ): Promise<ApiResponse<boolean>> {
     const session = await auth();
     if (!session?.user) {
-      redirect("/login");
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+        data: null,
+      };
+    }
+
+    if (type === "ban" && duration === "-1") {
+      duration = "영구정지";
     }
 
     try {
+      // 밴 처리
       const response = await fetch(`${this.BASE_URL}/DokkuApi/playerBan`, {
         method: "POST",
         body: JSON.stringify({
@@ -1174,10 +1205,16 @@ class RealtimeService {
           "Content-Type": "application/json",
           key: this.API_KEY,
         },
-        next: { revalidate: 0 }, // 밴은 캐시 사용하지 않음
+        next: { revalidate: 0 },
       });
 
       const data = await response.json();
+
+      // 밴 해제 시 메모 자동 생성/수정
+      if (type === "unban" && data.success) {
+        await this.upsertMemo(userId, session.user.nickname, reason);
+      }
+
       return {
         success: data.success,
         data: data.success,
@@ -1245,6 +1282,134 @@ class RealtimeService {
           ? error.message
           : "알 수 없는 오류가 발생했습니다."
       );
+    }
+  }
+
+  async upsertMemo(
+    userId: number,
+    adminName: string,
+    text: string
+  ): Promise<MemoResponse> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        data: null,
+        error: "로그인이 필요합니다.",
+      };
+    }
+
+    try {
+      const existingMemo = await this.getMemoByUserId(userId);
+      const isInGameAdmin = hasAccess(session.user.role, UserRole.INGAME_ADMIN);
+
+      if (existingMemo) {
+        if (!isInGameAdmin) {
+          if (existingMemo.adminName !== session.user.nickname) {
+            return {
+              success: false,
+              data: null,
+              error: "본인이 작성한 메모만 수정할 수 있습니다.",
+            };
+          }
+
+          const memoTime = new Date(existingMemo.time);
+          const currentTime = new Date();
+          const timeDifferenceInMinutes =
+            (currentTime.getTime() - memoTime.getTime()) / (1000 * 60);
+
+          if (timeDifferenceInMinutes > 30) {
+            return {
+              success: false,
+              data: null,
+              error: "작성 후 30분이 지난 메모는 수정할 수 없습니다.",
+            };
+          }
+        }
+
+        const updateQuery = `
+          UPDATE dokku_usermemo 
+          SET text = ?, adminName = ?, time = NOW()
+          WHERE user_id = ?
+        `;
+        await pool.execute(updateQuery, [text, adminName, userId]);
+      } else {
+        const insertQuery = `
+          INSERT INTO dokku_usermemo (user_id, adminName, text, time) 
+          VALUES (?, ?, ?, NOW())
+        `;
+        await pool.execute(insertQuery, [userId, adminName, text]);
+      }
+
+      return {
+        success: true,
+        data: null,
+        error: null,
+      };
+    } catch (error) {
+      console.error("메모 처리 중 오류:", error);
+      return {
+        success: false,
+        data: null,
+        error: "메모 처리 중 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  async getMemoByUserId(userId: number): Promise<UserMemo | null> {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    try {
+      const query = `SELECT * FROM dokku_usermemo WHERE user_id = ?`;
+      const [rows] = await pool.execute<RowDataPacket[]>(query, [userId]);
+
+      if (rows.length === 0) {
+        return null;
+      }
+
+      return rows[0] as UserMemo;
+    } catch (error) {
+      console.error("메모 조회 중 오류:", error);
+      throw new Error("메모 조회 중 오류가 발생했습니다.");
+    }
+  }
+
+  async deleteMemo(userId: number) {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        data: null,
+        error: "로그인이 필요합니다.",
+      };
+    }
+
+    if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
+      return {
+        success: false,
+        data: null,
+        error: "권한이 없습니다.",
+      };
+    }
+
+    try {
+      const query = `DELETE FROM dokku_usermemo WHERE user_id = ?`;
+      await pool.execute(query, [userId]);
+      return {
+        success: true,
+        data: null,
+        error: null,
+      };
+    } catch (error) {
+      console.error("메모 삭제 중 오류:", error);
+      return {
+        success: false,
+        data: null,
+        error: "메모 삭제 중 오류가 발생했습니다.",
+      };
     }
   }
 }

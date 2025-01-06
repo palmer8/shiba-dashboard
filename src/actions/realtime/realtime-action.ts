@@ -27,9 +27,35 @@ export async function playerBanAction(
   const result = await realtimeService.playerBan(
     userId,
     reason,
-    duration,
+    duration.toString(),
     type
   );
   if (result.success) revalidatePath("/realtime/user", "layout");
+  return result;
+}
+
+export async function deleteMemoAction(userId: number) {
+  const result = await realtimeService.deleteMemo(userId);
+  if (result.success) revalidatePath("/realtime/user");
+  return result;
+}
+
+export async function createMemoAction(
+  userId: number,
+  adminName: string,
+  text: string
+) {
+  const result = await realtimeService.upsertMemo(userId, adminName, text);
+  if (result.success) revalidatePath("/realtime/user");
+  return result;
+}
+
+export async function updateMemoAction(
+  userId: number,
+  adminName: string,
+  text: string
+) {
+  const result = await realtimeService.upsertMemo(userId, adminName, text);
+  if (result.success) revalidatePath("/realtime/user");
   return result;
 }

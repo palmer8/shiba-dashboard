@@ -137,7 +137,7 @@ class ReportService {
           [
             data.reason,
             data.incidentDescription,
-            formatKoreanDateTime(data.incidentTime),
+            data.incidentTime,
             data.targetUserId,
             data.targetUserNickname,
             data.reportingUserId,
@@ -187,7 +187,7 @@ class ReportService {
         [
           processedData.reason,
           processedData.incidentDescription,
-          formatKoreanDateTime(processedData.incidentTime),
+          processedData.incidentTime,
           processedData.targetUserId,
           processedData.targetUserNickname,
           processedData.reportingUserId,
@@ -226,7 +226,7 @@ class ReportService {
       return redirect("/login");
     }
 
-    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+    if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
       return {
         success: false,
         data: null,
@@ -268,14 +268,6 @@ class ReportService {
       return redirect("/login");
     }
 
-    if (!hasAccess(session.user.role, UserRole.MASTER)) {
-      return {
-        success: false,
-        data: null,
-        error: "권한이 없습니다",
-      };
-    }
-
     try {
       if (session.user.role === "STAFF" && data.banDurationHours === -1) {
         const [result] = await pool.execute<ResultSetHeader>(
@@ -295,7 +287,7 @@ class ReportService {
           [
             data.reason,
             data.incidentDescription,
-            formatKoreanDateTime(data.incidentTime),
+            data.incidentTime,
             data.image,
             data.penaltyType,
             data.warningCount || null,
@@ -345,7 +337,7 @@ class ReportService {
         [
           processedData.reason,
           processedData.incidentDescription,
-          formatKoreanDateTime(processedData.incidentTime),
+          processedData.incidentTime,
           processedData.image,
           processedData.penaltyType,
           processedData.warningCount,

@@ -39,6 +39,20 @@ export interface RemoveUserWeaponDto {
   weapon: string;
 }
 
+// 메모 타입 정의
+export interface UserMemo {
+  user_id: number;
+  adminName: string;
+  text: string;
+  time: string;
+}
+
+export interface MemoResponse {
+  success: boolean;
+  data: UserMemo | null;
+  error: string | null;
+}
+
 // API Response Types
 export type RealtimeGroupApiResponse = ApiResponse<RealtimeGroupResponse>;
 export type UpdateUserGroupApiResponse = ApiResponse<boolean>;

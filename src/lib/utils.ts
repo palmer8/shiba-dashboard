@@ -9,7 +9,6 @@ import { JSONContent } from "novel";
 import { parse } from "csv-parse/sync";
 import { MarkdownNode } from "@/types/lib";
 import JSZip from "jszip";
-import { WorkHours, WorkHoursData } from "@/types/attendance";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -87,7 +86,11 @@ export function parseTimeString(timeStr: string): Date {
 }
 
 export function formatKoreanDateTime(date: Date): string {
-  return format(date, "yyyy-MM-dd HH:mm:ss", { locale: ko });
+  try {
+    return format(date, "yyyy-MM-dd HH:mm:ss", { locale: ko });
+  } catch (error) {
+    return date?.toString() || "-";
+  }
 }
 
 export function handleDownloadJson2CSV({

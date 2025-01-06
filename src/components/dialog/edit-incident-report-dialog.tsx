@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "@/hooks/use-toast";
@@ -235,12 +234,17 @@ export default function EditIncidentReportDialog({
                         type="datetime-local"
                         value={
                           field.value
-                            ? new Date(field.value).toISOString().slice(0, 16)
+                            ? new Date(
+                                field.value.getTime() -
+                                  field.value.getTimezoneOffset() * 60000
+                              )
+                                .toISOString()
+                                .slice(0, 16)
                             : ""
                         }
                         onChange={(e) => {
-                          const date = new Date(e.target.value);
-                          field.onChange(date);
+                          const localDate = new Date(e.target.value);
+                          field.onChange(localDate);
                         }}
                       />
                       <Button

@@ -8,18 +8,36 @@ import {
   formatKoreanDateTime,
   formatKoreanNumber,
   getFirstNonEmojiCharacter,
+  hasAccess,
 } from "@/lib/utils";
 import { parseCustomDateString } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Undo2, Copy } from "lucide-react";
+import {
+  Undo2,
+  Copy,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Plus,
+} from "lucide-react";
 import IncidentReportTable from "@/components/report/incident-report-table";
 import { Session } from "next-auth";
 import { returnPlayerSkinAction } from "@/actions/realtime/realtime-action";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import BanPlayerDialog from "@/components/dialog/ban-player-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import AddUserMemoDialog from "@/components/dialog/add-usermemo-dialog";
+import UpdateUserMemoDialog from "@/components/dialog/update-usermemo-dialog";
+import { deleteMemoAction } from "@/actions/realtime/realtime-action";
+import { UserRole } from "@prisma/client";
 
 interface RealtimeUserInfoProps {
   data: RealtimeGameUserData;
@@ -38,6 +56,8 @@ export default function RealtimeUserInfo({
   const [isLoading, setIsLoading] = useState(false);
   const [banDialogOpen, setBanDialogOpen] = useState(false);
   const [currentBanStatus, setCurrentBanStatus] = useState(data.banned);
+  const [addMemoOpen, setAddMemoOpen] = useState(false);
+  const [updateMemoOpen, setUpdateMemoOpen] = useState(false);
 
   useEffect(() => {
     setCurrentBanStatus(data.banned);
@@ -82,6 +102,32 @@ export default function RealtimeUserInfo({
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const handleDeleteMemo = async () => {
+    if (!confirm("정말로 이 메모를 삭제하시겠습니까?")) return;
+
+    try {
+      const result = await deleteMemoAction(userId);
+      if (result.success) {
+        toast({
+          title: "메모 삭제 완료",
+          description: "메모가 성공적으로 삭제되었습니다.",
+        });
+      } else {
+        toast({
+          title: "메모 삭제 실패",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "메모 삭제 실패",
+        description: "알 수 없는 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (!isMounted) {
     return null;
@@ -286,6 +332,99 @@ export default function RealtimeUserInfo({
                   </div>
                 </div>
               </div>
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">특이사항</h3>
+                  <div className="flex items-center gap-2">
+                    {data.memo ? (
+                      (() => {
+                        const isStaff = session.user!.role === UserRole.STAFF;
+                        const isNotStaff = hasAccess(
+                          session.user!.role,
+                          UserRole.INGAME_ADMIN
+                        );
+                        const memoTime = new Date(data.memo.time);
+                        const currentTime = new Date();
+                        const timeDifferenceInMinutes =
+                          (currentTime.getTime() - memoTime.getTime()) /
+                          (1000 * 60);
+                        const isOwnMemo =
+                          data.memo.adminName === session.user!.nickname;
+
+                        // STAFF는 본인 메모만 30분 이내 수정 가능
+                        const canEdit =
+                          isNotStaff ||
+                          (isStaff &&
+                            isOwnMemo &&
+                            timeDifferenceInMinutes <= 30);
+
+                        return canEdit ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 hover:bg-muted"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-32">
+                              <DropdownMenuItem
+                                onClick={() => setUpdateMemoOpen(true)}
+                                className="cursor-pointer"
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                <span>수정</span>
+                              </DropdownMenuItem>
+                              {isNotStaff && (
+                                <DropdownMenuItem
+                                  onClick={handleDeleteMemo}
+                                  className="text-destructive cursor-pointer"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  <span>삭제</span>
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null;
+                      })()
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAddMemoOpen(true)}
+                        className="h-8 hover:bg-muted"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        메모 추가
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-muted/20 rounded-lg p-4">
+                  {data.memo ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          {data.memo.adminName}
+                        </span>
+                        <Separator orientation="vertical" className="h-3" />
+                        <span>{formatKoreanDateTime(data.memo.time)}</span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground">
+                        {data.memo.text}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-16 text-sm text-muted-foreground">
+                      등록된 특이사항이 없습니다
+                    </div>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -416,12 +555,29 @@ export default function RealtimeUserInfo({
 
       {data.last_nickname && (
         <BanPlayerDialog
+          session={session}
           userId={userId}
           data={data}
           open={banDialogOpen}
           setOpen={setBanDialogOpen}
           isBanned={currentBanStatus || false}
           onStatusChange={handleBanStatusChange}
+        />
+      )}
+
+      <AddUserMemoDialog
+        userId={userId}
+        session={session}
+        open={addMemoOpen}
+        setOpen={setAddMemoOpen}
+      />
+      {data.memo && (
+        <UpdateUserMemoDialog
+          userId={userId}
+          session={session}
+          open={updateMemoOpen}
+          setOpen={setUpdateMemoOpen}
+          initialText={data.memo.text}
         />
       )}
     </>

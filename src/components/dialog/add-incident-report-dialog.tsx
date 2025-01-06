@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "@/hooks/use-toast";
@@ -68,7 +67,7 @@ export default function AddIncidentReportDialog({
       image: null,
       reason: "",
       incidentDescription: "",
-      incidentTime: new Date(new Date().getTime() + 9 * 60 * 60 * 1000),
+      incidentTime: new Date(),
       targetUserId: 0,
       targetUserNickname: "",
       penaltyType: "구두경고",
@@ -250,12 +249,17 @@ export default function AddIncidentReportDialog({
                         type="datetime-local"
                         value={
                           field.value
-                            ? new Date(field.value).toISOString().slice(0, 16)
+                            ? new Date(
+                                field.value.getTime() -
+                                  field.value.getTimezoneOffset() * 60000
+                              )
+                                .toISOString()
+                                .slice(0, 16)
                             : ""
                         }
                         onChange={(e) => {
-                          const date = new Date(e.target.value);
-                          field.onChange(date);
+                          const localDate = new Date(e.target.value);
+                          field.onChange(localDate);
                         }}
                       />
                       <Button
@@ -263,9 +267,7 @@ export default function AddIncidentReportDialog({
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          const now = new Date(
-                            new Date().setHours(new Date().getHours() + 9)
-                          );
+                          const now = new Date();
                           field.onChange(now);
                         }}
                       >

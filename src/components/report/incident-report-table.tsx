@@ -17,7 +17,6 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useMemo, useCallback, Fragment } from "react";
-import { useSession } from "next-auth/react";
 import { formatKoreanDateTime } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -34,6 +33,8 @@ import EditIncidentReportDialog from "@/components/dialog/edit-incident-report-d
 import { Session } from "next-auth";
 import Empty from "../ui/empty";
 import { IncidentReportExpandedRow } from "./incident-report-expanded-row";
+import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
 
 interface IncidentReportTableProps {
   data: {
@@ -53,6 +54,28 @@ export default function IncidentReportTable({
 }: IncidentReportTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const canEditReport = useCallback(
+    (report: IncidentReport) => {
+      if (hasAccess(session?.user?.role, UserRole.INGAME_ADMIN)) {
+        return true;
+      }
+
+      if (session?.user?.role === UserRole.STAFF) {
+        const creationTime = new Date(report.incident_time).getTime();
+        const currentTime = new Date().getTime();
+        const timeDifferenceMinutes =
+          (currentTime - creationTime) / (1000 * 60);
+
+        return (
+          report.admin === session.user.nickname && timeDifferenceMinutes <= 30
+        );
+      }
+
+      return false;
+    },
+    [session]
+  );
 
   const columns: ColumnDef<IncidentReport>[] = useMemo(
     () => [
@@ -138,68 +161,75 @@ export default function IncidentReportTable({
         accessorKey: "incident_time",
         cell: ({ row }) => formatKoreanDateTime(row.original.incident_time),
       },
-      ...(session?.user?.role === "SUPERMASTER"
-        ? [
-            {
-              id: "actions",
-              header: "관리",
-              cell: ({ row }: { row: Row<IncidentReport> }) => {
-                return (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      onClick={(e) => e.stopPropagation()}
+      {
+        id: "actions",
+        header: "관리",
+        cell: ({ row }: { row: Row<IncidentReport> }) => {
+          const canEdit = canEditReport(row.original);
+          const isStaff = session?.user?.role === UserRole.STAFF;
+
+          if (isStaff && !canEdit) {
+            return null;
+          }
+
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <EditIncidentReportDialog
+                  initialData={row.original}
+                  trigger={
+                    <DropdownMenuItem
+                      onSelect={(e) => e.preventDefault()}
+                      disabled={!canEdit}
                     >
-                      <EditIncidentReportDialog
-                        initialData={row.original}
-                        trigger={
-                          <DropdownMenuItem
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            <span>수정</span>
-                          </DropdownMenuItem>
-                        }
-                      />
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          if (confirm("정말로 이 보고서를 삭제하시겠습니까?")) {
-                            const result = await deleteIncidentReportAction(
-                              row.original.report_id
-                            );
-                            if (result.success) {
-                              toast({
-                                title: "사건 처리 보고서 삭제 성공",
-                              });
-                            } else {
-                              toast({
-                                title: "사건 처리 보고서 삭제 실패",
-                                description:
-                                  result.error || "잠시 후 다시 시도해주세요",
-                                variant: "destructive",
-                              });
-                            }
-                          }
-                        }}
-                        className="text-red-600"
-                      >
-                        <Trash className="mr-2 h-4 w-4" />
-                        <span>삭제</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              },
-            },
-          ]
-        : []),
+                      <Pencil className="mr-2 h-4 w-4" />
+                      <span>수정</span>
+                    </DropdownMenuItem>
+                  }
+                />
+                <DropdownMenuItem
+                  onClick={async () => {
+                    if (confirm("정말로 이 보고서를 삭제하시겠습니까?")) {
+                      const result = await deleteIncidentReportAction(
+                        row.original.report_id
+                      );
+                      if (result.success) {
+                        toast({
+                          title: "사건 처리 보고서 삭제 성공",
+                        });
+                      } else {
+                        toast({
+                          title: "사건 처리 보고서 삭제 실패",
+                          description:
+                            result.error || "잠시 후 다시 시도해주세요",
+                          variant: "destructive",
+                        });
+                      }
+                    }
+                  }}
+                  className="text-red-600"
+                  disabled={
+                    !hasAccess(session?.user?.role, UserRole.INGAME_ADMIN)
+                  }
+                >
+                  <Trash className="mr-2 h-4 w-4" />
+                  <span>삭제</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
     ],
-    []
+    [session, canEditReport]
   );
 
   const table = useReactTable({

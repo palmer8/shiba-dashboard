@@ -27,16 +27,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { playerBanAction } from "@/actions/realtime/realtime-action";
 import { RealtimeGameUserData } from "@/types/user";
 import { useRouter } from "next/navigation";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Session } from "next-auth";
+import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
 
 // 밸리데이션 스키마
 const banPlayerSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("ban"),
     reason: z.string().min(1, "사유를 입력해주세요"),
-    bantime: z
-      .number()
-      .min(1, "정지 시간은 1시간 이상이어야 합니다")
-      .max(72, "정지 시간은 최대 72시간(3일)입니다"),
+    bantime: z.number().refine(
+      (val) => val === -1 || (val >= 1 && val <= 72),
+      (val) => ({
+        message:
+          val < 1
+            ? "정지 시간은 1시간 이상이어야 합니다"
+            : "정지 시간은 최대 72시간(3일)입니다",
+      })
+    ),
   }),
   z.object({
     type: z.literal("unban"),
@@ -53,6 +62,7 @@ interface BanPlayerDialogProps {
   setOpen: (open: boolean) => void;
   isBanned: boolean;
   onStatusChange: (newStatus: boolean) => void;
+  session: Session;
 }
 
 export default function BanPlayerDialog({
@@ -62,9 +72,11 @@ export default function BanPlayerDialog({
   setOpen,
   isBanned,
   onStatusChange,
+  session,
 }: BanPlayerDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const [isPermanentBan, setIsPermanentBan] = useState(false);
 
   const form = useForm<BanPlayerFormData>({
     resolver: zodResolver(banPlayerSchema),
@@ -138,9 +150,7 @@ export default function BanPlayerDialog({
               name="reason"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {isBanned ? "정지 해제 사유" : "정지 사유"}
-                  </FormLabel>
+                  <FormLabel>{isBanned ? "특이사항" : "사유"}</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder={`${
@@ -164,16 +174,44 @@ export default function BanPlayerDialog({
                     <FormItem>
                       <FormLabel>정지 시간 (시간)</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={72}
-                          placeholder="정지 시간을 입력하세요 (1~72시간)"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(Number(e.target.value))
-                          }
-                        />
+                        <div className="space-y-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={72}
+                            placeholder="정지 시간을 입력하세요 (1~72시간)"
+                            {...field}
+                            disabled={isPermanentBan}
+                            onChange={(e) =>
+                              field.onChange(Number(e.target.value))
+                            }
+                          />
+                          {hasAccess(
+                            session.user?.role,
+                            UserRole.INGAME_ADMIN
+                          ) && (
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="permanentBan"
+                                checked={isPermanentBan}
+                                onCheckedChange={(checked) => {
+                                  setIsPermanentBan(!!checked);
+                                  if (checked) {
+                                    field.onChange(-1);
+                                  } else {
+                                    field.onChange(1);
+                                  }
+                                }}
+                              />
+                              <label
+                                htmlFor="permanentBan"
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                영구 정지
+                              </label>
+                            </div>
+                          )}
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
