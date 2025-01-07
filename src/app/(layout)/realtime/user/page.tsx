@@ -33,6 +33,8 @@ export default async function RealtimeUserPage({
     response = await realtimeService.getGameUserDataByUserId(userId);
   }
 
+  const isAdmin = hasAccess(session.user.role, UserRole.INGAME_ADMIN);
+
   return (
     <main>
       <PageBreadcrumb />
@@ -55,7 +57,7 @@ export default async function RealtimeUserPage({
             <RealtimeUserInfo
               userId={userId}
               data={response?.data as unknown as RealtimeGameUserData}
-              isAdmin={hasAccess(session.user.role, UserRole.MASTER)}
+              isAdmin={isAdmin}
               session={session}
             />
           </TabsContent>
@@ -67,7 +69,7 @@ export default async function RealtimeUserPage({
                 vehicles: response?.data?.vehicles || {},
               }}
               userId={userId}
-              isAdmin={hasAccess(session.user.role, UserRole.INGAME_ADMIN)}
+              isAdmin={isAdmin}
               session={session}
             />
           </TabsContent>

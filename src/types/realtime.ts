@@ -44,7 +44,7 @@ export interface UserMemo {
   user_id: number;
   adminName: string;
   text: string;
-  time: string;
+  time: Date;
 }
 
 export interface MemoResponse {

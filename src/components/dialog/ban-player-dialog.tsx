@@ -37,15 +37,19 @@ const banPlayerSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("ban"),
     reason: z.string().min(1, "사유를 입력해주세요"),
-    bantime: z.number().refine(
-      (val) => val === -1 || (val >= 1 && val <= 72),
-      (val) => ({
-        message:
-          val < 1
-            ? "정지 시간은 1시간 이상이어야 합니다"
-            : "정지 시간은 최대 72시간(3일)입니다",
+    bantime: z
+      .number({
+        message: "정지 시간을 입력해주세요",
       })
-    ),
+      .refine(
+        (val) => val === -1 || (val >= 1 && val <= 72),
+        (val) => ({
+          message:
+            val < 1
+              ? "정지 시간은 1시간 이상이어야 합니다"
+              : "정지 시간은 최대 72시간(3일)입니다",
+        })
+      ),
   }),
   z.object({
     type: z.literal("unban"),
@@ -177,7 +181,7 @@ export default function BanPlayerDialog({
                         <div className="space-y-2">
                           <Input
                             type="number"
-                            min={1}
+                            required={true}
                             max={72}
                             placeholder="정지 시간을 입력하세요 (1~72시간)"
                             {...field}

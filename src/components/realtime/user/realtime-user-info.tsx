@@ -38,6 +38,7 @@ import AddUserMemoDialog from "@/components/dialog/add-usermemo-dialog";
 import UpdateUserMemoDialog from "@/components/dialog/update-usermemo-dialog";
 import { deleteMemoAction } from "@/actions/realtime/realtime-action";
 import { UserRole } from "@prisma/client";
+import { UserMemo } from "@/types/realtime";
 
 interface RealtimeUserInfoProps {
   data: RealtimeGameUserData;
@@ -55,12 +56,17 @@ export default function RealtimeUserInfo({
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [banDialogOpen, setBanDialogOpen] = useState(false);
-  const [currentBanStatus, setCurrentBanStatus] = useState(data.banned);
-  const [addMemoOpen, setAddMemoOpen] = useState(false);
+  const [currentBanStatus, setCurrentBanStatus] = useState<boolean>(
+    data.banned ?? false
+  );
+  const [selectedMemo, setSelectedMemo] = useState<UserMemo | null>(null);
   const [updateMemoOpen, setUpdateMemoOpen] = useState(false);
+  const [addMemoOpen, setAddMemoOpen] = useState(false);
+
+  const canNotResolveBanStatus = !isAdmin && currentBanStatus;
 
   useEffect(() => {
-    setCurrentBanStatus(data.banned);
+    setCurrentBanStatus(data.banned || false);
   }, [data.banned]);
 
   const handleBanStatusChange = (newStatus: boolean) => {
@@ -103,11 +109,16 @@ export default function RealtimeUserInfo({
     setIsMounted(true);
   }, []);
 
-  const handleDeleteMemo = async () => {
+  const handleEditMemo = (memo: UserMemo) => {
+    setSelectedMemo(memo);
+    setUpdateMemoOpen(true);
+  };
+
+  const handleDeleteMemo = async (memo: UserMemo) => {
     if (!confirm("정말로 이 메모를 삭제하시겠습니까?")) return;
 
     try {
-      const result = await deleteMemoAction(userId);
+      const result = await deleteMemoAction(memo);
       if (result.success) {
         toast({
           title: "메모 삭제 완료",
@@ -146,8 +157,8 @@ export default function RealtimeUserInfo({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h2 className="text-2xl font-bold">{data.last_nickname}</h2>
-              {data.banned && <Badge variant="destructive">비정상</Badge>}
-              {!data.banned &&
+              {currentBanStatus && <Badge variant="destructive">비정상</Badge>}
+              {!currentBanStatus &&
                 (data.online ? (
                   <Badge variant="outline" className="bg-green-500/50">
                     온라인
@@ -214,7 +225,10 @@ export default function RealtimeUserInfo({
             {isAdmin && <TabsTrigger value="admin">관리자 정보</TabsTrigger>}
             <TabsTrigger value="ban">제재 정보</TabsTrigger>
           </TabsList>
-          <Button onClick={() => setBanDialogOpen(true)}>
+          <Button
+            disabled={canNotResolveBanStatus}
+            onClick={() => setBanDialogOpen(true)}
+          >
             {currentBanStatus ? "정지 해제" : "이용 정지"}
           </Button>
         </div>
@@ -335,91 +349,95 @@ export default function RealtimeUserInfo({
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">특이사항</h3>
-                  <div className="flex items-center gap-2">
-                    {data.memo ? (
-                      (() => {
-                        const isStaff = session.user!.role === UserRole.STAFF;
-                        const isNotStaff = hasAccess(
-                          session.user!.role,
-                          UserRole.INGAME_ADMIN
-                        );
-                        const memoTime = new Date(data.memo.time);
-                        const currentTime = new Date();
-                        const timeDifferenceInMinutes =
-                          (currentTime.getTime() - memoTime.getTime()) /
-                          (1000 * 60);
-                        const isOwnMemo =
-                          data.memo.adminName === session.user!.nickname;
-
-                        // STAFF는 본인 메모만 30분 이내 수정 가능
-                        const canEdit =
-                          isNotStaff ||
-                          (isStaff &&
-                            isOwnMemo &&
-                            timeDifferenceInMinutes <= 30);
-
-                        return canEdit ? (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 hover:bg-muted"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-32">
-                              <DropdownMenuItem
-                                onClick={() => setUpdateMemoOpen(true)}
-                                className="cursor-pointer"
-                              >
-                                <Pencil className="mr-2 h-4 w-4" />
-                                <span>수정</span>
-                              </DropdownMenuItem>
-                              {isNotStaff && (
-                                <DropdownMenuItem
-                                  onClick={handleDeleteMemo}
-                                  className="text-destructive cursor-pointer"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  <span>삭제</span>
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        ) : null;
-                      })()
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setAddMemoOpen(true)}
-                        className="h-8 hover:bg-muted"
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        메모 추가
-                      </Button>
-                    )}
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAddMemoOpen(true)}
+                    className="h-8 hover:bg-muted"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    메모 추가
+                  </Button>
                 </div>
 
-                <div className="bg-muted/20 rounded-lg p-4">
-                  {data.memo ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">
-                          {data.memo.adminName}
-                        </span>
-                        <Separator orientation="vertical" className="h-3" />
-                        <span>{formatKoreanDateTime(data.memo.time)}</span>
-                      </div>
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground">
-                        {data.memo.text}
-                      </p>
-                    </div>
+                <div className="space-y-4">
+                  {data.memos && data.memos.length > 0 ? (
+                    data.memos.map((memo, index) => {
+                      const isStaff = session.user!.role === UserRole.STAFF;
+                      const isNotStaff = hasAccess(
+                        session.user!.role,
+                        UserRole.INGAME_ADMIN
+                      );
+                      const memoTime = new Date(memo.time);
+                      const currentTime = new Date();
+                      const timeDifferenceInMinutes =
+                        (currentTime.getTime() - memoTime.getTime()) /
+                        (1000 * 60);
+                      const isOwnMemo =
+                        memo.adminName === session.user!.nickname;
+                      const canEdit =
+                        isNotStaff ||
+                        (isStaff && isOwnMemo && timeDifferenceInMinutes <= 30);
+
+                      return (
+                        <div
+                          key={index}
+                          className="bg-muted/20 rounded-lg p-4 border border-border/50"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex flex-col">
+                                <span className="font-medium text-sm">
+                                  {memo.adminName}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatKoreanDateTime(memo.time)}
+                                </span>
+                              </div>
+                            </div>
+                            {canEdit && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-muted"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-32"
+                                >
+                                  <DropdownMenuItem
+                                    onClick={() => handleEditMemo(memo)}
+                                    className="cursor-pointer"
+                                  >
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    <span>수정</span>
+                                  </DropdownMenuItem>
+                                  {isNotStaff && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleDeleteMemo(memo)}
+                                      className="text-destructive cursor-pointer"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      <span>삭제</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                            {memo.text}
+                          </p>
+                        </div>
+                      );
+                    })
                   ) : (
-                    <div className="flex items-center justify-center h-16 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center h-16 text-sm text-muted-foreground bg-muted/20 rounded-lg">
                       등록된 특이사항이 없습니다
                     </div>
                   )}
@@ -526,7 +544,7 @@ export default function RealtimeUserInfo({
                   <h3 className="text-sm font-medium text-muted-foreground">
                     상태
                   </h3>
-                  {data.banned ? (
+                  {currentBanStatus ? (
                     <Badge variant="destructive">정지</Badge>
                   ) : (
                     <Badge variant="outline">정상</Badge>
@@ -571,13 +589,18 @@ export default function RealtimeUserInfo({
         open={addMemoOpen}
         setOpen={setAddMemoOpen}
       />
-      {data.memo && (
+
+      {selectedMemo && (
         <UpdateUserMemoDialog
           userId={userId}
           session={session}
           open={updateMemoOpen}
           setOpen={setUpdateMemoOpen}
-          initialText={data.memo.text}
+          memo={selectedMemo}
+          onClose={() => {
+            setSelectedMemo(null);
+            setUpdateMemoOpen(false);
+          }}
         />
       )}
     </>

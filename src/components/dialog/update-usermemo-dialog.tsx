@@ -25,6 +25,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { updateMemoAction } from "@/actions/realtime/realtime-action";
 import { Session } from "next-auth";
+import { UserMemo } from "@/types/realtime";
 
 const updateMemoSchema = z.object({
   text: z.string().min(1, "메모 내용을 입력해주세요"),
@@ -37,8 +38,8 @@ interface UpdateUserMemoDialogProps {
   session: Session;
   open: boolean;
   setOpen: (open: boolean) => void;
-  initialText: string;
-  onSuccess?: () => void;
+  memo: UserMemo;
+  onClose: () => void;
 }
 
 export default function UpdateUserMemoDialog({
@@ -46,34 +47,29 @@ export default function UpdateUserMemoDialog({
   session,
   open,
   setOpen,
-  initialText,
-  onSuccess,
+  memo,
+  onClose,
 }: UpdateUserMemoDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<UpdateMemoFormData>({
     resolver: zodResolver(updateMemoSchema),
     defaultValues: {
-      text: initialText,
+      text: memo.text,
     },
   });
 
   const onSubmit = async (data: UpdateMemoFormData) => {
     try {
       setIsLoading(true);
-      const result = await updateMemoAction(
-        userId,
-        session.user!.nickname,
-        data.text
-      );
+      const result = await updateMemoAction(memo, data.text);
 
       if (result.success) {
         toast({
           title: "메모 수정 완료",
           description: "메모가 성공적으로 수정되었습니다.",
         });
-        setOpen(false);
-        onSuccess?.();
+        onClose();
       } else {
         toast({
           title: "메모 수정 실패",
@@ -92,8 +88,19 @@ export default function UpdateUserMemoDialog({
     }
   };
 
+  const handleClose = () => {
+    form.reset();
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(open) => {
+        if (!open) handleClose();
+        setOpen(open);
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>특이사항 수정</DialogTitle>
@@ -126,7 +133,8 @@ export default function UpdateUserMemoDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={handleClose}
+                disabled={isLoading}
               >
                 취소
               </Button>

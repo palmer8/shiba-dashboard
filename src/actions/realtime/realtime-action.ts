@@ -1,6 +1,7 @@
 "use server";
 
 import { realtimeService } from "@/service/realtime-service";
+import { UserMemo } from "@/types/realtime";
 import { revalidatePath } from "next/cache";
 
 export async function returnPlayerSkinAction(userId: number) {
@@ -34,8 +35,8 @@ export async function playerBanAction(
   return result;
 }
 
-export async function deleteMemoAction(userId: number) {
-  const result = await realtimeService.deleteMemo(userId);
+export async function deleteMemoAction(memo: UserMemo) {
+  const result = await realtimeService.deleteMemo(memo);
   if (result.success) revalidatePath("/realtime/user");
   return result;
 }
@@ -45,17 +46,13 @@ export async function createMemoAction(
   adminName: string,
   text: string
 ) {
-  const result = await realtimeService.upsertMemo(userId, adminName, text);
+  const result = await realtimeService.createMemo(userId, adminName, text);
   if (result.success) revalidatePath("/realtime/user");
   return result;
 }
 
-export async function updateMemoAction(
-  userId: number,
-  adminName: string,
-  text: string
-) {
-  const result = await realtimeService.upsertMemo(userId, adminName, text);
+export async function updateMemoAction(originData: UserMemo, text: string) {
+  const result = await realtimeService.updateMemo(originData, text);
   if (result.success) revalidatePath("/realtime/user");
   return result;
 }

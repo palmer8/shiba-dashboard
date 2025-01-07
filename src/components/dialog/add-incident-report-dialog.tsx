@@ -317,8 +317,8 @@ export default function AddIncidentReportDialog({
                   <FormLabel>대상자 고유번호</FormLabel>
                   <FormControl>
                     <Input
+                      required
                       type="number"
-                      min={0}
                       max={999999}
                       {...field}
                       onChange={(e) => {
@@ -358,7 +358,6 @@ export default function AddIncidentReportDialog({
                   <FormControl>
                     <Input
                       type="number"
-                      min={0}
                       max={999999}
                       {...field}
                       value={field.value ?? ""}

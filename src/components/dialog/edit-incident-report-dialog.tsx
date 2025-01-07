@@ -419,8 +419,8 @@ export default function EditIncidentReportDialog({
                   <FormLabel>대상자 고유번호</FormLabel>
                   <FormControl>
                     <Input
+                      required={true}
                       type="number"
-                      min={0}
                       max={999999}
                       {...field}
                       value={field.value ?? ""}
@@ -457,7 +457,6 @@ export default function EditIncidentReportDialog({
                   <FormControl>
                     <Input
                       type="number"
-                      min={0}
                       max={999999}
                       {...field}
                       value={field.value || ""}

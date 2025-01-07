@@ -1,6 +1,7 @@
 import { Groups, Prisma, User } from "@prisma/client";
 import { UserRole } from "@prisma/client";
 import { IncidentReport } from "./report";
+import { UserMemo } from "./realtime";
 
 type SignUpUser = Omit<Prisma.UserCreateInput, "hashedPassword">;
 type RealtimeGameUserData = {
@@ -38,11 +39,7 @@ type RealtimeGameUserData = {
   lbPhoneNumber?: string;
   lbPhonePin?: string;
   incidentReports: IncidentReport[];
-  memo: {
-    adminName: string;
-    text: string;
-    time: Date;
-  } | null;
+  memos: UserMemo[] | null;
 };
 
 type UpdateUserData = {
