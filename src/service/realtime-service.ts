@@ -102,6 +102,9 @@ class RealtimeService {
   async getGameUserDataByUserId(
     userId: number
   ): Promise<ApiResponse<RealtimeGameUserData>> {
+    const session = await auth();
+    if (!session || !session.user) return redirect("/login");
+
     try {
       // 1. 기본 유저 데이터 쿼리
       const userDataQuery = `
@@ -137,7 +140,7 @@ class RealtimeService {
         await Promise.all([
           pool.execute<RowDataPacket[]>(userDataQuery, [userId]),
           pool.execute<RowDataPacket[]>(memoQuery, [userId]),
-          this.fetchWithRetry("/DokkuApi/getPlayerData", {
+          this.fetchWithRetry<RealtimeGameUserData>("/DokkuApi/getPlayerData", {
             method: "POST",
             body: JSON.stringify({ user_id: userId }),
           }),
@@ -173,6 +176,14 @@ class RealtimeService {
         discordId: basicUserData?.discord_id ?? null,
         memos, // 메모 배열로 변경
       };
+      if (userDataResponse.last_nickname) {
+        await prisma.accountUsingQuerylog.create({
+          data: {
+            content: `유저 조회: ${userDataResponse.last_nickname}(${userId})`,
+            registrantId: session.user.id,
+          },
+        });
+      }
 
       return {
         success: true,
@@ -513,7 +524,7 @@ class RealtimeService {
           (row: RowDataPacket): BaseQueryResult => ({
             id: row.id,
             nickname: row.nickname,
-            first_join: parseCustomDateString(row.first_join),
+            first_join: row.first_join,
             result: `${formatKoreanNumber(row.amount)}개`,
             type: creditType,
           })
@@ -586,7 +597,7 @@ class RealtimeService {
           (row: RowDataPacket): BaseQueryResult => ({
             id: row.id,
             nickname: row.nickname,
-            first_join: parseCustomDateString(row.first_join),
+            first_join: row.first_join,
             result: `${formatKoreanNumber(row.amount)}원`,
             type: moneyType,
           })

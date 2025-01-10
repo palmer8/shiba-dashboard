@@ -1,8 +1,10 @@
+import { RecentBoards } from "./board";
+
 export interface DashboardData {
   userCount: number;
   adminData: AdminData;
   weeklyStats: WeeklyStat[];
-  recentBoards: BoardsData;
+  recentBoards: RecentBoards;
 }
 
 export interface AdminData {
@@ -35,5 +37,10 @@ export interface DashBoardRecentBoard {
   registrant: {
     id: string;
     nickname: string;
+    image: string;
+  };
+  category: {
+    id: string;
+    name: string;
   };
 }

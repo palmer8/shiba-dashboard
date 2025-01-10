@@ -43,14 +43,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { UserRole } from "@prisma/client";
-import { formatDistanceToNow } from "date-fns";
-import { ko } from "date-fns/locale";
 import Link from "next/link";
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
 import { formatKoreanDateTime } from "@/lib/utils";
-import { Badge } from "../ui/badge";
-import Editor from "../editor/advanced-editor";
-import { Separator } from "../ui/separator";
+import { Badge } from "@/components/ui/badge";
+import Editor from "@/components/editor/advanced-editor";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface BoardDetailProps {
   board: BoardDetailView;
@@ -114,79 +113,100 @@ export const BoardDetail = memo(function BoardDetail({
 
   return (
     <>
-      <div className="max-w-[900px] w-full mx-auto">
-        <div className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Link href="/boards" className="flex items-center gap-2">
+      <div className="w-full mx-auto min-h-[calc(100vh-300px)] flex flex-col">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+          <div className="p-1">
+            <div className="flex items-center justify-between">
+              <Link
+                href="/boards"
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+              >
                 <ArrowLeft className="h-4 w-4" />
                 목록
               </Link>
-            </div>
-            {canModify && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link href={`/board/${board.id}/edit`}>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      수정
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowDeleteAlert(true)}>
-                    <Trash className="mr-2 h-4 w-4" />
-                    삭제
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowLikes(true)}>
-                    <Heart className="mr-2 h-4 w-4" />
-                    좋아요 확인
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-
-          <div className="mt-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                {board.isNotice && <Badge variant="secondary">공지</Badge>}
-                <h2 className="text-2xl font-semibold">{board.title}</h2>
-              </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>{board.registrant?.nickname}</span>
-                <span>{formatKoreanDateTime(board.createdAt)}</span>
+              {canModify && (
                 <div className="flex items-center gap-2">
-                  <Eye className="h-4 w-4" />
-                  <span>{board.views.toLocaleString()}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowLikes(true)}
+                  >
+                    <Heart
+                      className={`h-4 w-4 ${
+                        isLiked ? "fill-current text-red-500" : ""
+                      }`}
+                    />
+                    <span className="ml-1">{likeCount}</span>
+                  </Button>
+                  <Link href={`/board/${board.id}/edit`}>
+                    <Button variant="ghost" size="sm">
+                      <Pencil className="h-4 w-4 mr-1" />
+                      수정
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDeleteAlert(true)}
+                  >
+                    <Trash className="h-4 w-4 mr-1" />
+                    삭제
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-2"
-                  onClick={handleLikeClick}
-                >
-                  <Heart
-                    className={`h-4 w-4 ${
-                      isLiked ? "fill-current text-red-500" : ""
-                    }`}
-                  />
-                  <span>{likeCount}</span>
-                </Button>
-              </div>
+              )}
             </div>
           </div>
         </div>
-        <Separator />
-        <div className="max-w-[900px] mx-auto p-4">
-          <Editor
-            initialValue={board.content}
-            immediatelyRender={false}
-            editable={false}
-          />
+
+        <div className="flex-1">
+          <div className="p-1 mt-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  {board.isNotice && <Badge variant="secondary">공지</Badge>}
+                  <Badge variant="outline">{board.category.name}</Badge>
+                </div>
+                <h1 className="text-2xl font-semibold">{board.title}</h1>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={board.registrant?.image || ""} />
+                      <AvatarFallback>
+                        {board.registrant?.nickname[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>{board.registrant?.nickname}</span>
+                  </div>
+                  <span>{formatKoreanDateTime(board.createdAt)}</span>
+                  <div className="flex items-center gap-1">
+                    <Eye className="h-4 w-4" />
+                    <span>{board.views.toLocaleString()}</span>
+                  </div>
+                  {!canModify && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={handleLikeClick}
+                    >
+                      <Heart
+                        className={`h-4 w-4 ${
+                          isLiked ? "fill-current text-red-500" : ""
+                        }`}
+                      />
+                      <span className="ml-1">{likeCount}</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <Separator />
+              <Editor
+                initialValue={board.content}
+                immediatelyRender={false}
+                editable={false}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -200,18 +220,18 @@ export const BoardDetail = memo(function BoardDetail({
           </DialogHeader>
           <ScrollArea className="max-h-[300px]">
             <div className="space-y-2">
-              {board.likes.map((user) => (
+              {board.likes.map((like) => (
                 <div
-                  key={user.id}
+                  key={like.id}
                   className="p-3 flex items-center justify-between border-b last:border-b-0"
                 >
                   <div className="flex items-center gap-2">
                     <div className="font-medium">
-                      {user.nickname} ({user.userId})
+                      {like.nickname} ({like.userId})
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {formatKoreanDateTime(user.createdAt)}
+                    {formatKoreanDateTime(like.createdAt)}
                   </div>
                 </div>
               ))}

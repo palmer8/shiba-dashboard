@@ -38,6 +38,7 @@ export default async function BoardPage({ params }: BoardPageProps) {
         userId={session.user.id as string}
         userRole={session.user.role}
       />
+      <div className="border-t bg-muted/30" />
       <CommentSection
         boardId={awaitParams.id}
         comments={board.comments}

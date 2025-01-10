@@ -10,77 +10,45 @@ import { auth } from "@/lib/auth-config";
 import { extractTextFromJSON, hasAccess } from "@/lib/utils";
 import { JSONContent } from "novel";
 import { redirect } from "next/navigation";
-import { BoardDetailView, CommentData, LikeInfo } from "@/types/board";
-import { BoardsData } from "@/types/dashboard";
+import {
+  BoardList,
+  BoardDetailView,
+  CommentData,
+  BoardFilter,
+  RecentBoards,
+  LikeInfo,
+} from "@/types/board";
 import { ApiResponse } from "@/types/global.dto";
 import { CategoryForm } from "@/lib/validations/board";
 
-interface BoardFilter {
-  page?: number;
-  startDate?: string;
-  endDate?: string;
-  title?: string;
-  categoryId?: string;
-  registrantId?: string;
-}
-
-interface BoardList {
-  boards: BoardData[];
-  notices: BoardData[];
-  metadata: {
-    currentPage: number;
-    totalPages: number;
-    totalCount: number;
-  };
-}
-
-interface BoardData extends Omit<Board, "content"> {
-  registrant: {
-    id: string;
-    nickname: string;
-  };
+// 공통으로 사용되는 게시글 조회 옵션
+const commonBoardSelect = {
+  id: true,
+  title: true,
+  createdAt: true,
+  isNotice: true,
   category: {
-    id: string;
-    name: string;
-  };
-  commentCount: number;
+    select: {
+      id: true,
+      name: true,
+      role: true,
+    },
+  },
+  registrant: {
+    select: {
+      id: true,
+      nickname: true,
+      image: true,
+      role: true,
+    },
+  },
   _count: {
-    likes: number;
-  };
-}
-
-interface BoardDetail extends Board {
-  registrant: { id: string; nickname: string };
-  category: { id: string; name: string };
-  comments: (BoardComment & {
-    registrant: { id: string; nickname: string };
-  })[];
-}
-
-interface RecentBoards {
-  recentBoards: {
-    id: string;
-    title: string;
-    createdAt: Date;
-    commentCount: number;
-    likeCount: number;
-    registrant: {
-      id: string;
-      nickname: string;
-    };
-  }[];
-  recentNotices: {
-    id: string;
-    title: string;
-    createdAt: Date;
-    commentCount: number;
-    likeCount: number;
-    registrant: {
-      id: string;
-      nickname: string;
-    };
-  }[];
-}
+    select: {
+      comments: true,
+      likes: true,
+    },
+  },
+} as const;
 
 class BoardService {
   // 게시글 생성
@@ -115,7 +83,7 @@ class BoardService {
           title: data.title,
           content: data.content,
           categoryId: data.categoryId,
-          registrantId: session.user.id,
+          registrantId: session.user.id as string,
           isNotice: data.isNotice,
         },
         include: {
@@ -445,6 +413,8 @@ class BoardService {
         },
       });
 
+      console.log(board);
+
       if (!board) {
         return {
           success: false,
@@ -664,7 +634,6 @@ class BoardService {
 
       const totalPages = Math.ceil(totalCount / itemsPerPage);
 
-      // content에서 텍스트 추출하여 excerpt 생성
       const boardsWithExcerpt = boards.map((board) => ({
         ...board,
         excerpt: extractTextFromJSON(board.content as JSONContent).slice(
@@ -914,90 +883,85 @@ class BoardService {
       };
     }
   }
+  async getRecentBoards(): Promise<ApiResponse<RecentBoards>> {
+    const session = await auth();
 
-  async getRecentBoards(): Promise<ApiResponse<BoardsData>> {
+    if (!session?.user) return redirect("/login");
+
     try {
-      const [recentBoards, recentNotices] = await Promise.all([
+      // 카테고리 권한 체크를 위한 where 조건
+      const categoryWhereCondition =
+        session.user.role !== UserRole.SUPERMASTER
+          ? {
+              category: {
+                OR: [{ role: session.user.role }, { role: null }],
+              },
+            }
+          : {};
+
+      // 공지사항과 일반 게시글 동시 조회
+      const [recentNotices, recentBoards] = await Promise.all([
         prisma.board.findMany({
-          where: { isNotice: false },
-          take: 3,
-          orderBy: { createdAt: "desc" },
-          include: {
-            registrant: {
-              select: {
-                id: true,
-                nickname: true,
-                image: true,
-              },
-            },
-            _count: {
-              select: {
-                comments: true,
-                likes: true,
-              },
-            },
+          where: {
+            isNotice: true,
+            ...categoryWhereCondition,
           },
+          take: 5,
+          orderBy: { createdAt: "desc" },
+          select: commonBoardSelect,
         }),
         prisma.board.findMany({
-          where: { isNotice: true },
-          take: 3,
-          orderBy: { createdAt: "desc" },
-          include: {
-            registrant: {
-              select: {
-                id: true,
-                nickname: true,
-                image: true,
-              },
-            },
-            _count: {
-              select: {
-                comments: true,
-                likes: true,
-              },
-            },
+          where: {
+            isNotice: false,
+            ...categoryWhereCondition,
           },
+          take: 5,
+          orderBy: { createdAt: "desc" },
+          select: commonBoardSelect,
         }),
       ]);
+
+      // 데이터 변환 함수
+      const transformBoardData = (board: (typeof recentBoards)[0]) => ({
+        id: board.id,
+        title: board.title,
+        createdAt: board.createdAt,
+        commentCount: board._count.comments,
+        likeCount: board._count.likes,
+        category: {
+          id: board.category?.id || "",
+          name: board.category?.name || "",
+          role: board.category?.role || null,
+        },
+        registrant: {
+          id: board.registrant.id,
+          nickname: board.registrant.nickname,
+          image: board.registrant.image,
+          role: board.registrant.role,
+        },
+        _count: {
+          likes: board._count.likes,
+          comments: board._count.comments,
+        },
+      });
 
       return {
         success: true,
         error: null,
         data: {
-          recentBoards: recentBoards.map((board) => ({
-            id: board.id,
-            title: board.title,
-            createdAt: board.createdAt.toISOString(),
-            commentCount: board._count.comments,
-            likeCount: board._count.likes,
-            registrant: board.registrant || {
-              id: "",
-              nickname: "정보없음",
-              image: null,
-            },
-          })),
-          recentNotices: recentNotices.map((notice) => ({
-            id: notice.id,
-            title: notice.title,
-            createdAt: notice.createdAt.toISOString(),
-            commentCount: notice._count.comments,
-            likeCount: notice._count.likes,
-            registrant: notice.registrant || {
-              id: "",
-              nickname: "정보없음",
-              image: null,
-            },
-          })),
+          recentNotices: recentNotices.map(transformBoardData),
+          recentBoards: recentBoards.map(transformBoardData),
         },
       };
     } catch (error) {
+      console.error("Get recent boards error:", error);
       return {
         success: false,
-        data: null,
         error:
           error instanceof Error
             ? error.message
-            : "알 수 없는 오류가 발생했습니다.",
+            : "최근 게시글 조회에 실패했습니다.",
+        data: null,
       };
     }
   }

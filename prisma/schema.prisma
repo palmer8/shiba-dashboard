@@ -338,13 +338,13 @@ model Board {
   id           String         @id @default(uuid())
   title        String
   content      Json
-  categoryId   String?        @map("category_id")
+  categoryId   String        @map("category_id")
   views        Int            @default(0)
-  registrantId String?        @map("registrant_id")
+  registrantId String        @map("registrant_id")
   isNotice     Boolean        @default(false) @map("is_notice")
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
-  registrant   User?          @relation(fields: [registrantId], references: [id], onDelete: SetNull)
+  registrant   User           @relation(fields: [registrantId], references: [id], onDelete: Cascade)
   category     BoardCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   comments     BoardComment[]
   likes        BoardLike[]

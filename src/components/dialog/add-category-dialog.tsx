@@ -132,18 +132,16 @@ export default function AddCategoryDialog() {
                   </FormDescription>
                   <FormControl>
                     <Select
-                      value={field.value}
+                      value={field.value ?? "ALL"}
                       onValueChange={(value) =>
-                        value === "ALL"
-                          ? field.onChange(undefined)
-                          : field.onChange(value as UserRole)
+                        field.onChange(value === "ALL" ? null : value)
                       }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="전체" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">모두</SelectItem>
+                        <SelectItem value="ALL">모두</SelectItem>
                         <SelectItem value="STAFF">스태프</SelectItem>
                         <SelectItem value="INGAME_ADMIN">
                           인게임 관리자

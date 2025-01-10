@@ -61,6 +61,7 @@ export default async function LogUserPage({ searchParams }: PageProps) {
             : defaultLogList.total,
         }}
         page={filters.page}
+        session={session}
       />
     </main>
   );

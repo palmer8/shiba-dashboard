@@ -1,7 +1,6 @@
 "use client";
 
-import { useDashboard } from "@/hooks/use-dashboard";
-import { memo } from "react";
+import { memo, useState, useLayoutEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Users,
@@ -10,14 +9,17 @@ import {
   MessageSquare,
   TrendingUp,
   Heart,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { formatKoreanDateTime } from "@/lib/utils";
 import { DashboardData } from "@/types/dashboard";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@radix-ui/react-avatar";
+import { Badge } from "@/components/ui/badge";
 import DashboardSkeleton from "./dashboard-skeleton";
-import { ServerMetricsChart } from "./server-metrics-chart";
+import { getDashboardData } from "@/actions/realtime/realtime-dashboard-action";
+import { RecentBoard } from "@/types/board";
+// import { ServerMetricsChart } from "./server-metrics-chart";
 
 const UserStatsCard = memo(function UserStatsCard({
   userCount,
@@ -122,39 +124,186 @@ const RealtimeUsersCard = memo(function RealtimeUsersCard() {
   );
 });
 
-export default function DashboardClientContent() {
-  const { data, error, isLoading } = useDashboard();
+const NoticeCard = memo(function NoticeCard({
+  notice,
+}: {
+  notice: NonNullable<DashboardData["recentBoards"]>["recentNotices"][0];
+}) {
+  const NEW_THRESHOLD = 30 * 60 * 1000; // 30분
 
-  if (isLoading || !data) {
-    return <DashboardSkeleton />;
-  }
+  const isNew = useMemo(() => {
+    const createdAt = new Date(notice.createdAt);
+    const now = new Date();
+    return now.getTime() - createdAt.getTime() < NEW_THRESHOLD;
+  }, [notice.createdAt]);
 
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          {error?.message || "데이터를 불러오는데 실패했습니다."}
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  const categoryBadge = useMemo(
+    () => <Badge variant="outline">{notice.category?.name}</Badge>,
+    [notice.category?.name]
+  );
+
+  const avatarSection = useMemo(
+    () => (
+      <div className="flex items-center gap-2">
+        <Avatar className="h-6 w-6">
+          <AvatarImage src={notice.registrant.image || ""} />
+          <AvatarFallback>{notice.registrant.nickname[0]}</AvatarFallback>
+        </Avatar>
+        <span>{notice.registrant.nickname}</span>
+      </div>
+    ),
+    [notice.registrant]
+  );
 
   return (
-    <div className="space-y-6">
+    <Card className="hover:bg-muted/50 transition-colors">
+      <Link href={`/notice/${notice.id}`} className="block p-4">
+        <div className="flex items-start gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              {categoryBadge}
+              {isNew && <Badge variant="secondary">NEW</Badge>}
+            </div>
+            <h3 className="font-medium line-clamp-1">{notice.title}</h3>
+            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+              {avatarSection}
+              <span>{formatKoreanDateTime(new Date(notice.createdAt))}</span>
+            </div>
+          </div>
+        </div>
+      </Link>
+    </Card>
+  );
+});
+
+const BoardCard = memo(function BoardCard({ board }: { board: RecentBoard }) {
+  const NEW_THRESHOLD = 30 * 60 * 1000; // 30분
+
+  const isNew = useMemo(() => {
+    const createdAt = new Date(board.createdAt);
+    const now = new Date();
+    return now.getTime() - createdAt.getTime() < NEW_THRESHOLD;
+  }, [board.createdAt]);
+
+  const categoryBadge = useMemo(
+    () => <Badge variant="outline">{board.category.name}</Badge>,
+    [board.category.name]
+  );
+
+  const avatarSection = useMemo(
+    () => (
+      <div className="flex items-center gap-2">
+        <Avatar className="h-6 w-6">
+          <AvatarImage src={board.registrant.image || ""} />
+          <AvatarFallback>{board.registrant.nickname[0]}</AvatarFallback>
+        </Avatar>
+        <span>{board.registrant.nickname}</span>
+      </div>
+    ),
+    [board.registrant]
+  );
+
+  const statsSection = useMemo(
+    () => (
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <MessageSquare className="h-4 w-4" />
+          <span>{board._count.comments}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Heart className="h-4 w-4" />
+          <span>{board._count.likes}</span>
+        </div>
+      </div>
+    ),
+    [board._count]
+  );
+
+  return (
+    <Card className="hover:bg-muted/50 transition-colors">
+      <Link href={`/board/${board.id}`} className="block p-4">
+        <div className="flex items-start gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              {categoryBadge}
+              {isNew && <Badge variant="secondary">NEW</Badge>}
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium line-clamp-1">{board.title}</h3>
+                <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                  {avatarSection}
+                  <span>{formatKoreanDateTime(new Date(board.createdAt))}</span>
+                </div>
+              </div>
+              {statsSection}
+            </div>
+          </div>
+        </div>
+      </Link>
+    </Card>
+  );
+});
+
+export default function DashboardClientContent() {
+  const [mounted, setMounted] = useState(false);
+  const [data, setData] = useState<DashboardData | null>(null);
+  useLayoutEffect(() => {
+    getDashboardData().then((data) => {
+      if (data.success) {
+        setData(data.data);
+      }
+      setMounted(true);
+    });
+  }, []);
+
+  if (!mounted || !data) return <DashboardSkeleton />;
+
+  return (
+    <div className="space-y-4">
       {/* 상단 통계 카드 섹션 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <UserStatsCard userCount={data.userCount} />
-        <AdminStatsCard adminData={data.adminData} />
-        <WeeklyStatsCard weeklyStats={data.weeklyStats} />
+        {data?.adminData ? (
+          <AdminStatsCard adminData={data.adminData} />
+        ) : (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-sm font-medium">
+                실시간 접속 관리자
+              </CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="h-6 w-16 bg-muted animate-pulse rounded" />
+              <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+            </CardContent>
+          </Card>
+        )}
+        {data?.weeklyStats ? (
+          <WeeklyStatsCard weeklyStats={data.weeklyStats} />
+        ) : (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-sm font-medium">
+                주간 신규 유저
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="h-6 w-16 bg-muted animate-pulse rounded" />
+              <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+            </CardContent>
+          </Card>
+        )}
         <RealtimeUsersCard />
       </div>
 
       {/* 게시판 섹션 */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {/* 공지사항 */}
         <Card className="h-[500px] flex flex-col">
-          <CardHeader className="flex-none">
+          <CardHeader className="flex-none border-b">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
@@ -162,37 +311,25 @@ export default function DashboardClientContent() {
               </div>
               <Link
                 href="/notices"
-                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
               >
-                더보기 →
+                더보기
+                <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto">
-            {data.recentBoards.recentNotices.length > 0 ? (
-              <div className="space-y-3">
-                {data.recentBoards.recentNotices.map((notice) => (
-                  <Link
-                    key={notice.id}
-                    href={`/board/${notice.id}`}
-                    className="block p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <h3 className="text-sm font-medium line-clamp-1">
-                        {notice.title}
-                      </h3>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-muted-foreground">
-                          {notice.registrant.nickname}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatKoreanDateTime(new Date(notice.createdAt))}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+          <CardContent className="flex-1 overflow-y-auto space-y-2 pt-4">
+            {!data?.recentBoards ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="p-4 space-y-2">
+                  <div className="h-5 bg-muted animate-pulse rounded w-3/4" />
+                  <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+                </div>
+              ))
+            ) : data.recentBoards.recentNotices.length > 0 ? (
+              data.recentBoards.recentNotices.map((notice) => (
+                <NoticeCard key={notice.id} notice={notice} />
+              ))
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 등록된 공지사항이 없습니다.
@@ -203,7 +340,7 @@ export default function DashboardClientContent() {
 
         {/* 최근 게시글 */}
         <Card className="h-[500px] flex flex-col">
-          <CardHeader className="flex-none">
+          <CardHeader className="flex-none border-b">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4 text-muted-foreground" />
@@ -213,52 +350,28 @@ export default function DashboardClientContent() {
               </div>
               <Link
                 href="/boards"
-                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
               >
-                더보기 →
+                더보기
+                <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto">
-            {data.recentBoards.recentBoards.length > 0 ? (
-              <div className="space-y-3">
-                {data.recentBoards.recentBoards.map((board) => (
-                  <Link
-                    key={board.id}
-                    href={`/board/${board.id}`}
-                    className="block p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <h3 className="text-sm font-medium line-clamp-1">
-                          {board.title}
-                        </h3>
-                        <div className="flex items-center gap-2">
-                          {board.commentCount > 0 && (
-                            <span className="text-xs text-blue-500 font-medium">
-                              [{board.commentCount}]
-                            </span>
-                          )}
-                          {board.likeCount > 0 && (
-                            <span className="flex items-center gap-1 text-xs text-rose-500">
-                              <Heart className="h-3 w-3" />
-                              {board.likeCount}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-muted-foreground">
-                          {board.registrant.nickname}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatKoreanDateTime(new Date(board.createdAt))}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+          <CardContent className="flex-1 overflow-y-auto space-y-2 pt-4">
+            {!data?.recentBoards ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="p-4 space-y-2">
+                  <div className="h-5 bg-muted animate-pulse rounded w-3/4" />
+                  <div className="flex justify-between items-center mt-2">
+                    <div className="h-4 bg-muted animate-pulse rounded w-1/4" />
+                    <div className="h-4 bg-muted animate-pulse rounded w-1/6" />
+                  </div>
+                </div>
+              ))
+            ) : data.recentBoards.recentBoards.length > 0 ? (
+              data.recentBoards.recentBoards.map((board) => (
+                <BoardCard key={board.id} board={board} />
+              ))
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 등록된 게시글이 없습니다.
@@ -267,7 +380,7 @@ export default function DashboardClientContent() {
           </CardContent>
         </Card>
       </div>
-      <ServerMetricsChart />
+      {/* <ServerMetricsChart /> */}
     </div>
   );
 }

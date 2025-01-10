@@ -16,6 +16,143 @@ import { UserRole } from "@prisma/client";
 import { ApiResponse } from "@/types/global.dto";
 import { RowDataPacket } from "mysql2";
 
+interface GameLog {
+  type: string;
+  level: string;
+  message: string;
+  metadata: Record<string, any>;
+  timestamp?: Date;
+}
+
+interface LogFilter {
+  type?: string;
+  level?: string;
+  startDate?: Date;
+  endDate?: Date;
+  page?: number;
+  limit?: number;
+}
+
+interface LogQueryResult {
+  records: GameLog[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export class LogMemoryStore {
+  private static instance: LogMemoryStore;
+  private buffer: GameLog[] = [];
+  private _isProcessing: boolean = false;
+  private readonly BATCH_SIZE = 1000;
+  private readonly FLUSH_INTERVAL = 5000;
+  private flushTimer: NodeJS.Timeout | null = null;
+
+  private constructor() {
+    this.startFlushTimer();
+  }
+
+  private startFlushTimer() {
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+    }
+    this.flushTimer = setInterval(() => {
+      void this.processBuffer();
+    }, this.FLUSH_INTERVAL);
+  }
+
+  public static getInstance(): LogMemoryStore {
+    if (!LogMemoryStore.instance) {
+      LogMemoryStore.instance = new LogMemoryStore();
+    }
+    return LogMemoryStore.instance;
+  }
+
+  public async addLog(log: GameLog): Promise<void> {
+    this.buffer.push({
+      ...log,
+      timestamp: new Date(),
+    });
+
+    if (this.buffer.length >= this.BATCH_SIZE) {
+      await this.processBuffer();
+    }
+  }
+
+  private async processBuffer(): Promise<void> {
+    if (this._isProcessing || this.buffer.length === 0) return;
+
+    let logsToProcess: GameLog[] = [];
+    try {
+      this._isProcessing = true;
+      logsToProcess = this.buffer.splice(0, this.BATCH_SIZE);
+      await db.batchInsert(logsToProcess);
+    } catch (error) {
+      console.error("버퍼 처리 실패:", error);
+      // 실패한 로그들을 다시 버퍼에 넣기
+      this.buffer.unshift(...logsToProcess);
+    } finally {
+      this._isProcessing = false;
+    }
+  }
+
+  public async forceFlush(): Promise<void> {
+    await this.processBuffer();
+  }
+
+  public getStoredLogs(filters: LogFilter = {}): LogQueryResult {
+    let filteredLogs = [...this.buffer];
+
+    if (filters.type) {
+      filteredLogs = filteredLogs.filter((log) => log.type === filters.type);
+    }
+    if (filters.level) {
+      filteredLogs = filteredLogs.filter((log) => log.level === filters.level);
+    }
+    if (filters.startDate) {
+      filteredLogs = filteredLogs.filter(
+        (log) => new Date(log.timestamp!) >= new Date(filters.startDate!)
+      );
+    }
+    if (filters.endDate) {
+      filteredLogs = filteredLogs.filter(
+        (log) => new Date(log.timestamp!) <= new Date(filters.endDate!)
+      );
+    }
+
+    const total = filteredLogs.length;
+    const page = filters.page || 1;
+    const limit = filters.limit || 50;
+    const start = (page - 1) * limit;
+    const end = start + limit;
+
+    return {
+      records: filteredLogs.slice(start, end),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  public getBufferSize(): number {
+    return this.buffer.length;
+  }
+
+  public isProcessing(): boolean {
+    return this._isProcessing;
+  }
+
+  public async clearBuffer(): Promise<void> {
+    this.buffer = [];
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = null;
+    }
+  }
+}
+
+export const logMemoryStore = LogMemoryStore.getInstance();
+
 export class LogService {
   async getAdminLogs(
     filters: AdminLogFilters
@@ -295,6 +432,136 @@ export class LogService {
           pageSize: 50,
         },
         error: "스태프 로그 조회에 실패했습니다.",
+      };
+    }
+  }
+
+  async deleteGameLogs(
+    ids: number[]
+  ): Promise<ApiResponse<{ deletedCount: number }>> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "세션이 존재하지 않습니다",
+        data: null,
+      };
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        error: "권한이 없습니다",
+        data: null,
+      };
+    }
+
+    try {
+      const deletedRows = await db.deleteLogsByIds(ids);
+
+      return {
+        success: true,
+        data: { deletedCount: deletedRows.count },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Delete game logs error:", error);
+      return {
+        success: false,
+        error: "로그 삭제 중 오류가 발생했습니다",
+        data: null,
+      };
+    }
+  }
+
+  async getGameLogsStats(): Promise<
+    ApiResponse<{
+      totalCount: number;
+      lastHourCount: number;
+      errorCount: number;
+      typeDistribution: Record<string, number>;
+    }>
+  > {
+    try {
+      const now = new Date();
+      const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+      const stats = await db.sql`
+        SELECT
+          (SELECT COUNT(*) FROM game_logs) as total_count,
+          (SELECT COUNT(*) FROM game_logs WHERE timestamp >= ${hourAgo}) as last_hour_count,
+          (SELECT COUNT(*) FROM game_logs WHERE level = 'error') as error_count,
+          (
+            SELECT jsonb_object_agg(type, count)
+            FROM (
+              SELECT type, COUNT(*) as count
+              FROM game_logs
+              GROUP BY type
+            ) type_counts
+          ) as type_distribution
+      `;
+
+      return {
+        success: true,
+        data: {
+          totalCount: stats[0].total_count,
+          lastHourCount: stats[0].last_hour_count,
+          errorCount: stats[0].error_count,
+          typeDistribution: stats[0].type_distribution || {},
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get game logs stats error:", error);
+      return {
+        success: false,
+        error: "로그 통계 조회 중 오류가 발생했습니다",
+        data: null,
+      };
+    }
+  }
+
+  async getLogHealthCheck(): Promise<
+    ApiResponse<{
+      isHealthy: boolean;
+      lastLogTimestamp: Date | null;
+      avgInsertLatency: number;
+    }>
+  > {
+    try {
+      const stats = await db.sql`
+        WITH latency_stats AS (
+          SELECT 
+            AVG(EXTRACT(EPOCH FROM (lead(timestamp) OVER (ORDER BY timestamp) - timestamp))) as avg_latency,
+            MAX(timestamp) as last_timestamp
+          FROM game_logs
+          WHERE timestamp >= NOW() - INTERVAL '1 hour'
+        )
+        SELECT 
+          CASE 
+            WHEN last_timestamp >= NOW() - INTERVAL '5 minutes' THEN true 
+            ELSE false 
+          END as is_healthy,
+          last_timestamp,
+          COALESCE(avg_latency, 0) as avg_latency
+        FROM latency_stats
+      `;
+
+      return {
+        success: true,
+        data: {
+          isHealthy: stats[0].is_healthy,
+          lastLogTimestamp: stats[0].last_timestamp,
+          avgInsertLatency: stats[0].avg_latency,
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get log health check error:", error);
+      return {
+        success: false,
+        error: "로그 상태 확인 중 오류가 발생했습니다",
+        data: null,
       };
     }
   }

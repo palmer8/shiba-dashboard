@@ -110,11 +110,18 @@ export default function UserLogFilter({ filter }: UserLogFilterProps) {
       </div>
 
       <div className="flex items-center justify-end gap-2 mt-6">
-        <Button variant="outline" onClick={handleReset} className="gap-2">
+        <Button
+          variant="outline"
+          onClick={handleReset}
+          className="gap-2"
+          size="sm"
+        >
           <RotateCcw className="h-4 w-4" />
           초기화
         </Button>
-        <Button onClick={handleSearch}>조회</Button>
+        <Button onClick={handleSearch} size="sm">
+          조회
+        </Button>
       </div>
     </>
   );

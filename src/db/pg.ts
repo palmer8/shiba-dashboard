@@ -135,6 +135,16 @@ const queryLogsByIds = async (ids: number[]) => {
   `;
 };
 
+const deleteLogsByIds = async (ids: number[]) => {
+  if (!ids.length) return { count: 0 };
+
+  return sql`
+    DELETE FROM game_logs 
+    WHERE id = ANY(${ids})
+    RETURNING id
+  `;
+};
+
 export default {
   sql,
   createPartitionTable,
@@ -143,4 +153,5 @@ export default {
   queryLogs,
   cleanupOldData,
   queryLogsByIds,
+  deleteLogsByIds,
 };

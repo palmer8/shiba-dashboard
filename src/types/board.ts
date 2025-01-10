@@ -1,7 +1,7 @@
 import { UserRole } from "@prisma/client";
 import { JSONContent } from "novel";
 
-// 기본 타입들 정리
+// 기본 게시글 타입 (공통 속성)
 export interface BoardBase {
   id: string;
   title: string;
@@ -11,26 +11,49 @@ export interface BoardBase {
   isNotice: boolean;
 }
 
+// 작성자 정보
 export interface BoardAuthor {
   id: string;
   nickname: string;
-  image?: string | null;
+  image: string | null;
+  role?: UserRole;
 }
 
+// 카테고리 정보
 export interface BoardCategory {
   id: string;
   name: string;
+  role?: UserRole | null;
+}
+
+// 통계 정보 (좋아요, 댓글 수 등)
+export interface BoardStats {
+  _count: {
+    likes: number;
+    comments: number;
+  };
+}
+
+// 대시보드용 최근 게시글 타입
+export interface RecentBoard
+  extends Pick<BoardBase, "id" | "title" | "createdAt"> {
+  registrant: BoardAuthor;
+  category: BoardCategory;
+  _count: {
+    likes: number;
+    comments: number;
+  };
 }
 
 // 게시글 목록용 타입
 export interface BoardData extends BoardBase {
   registrant: BoardAuthor;
   category: BoardCategory;
-  commentCount: number;
+  excerpt?: string;
   _count: {
     likes: number;
+    comments: number;
   };
-  excerpt?: string; // 내용 미리보기
 }
 
 // 게시글 상세 조회용 타입
@@ -39,8 +62,8 @@ export interface BoardDetailView extends BoardBase {
   registrant: BoardAuthor;
   category: BoardCategory;
   comments: CommentData[];
-  isLiked: boolean;
   likes: LikeInfo[];
+  isLiked: boolean;
   _count: {
     likes: number;
     comments: number;
@@ -56,18 +79,23 @@ export interface CommentData {
   registrant: BoardAuthor;
 }
 
-// 게시글 목록 메타데이터
-export interface BoardMetadata {
-  currentPage: number;
-  totalPages: number;
-  totalCount: number;
+// 좋아요 정보
+export interface LikeInfo {
+  id: string;
+  nickname: string;
+  userId: string;
+  createdAt: Date;
 }
 
 // 게시글 목록 응답
 export interface BoardList {
   boards: BoardData[];
   notices: BoardData[];
-  metadata: BoardMetadata;
+  metadata: {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+  };
 }
 
 // 게시글 필터
@@ -80,41 +108,8 @@ export interface BoardFilter {
   title?: string;
 }
 
-// 카테고리 데이터
-export interface CategoryData {
-  id: string;
-  name: string;
-  template: JSONContent | null;
-}
-
-// 좋아요 정보 타입 추가
-export interface LikeInfo {
-  id: string;
-  nickname: string;
-  userId: string;
-  createdAt: Date;
-}
-
-// 기존 타입들은 유지하면서 새로운 타입 추가
-export interface BoardListResponse {
-  boards: BoardData[];
-  notices: BoardData[];
-  metadata: {
-    currentPage: number;
-    totalPages: number;
-    totalCount: number;
-  };
-}
-
-// 스켈레톤 로딩을 위한 타입
-export interface BoardTableSkeleton {
-  rows: number;
-  columns: number;
-}
-
-export interface CommentSectionProps {
-  boardId: string;
-  comments: CommentData[];
-  userId: string;
-  userRole: UserRole;
+// 대시보드용 최근 게시글 목록
+export interface RecentBoards {
+  recentBoards: RecentBoard[];
+  recentNotices: RecentBoard[];
 }

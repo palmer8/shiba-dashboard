@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
 import { StaffLog, StaffLogResponse } from "@/types/log";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Download } from "lucide-react";
 import Empty from "@/components/ui/empty";
@@ -18,6 +18,7 @@ interface StaffLogTableProps {
 export function StaffLogTable({ data }: StaffLogTableProps) {
   const router = useRouter();
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const searchParams = useSearchParams();
 
   const handleSelect = (log: StaffLog) => {
     const logId = `${log.staff_id}-${log.target_id}-${new Date(
@@ -39,6 +40,17 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
               `${log.staff_id}-${log.target_id}-${new Date(log.time).getTime()}`
           )
     );
+  };
+
+  const handlePageChange = (newPage: number) => {
+    const currentPage = Number(data.page);
+    const totalPages = Number(data.totalPages);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", String(newPage));
+
+    if (newPage < 1 || newPage > totalPages) return;
+
+    router.push(`/log/staff?${params.toString()}`);
   };
 
   const handleDownload = () => {
@@ -164,13 +176,13 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
               onChange={(e) => {
                 const newPage = parseInt(e.target.value);
                 if (newPage >= 1 && newPage <= data.totalPages) {
-                  router.push(`/log/staff?page=${newPage}`);
+                  handlePageChange(newPage);
                 }
               }}
               onBlur={(e) => {
                 const newPage = parseInt(e.target.value);
                 if (newPage >= 1 && newPage <= data.totalPages) {
-                  router.push(`/log/staff?page=${newPage}`);
+                  handlePageChange(newPage);
                 }
               }}
               className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -184,8 +196,8 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => router.push(`/log/staff?page=${data.page + 1}`)}
-            disabled={data.page >= data.totalPages}
+            onClick={() => handlePageChange(Number(data.page) + 1)}
+            disabled={Number(data.page) >= Number(data.totalPages)}
           >
             다음
           </Button>

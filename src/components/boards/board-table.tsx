@@ -107,30 +107,30 @@ export function BoardTable({
       className="hover:bg-muted/50 transition-colors cursor-pointer"
       onClick={() => router.push(`/board/${board.id}`)}
     >
-      <div className="p-4">
-        <div className="flex items-start gap-4">
+      <div className="p-3">
+        <div className="flex items-start gap-3">
           {session?.user?.role === UserRole.SUPERMASTER && (
             <Checkbox
               checked={selectedRows.includes(board.id)}
               onCheckedChange={() => handleSelect(board.id)}
               onClick={(e) => e.stopPropagation()}
-              className="mt-1"
+              className="mt-0.5"
             />
           )}
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-1.5">
               {isNotice && <Badge variant="secondary">공지</Badge>}
               <Badge variant="outline">{board.category.name}</Badge>
             </div>
 
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium line-clamp-2">{board.title}</h3>
+                <h3 className="font-medium line-clamp-1">{board.title}</h3>
 
-                <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
+                <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <Avatar className="h-5 w-5">
                       <AvatarImage src={board.registrant.image || ""} />
                       <AvatarFallback>
                         {board.registrant.nickname[0]}
@@ -142,14 +142,14 @@ export function BoardTable({
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 text-sm text-muted-foreground shrink-0">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground shrink-0">
                 <div className="flex items-center gap-1">
                   <Eye className="h-4 w-4" />
                   <span>{board.views}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <MessageSquare className="h-4 w-4" />
-                  <span>{board.commentCount}</span>
+                  <span>{board._count.comments}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Heart className="h-4 w-4" />

@@ -139,11 +139,9 @@ export default function EditCategoryDialog({
                   </FormDescription>
                   <FormControl>
                     <Select
-                      value={field.value}
+                      value={field.value ?? "ALL"}
                       onValueChange={(value) =>
-                        value === "ALL"
-                          ? field.onChange(undefined)
-                          : field.onChange(value as UserRole)
+                        field.onChange(value === "ALL" ? null : value)
                       }
                     >
                       <SelectTrigger>
