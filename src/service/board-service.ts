@@ -413,8 +413,6 @@ class BoardService {
         },
       });
 
-      console.log(board);
-
       if (!board) {
         return {
           success: false,
@@ -715,6 +713,7 @@ class BoardService {
       const category = await prisma.boardCategory.create({
         data: {
           name: data.name,
+          role: data.role,
           template: data.template,
           isUsed: data.isUsed,
           registrantId: session.user.id,
@@ -762,6 +761,7 @@ class BoardService {
           name: data.name,
           template: data.template,
           isUsed: data.isUsed,
+          role: data.role,
         },
       });
 
