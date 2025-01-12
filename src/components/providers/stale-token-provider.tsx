@@ -20,8 +20,6 @@ const StaleTokenProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      console.log(autoLogin);
-
       if (autoLogin === undefined || autoLogin === null) {
         signOut({ callbackUrl: "/login" });
         return;

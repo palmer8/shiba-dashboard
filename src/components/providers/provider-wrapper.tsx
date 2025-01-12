@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "next-themes";
 import StaleTokenProvider from "./stale-token-provider";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 
 export default function ProviderWrapper({
   children,
@@ -18,6 +19,7 @@ export default function ProviderWrapper({
           <SidebarProvider>
             {children}
             <Toaster />
+            <Sonner />
           </SidebarProvider>
         </StaleTokenProvider>
       </SessionProvider>

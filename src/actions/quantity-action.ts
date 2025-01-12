@@ -21,13 +21,11 @@ export async function createItemQuantityAction(
 
 export async function approveItemQuantitiesAction(
   ids: string[]
-): Promise<ApiResponse<boolean>> {
+): Promise<ApiResponse<any[]>> {
   const result = await itemQuantityService.approveItemQuantities(ids);
-
   if (result.success) {
     revalidatePath("/game/item");
   }
-
   return result;
 }
 
@@ -80,10 +78,9 @@ export async function rejectAllItemQuantitiesAction(): Promise<
 }
 
 export async function approveAllItemQuantitiesAction(): Promise<
-  ApiResponse<boolean>
+  ApiResponse<any[]>
 > {
   const result = await itemQuantityService.approveAllItemQuantities();
-
   if (result.success) {
     revalidatePath("/game/item");
   }

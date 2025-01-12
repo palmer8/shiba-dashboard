@@ -5,20 +5,15 @@ import {
   CreditTableData,
   CreateRewardRevokeData,
   UpdateRewardRevokeData,
-  GameData,
 } from "@/types/credit";
-import {
-  Prisma,
-  RewardRevokeCreditType,
-  ActionType,
-  Status,
-} from "@prisma/client";
+import { Prisma, RewardRevokeCreditType, ActionType } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
-import { formatKoreanNumber } from "@/lib/utils";
 import { ApiResponse } from "@/types/global.dto";
 import { unstable_cache } from "next/cache";
 import { revalidateTag } from "next/cache";
+import { realtimeService } from "./realtime-service";
+import { userService } from "./user-service";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -136,8 +131,8 @@ class CreditService {
   }): Promise<any> {
     let url: string;
     const gameData = {
-      user_id: data.userId,
-      amount: data.amount,
+      user_id: Number(data.userId),
+      amount: Number(data.amount),
       type: data.type === "ADD" ? "add" : "subtract",
     };
 
@@ -154,6 +149,7 @@ class CreditService {
       case "CREDIT2":
         url = "updateCredit2";
         break;
+
       default:
         return null;
     }
@@ -173,11 +169,13 @@ class CreditService {
     return response.json();
   }
 
-  async approveRewardRevokes(ids: string[]): Promise<ApiResponse<boolean>> {
+  async approveRewardRevokes(ids: string[]): Promise<ApiResponse<any[]>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
     try {
+      const approveResults: any[] = [];
+
       await prisma.$transaction(async (tx) => {
         const rewardRevokes = await tx.rewardRevoke.findMany({
           where: {
@@ -195,14 +193,26 @@ class CreditService {
 
         // 게임 서버 업데이트 - 기존 로직 유지
         for (const revoke of rewardRevokes) {
-          const result = await this.addRewardRevokeByGame({
-            userId: revoke.userId,
-            amount: revoke.amount,
-            type: revoke.type,
-            creditType: revoke.creditType,
-          });
+          const [result, nickname] = await Promise.all([
+            this.addRewardRevokeByGame({
+              userId: revoke.userId,
+              amount: revoke.amount,
+              type: revoke.type,
+              creditType: revoke.creditType,
+            }),
+            userService.getGameNicknameByUserId(revoke.userId),
+          ]);
 
-          if (!result) {
+          if (result.success) {
+            approveResults.push({
+              nickname: nickname.data,
+              amount: revoke.amount,
+              finalAmount: result.resultMoney,
+              result: result.success,
+              userId: revoke.userId,
+              creditType: revoke.creditType,
+            });
+          } else {
             throw new Error(
               `Failed to apply game changes for revoke ${revoke.id}`
             );
@@ -233,7 +243,7 @@ class CreditService {
       });
 
       revalidateTag("reward-revokes");
-      return { success: true, error: null, data: true };
+      return { success: true, error: null, data: approveResults };
     } catch (error) {
       console.error("Approve reward revokes error:", error);
       return {
@@ -383,11 +393,12 @@ class CreditService {
     }
   }
 
-  async approveAllRewardRevokes(): Promise<ApiResponse<boolean>> {
+  async approveAllRewardRevokes(): Promise<ApiResponse<any[]>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
     try {
+      const approveResults: any[] = [];
       await prisma.$transaction(async (tx) => {
         const rewardRevokes = await tx.rewardRevoke.findMany({
           where: { status: "PENDING" },
@@ -402,14 +413,26 @@ class CreditService {
 
         // 게임 서버 업데이트
         for (const revoke of rewardRevokes) {
-          const result = await this.addRewardRevokeByGame({
-            userId: revoke.userId,
-            amount: revoke.amount,
-            type: revoke.type,
-            creditType: revoke.creditType,
-          });
+          const [result, nickname] = await Promise.all([
+            this.addRewardRevokeByGame({
+              userId: revoke.userId,
+              amount: revoke.amount,
+              type: revoke.type,
+              creditType: revoke.creditType,
+            }),
+            userService.getGameNicknameByUserId(revoke.userId),
+          ]);
 
-          if (!result) {
+          if (result.success) {
+            approveResults.push({
+              nickname: nickname.data,
+              amount: revoke.amount,
+              finalAmount: result.resultMoney,
+              result: result.success,
+              userId: revoke.userId,
+              creditType: revoke.creditType,
+            });
+          } else {
             throw new Error(
               `Failed to apply game changes for revoke ${revoke.id}`
             );
@@ -437,7 +460,7 @@ class CreditService {
       });
 
       revalidateTag("reward-revokes");
-      return { success: true, error: null, data: true };
+      return { success: true, error: null, data: approveResults };
     } catch (error) {
       console.error("Approve all reward revokes error:", error);
       return {
@@ -524,8 +547,6 @@ class CreditService {
       await prisma.rewardRevoke.delete({
         where: {
           id,
-          registrantId: session.user.id,
-          status: "PENDING",
         },
       });
 

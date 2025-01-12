@@ -281,7 +281,7 @@ export default function EditCreditDialog({
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                추가
+                수정
               </Button>
             </DialogFooter>
           </form>

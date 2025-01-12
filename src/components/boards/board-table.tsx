@@ -30,7 +30,6 @@ import {
   getBoardListsByIdsOriginAction,
 } from "@/actions/board-action";
 import { toast } from "@/hooks/use-toast";
-import Empty from "@/components/ui/empty";
 
 interface BoardTableProps {
   data: BoardData[];
@@ -220,11 +219,6 @@ export function BoardTable({
       )}
 
       <div className="space-y-2">
-        {data.length === 0 && (
-          <div className="flex items-center justify-center h-full">
-            <Empty description="게시글이 없습니다." />
-          </div>
-        )}
         {data.map((board, i) => renderBoardCard(board, i))}
       </div>
 

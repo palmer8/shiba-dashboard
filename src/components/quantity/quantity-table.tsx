@@ -46,10 +46,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSession } from "next-auth/react";
-import Empty from "../ui/empty";
+import Empty from "@/components/ui/empty";
 import { ConfirmDialog } from "@/components/dialog/confirm-dialog";
 import EditItemQuantityDialog from "@/components/dialog/edit-quantity-dialog";
+import { toast as sonnerToast } from "sonner";
 
 interface ItemQuantityTableProps {
   data: ItemQuantityTableData;
@@ -259,16 +259,48 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
   );
 
   const handleApprove = async () => {
-    try {
-      setIsLoading(true);
-      const selectedRows = table.getSelectedRowModel().rows;
-      const selectedIds = selectedRows.map((row) => row.original.id);
+    const selectedIds = table
+      .getSelectedRowModel()
+      .rows.map((row) => row.original.id);
+    if (!selectedIds.length) {
+      toast({
+        title: "선택된 항목이 없습니다.",
+      });
+      return;
+    }
 
+    setIsLoading(true);
+    try {
       const result = await approveItemQuantitiesAction(selectedIds);
-      if (result.success) {
-        toast({
-          title: "승인 완료",
-          description: "선택한 아이템이 성공적으로 승인되었습니다.",
+      if (result.success && Array.isArray(result.data)) {
+        result.data.forEach((item, index) => {
+          sonnerToast("아이템 지급/회수 티켓이 승인되었습니다.", {
+            id: `approve-${item.userId}-${item.itemName}-${
+              item.finalAmount
+            }-${Date.now()}`,
+            description: (
+              <div className="mt-2 space-y-1">
+                <p>
+                  대상자: {item.nickname}({item.userId})
+                </p>
+                <p>아이템: {item.itemName}</p>
+                <p>수량: {formatKoreanNumber(item.amount)}</p>
+                <p>최종 수량: {formatKoreanNumber(item.finalAmount)}</p>
+                <p>접속 여부: {item.online ? "온라인" : "오프라인"}</p>
+              </div>
+            ),
+            duration: 4000 + index * 1000,
+            action: {
+              label: "닫기",
+              onClick: () => {
+                sonnerToast.dismiss(
+                  `approve-${item.userId}-${item.itemName}-${
+                    item.finalAmount
+                  }-${Date.now()}`
+                );
+              },
+            },
+          });
         });
         table.toggleAllPageRowsSelected(false);
       } else {
@@ -282,6 +314,59 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
       toast({
         title: "승인 실패",
         description: "아이템 승인 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApproveAll = async () => {
+    setIsLoading(true);
+    try {
+      const result = await approveAllItemQuantitiesAction();
+      if (result.success && Array.isArray(result.data)) {
+        result.data.forEach((item, index) => {
+          sonnerToast("아이템 지급/회수 티켓이 승인되었습니다.", {
+            id: `approve-${item.userId}-${item.itemName}-${
+              item.finalAmount
+            }-${Date.now()}`,
+            description: (
+              <div className="mt-2 space-y-1">
+                <p>
+                  대상자: {item.nickname}({item.userId})
+                </p>
+                <p>아이템: {item.itemName}</p>
+                <p>수량: {formatKoreanNumber(item.amount)}</p>
+                <p>최종 수량: {formatKoreanNumber(item.finalAmount)}</p>
+                <p>접속 여부: {item.online ? "온라인" : "오프라인"}</p>
+              </div>
+            ),
+            duration: 4000 + index * 1000,
+            action: {
+              label: "닫기",
+              onClick: () => {
+                sonnerToast.dismiss(
+                  `approve-${item.userId}-${item.itemName}-${
+                    item.finalAmount
+                  }-${Date.now()}`
+                );
+              },
+            },
+          });
+        });
+      } else {
+        toast({
+          title: "일괄 승인 실패",
+          description:
+            result.error || "아이템 일괄 승인 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "일괄 승인 실패",
+        description: "아이템 일괄 승인 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
@@ -344,34 +429,6 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
       toast({
         title: "거절 실패",
         description: "아이템 거절 중 오류가 발생했습니다.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleApproveAll = async () => {
-    try {
-      setIsLoading(true);
-      const result = await approveAllItemQuantitiesAction();
-      if (result.success) {
-        toast({
-          title: "일괄 승인 완료",
-          description: "모든 대기중인 아이템이 성공적으로 승인되었습니다.",
-        });
-      } else {
-        toast({
-          title: "일괄 승인 실패",
-          description:
-            result.error || "아이템 일괄 승인 중 오류가 발생했습니다.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "일괄 승인 실패",
-        description: "아이템 일괄 승인 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {

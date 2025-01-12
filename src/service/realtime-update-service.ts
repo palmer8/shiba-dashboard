@@ -25,17 +25,7 @@ class RealtimeUpdateService {
       };
     }
 
-    const user = await userService.getUserById(session.user.id);
-
-    if (!user.data) {
-      return {
-        data: null,
-        success: false,
-        error: "유저 정보를 찾을 수 없습니다",
-      };
-    }
-
-    if (!hasAccess(user.data.role, UserRole.INGAME_ADMIN)) {
+    if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
       return {
         data: null,
         success: false,

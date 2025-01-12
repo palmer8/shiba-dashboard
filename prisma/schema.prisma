@@ -75,6 +75,7 @@ enum RewardRevokeCreditType {
   CREDIT
   CREDIT2
   ITEM
+  CURRENT_COIN
 
   @@map("reward_revoke_credit_type")
 }

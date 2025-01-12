@@ -10,17 +10,12 @@ import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
 import { UpdateUserData } from "@/types/user";
 import { ApiResponse } from "@/types/global.dto";
+import { userService } from "./user-service";
 
 const ITEMS_PER_PAGE = 50;
 const BATCH_SIZE = 100;
 
 class ItemQuantityService {
-  // 캐시 키 생성 유틸리티
-  private getCacheKey(id: string) {
-    return `item-quantity:${id}`;
-  }
-
-  // 필터 조건 생성 유틸리티
   private buildWhereClause(
     filter: ItemQuantityFilter
   ): Prisma.ItemQuantityWhereInput {
@@ -102,11 +97,13 @@ class ItemQuantityService {
     }
   }
 
-  async approveItemQuantities(ids: string[]): Promise<ApiResponse<boolean>> {
+  async approveItemQuantities(ids: string[]): Promise<ApiResponse<any[]>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
     try {
+      const approveResults: any[] = [];
+
       // 청크 단위로 처리하여 메모리 효율성 개선
       const chunks = this.chunkArray(ids, BATCH_SIZE);
 
@@ -120,6 +117,35 @@ class ItemQuantityService {
               },
             });
 
+            // 게임 업데이트 병렬 처리
+            for (const item of itemQuantities) {
+              const [result, nickname] = await Promise.all([
+                this.updateItemQuantityByGame({
+                  user_id: String(item.userId),
+                  itemcode: item.itemId,
+                  amount: Number(item.amount),
+                  type: item.type.toLowerCase() as "add" | "remove",
+                }),
+                userService.getGameNicknameByUserId(item.userId),
+              ]);
+
+              if (result.success) {
+                approveResults.push({
+                  nickname: nickname.data,
+                  amount: item.amount,
+                  finalAmount: result?.finalAmount,
+                  result: result.success,
+                  userId: item.userId,
+                  itemName: item.itemName,
+                  online: result.isOnline,
+                });
+              } else {
+                throw new Error(
+                  `Failed to apply game changes for quantity ${item.id}`
+                );
+              }
+            }
+
             await prisma.itemQuantity.updateMany({
               where: { id: { in: chunkIds }, status: "PENDING" },
               data: {
@@ -129,18 +155,6 @@ class ItemQuantityService {
                 approverId: session.user!.id,
               },
             });
-
-            // 게임 업데이트 병렬 처리
-            await Promise.all(
-              itemQuantities.map((item) =>
-                this.updateItemQuantityByGame({
-                  user_id: String(item.userId),
-                  itemcode: item.itemId,
-                  amount: Number(item.amount),
-                  type: item.type.toLowerCase() as "add" | "remove",
-                })
-              )
-            );
           });
         })
       );
@@ -150,7 +164,7 @@ class ItemQuantityService {
         session.user!.id as string
       );
 
-      return { success: true, data: true, error: null };
+      return { success: true, data: approveResults, error: null };
     } catch (error) {
       console.error("Approve item quantities error:", error);
       return {
@@ -161,16 +175,17 @@ class ItemQuantityService {
     }
   }
 
-  async approveAllItemQuantities(): Promise<ApiResponse<boolean>> {
+  async approveAllItemQuantities(): Promise<ApiResponse<any[]>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
     try {
-      const count = await prisma.itemQuantity.count({
+      const approveResults: any[] = [];
+      const pendingItems = await prisma.itemQuantity.findMany({
         where: { status: "PENDING" },
       });
 
-      if (count === 0) {
+      if (pendingItems.length === 0) {
         return {
           success: false,
           error: "승인할 티켓이 없습니다.",
@@ -178,28 +193,75 @@ class ItemQuantityService {
         };
       }
 
-      await prisma.$transaction(async (prisma) => {
-        await prisma.itemQuantity.updateMany({
-          where: { status: "PENDING" },
-          data: {
-            status: "APPROVED",
-            approvedAt: new Date(),
-            approverId: session.user!.id as string,
-          },
-        });
+      // 청크 단위로 처리
+      const chunks = this.chunkArray(
+        pendingItems.map((item) => item.id),
+        BATCH_SIZE
+      );
 
-        await this.createLog(
-          `아이템 지급/회수 티켓 전체 승인 처리 (${count}건)`,
-          session.user!.id as string
-        );
-      });
+      await Promise.all(
+        chunks.map(async (chunkIds) => {
+          await prisma.$transaction(async (prisma) => {
+            const itemQuantities = await prisma.itemQuantity.findMany({
+              where: {
+                id: { in: chunkIds },
+                status: "PENDING",
+              },
+            });
 
-      return { success: true, data: true, error: null };
+            // 게임 업데이트 병렬 처리
+            for (const item of itemQuantities) {
+              const [result, nickname] = await Promise.all([
+                this.updateItemQuantityByGame({
+                  user_id: String(item.userId),
+                  itemcode: item.itemId,
+                  amount: Number(item.amount),
+                  type: item.type.toLowerCase() as "add" | "remove",
+                }),
+                userService.getGameNicknameByUserId(item.userId),
+              ]);
+
+              if (result.success) {
+                approveResults.push({
+                  nickname: nickname.data,
+                  amount: item.amount,
+                  finalAmount: result?.finalAmount,
+                  result: result.success,
+                  userId: item.userId,
+                  itemName: item.itemName,
+                  online: result.isOnline,
+                });
+              } else {
+                throw new Error(
+                  `Failed to apply game changes for quantity ${item.id}`
+                );
+              }
+            }
+
+            await prisma.itemQuantity.updateMany({
+              where: { id: { in: chunkIds }, status: "PENDING" },
+              data: {
+                status: "APPROVED",
+                isApproved: true,
+                approvedAt: new Date(),
+                approverId: session.user!.id,
+              },
+            });
+          });
+        })
+      );
+
+      await this.createLog(
+        `아이템 지급/회수 티켓 전체 승인 처리 (${pendingItems.length}건)`,
+        session.user!.id as string
+      );
+
+      return { success: true, data: approveResults, error: null };
     } catch (error) {
       console.error("Approve all item quantities error:", error);
       return {
         success: false,
-        error: "아이템 지급/회수 승인 실패",
+        error: "아이템 지급/회수 전체 승인 실패",
         data: null,
       };
     }
@@ -536,11 +598,27 @@ class ItemQuantityService {
     });
   }
 
-  private async updateItemQuantityByGame(
-    data: UpdateUserData
-  ): Promise<ApiResponse<boolean>> {
-    // 게임 업데이트 로직 구현
-    return { success: true, data: true, error: null };
+  private async updateItemQuantityByGame(data: UpdateUserData): Promise<
+    | {
+        finalAmount: number;
+        itemName: string;
+        isOnline: boolean;
+        success: boolean;
+      }
+    | any
+  > {
+    const response = await fetch(
+      `${process.env.PRIVATE_API_URL}/DokkuApi/updatePlayerItem`,
+      {
+        method: "POST",
+        headers: {
+          key: process.env.PRIVATE_API_KEY || "",
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    return response.json();
   }
 }
 

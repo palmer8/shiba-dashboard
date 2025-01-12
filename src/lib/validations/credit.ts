@@ -8,7 +8,7 @@ export const createCreditSchema = z.object({
       required_error: "고유번호를 입력해주세요",
     })
     .min(1, "고유번호를 입력해주세요"),
-  creditType: z.nativeEnum(RewardRevokeCreditType, {
+  creditType: z.string({
     required_error: "재화 종류를 선택해주세요",
   }),
   type: z.nativeEnum(ActionType, {
@@ -35,7 +35,11 @@ export const editCreditSchema = createCreditSchema.extend({
 export const creditFilterSchema = z.object({
   status: z.nativeEnum(Status).optional(),
   type: z.nativeEnum(ActionType).optional(),
-  creditType: z.nativeEnum(RewardRevokeCreditType).optional(),
+  creditType: z
+    .string({
+      required_error: "재화 종류를 선택해주세요",
+    })
+    .optional(),
   startDate: z.date().optional(),
   endDate: z.date().optional(),
   searchType: z.enum(["userId", "registrantId", "approverId"]).optional(),

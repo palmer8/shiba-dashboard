@@ -41,6 +41,7 @@ import {
   CreateCreditValues,
 } from "@/lib/validations/credit";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { RewardRevokeCreditType } from "@prisma/client";
 
 interface AddCreditDialogProps {
   open: boolean;
@@ -101,7 +102,10 @@ export default function AddCreditDialog({
 
   const handleSubmit = form.handleSubmit(async (data) => {
     try {
-      const result = await createCreditAction(data);
+      const result = await createCreditAction({
+        ...data,
+        creditType: data.creditType as RewardRevokeCreditType,
+      });
       if (result.success) {
         toast({ title: "재화 지급/회수 티켓 추가 완료" });
         setOpen(false);
