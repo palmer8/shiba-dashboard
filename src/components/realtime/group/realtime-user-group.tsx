@@ -38,11 +38,14 @@ interface RealtimeUserGroupProps {
   data: RealtimeGameUserData;
   userId: number;
   session: Session;
+  mutate: () => Promise<any>;
 }
 
 export default function RealtimeUserGroup({
   data,
   userId,
+  session,
+  mutate,
 }: RealtimeUserGroupProps) {
   const groups = useMemo(
     () =>
@@ -66,6 +69,7 @@ export default function RealtimeUserGroup({
       toast({
         title: "그룹 추방 성공",
       });
+      await mutate();
     } else {
       toast({
         title: "그룹 추방 실패",
@@ -178,7 +182,7 @@ export default function RealtimeUserGroup({
             <Download className="mr-2 h-4 w-4" />
             CSV 내보내기
           </Button>
-          <AddGroupDialog userId={userId} page="user" />
+          <AddGroupDialog userId={userId} page="user" mutate={mutate} />
         </div>
       </CardHeader>
       <CardContent>

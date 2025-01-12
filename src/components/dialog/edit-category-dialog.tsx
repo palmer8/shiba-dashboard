@@ -29,14 +29,8 @@ import Editor from "@/components/editor/advanced-editor";
 import { Switch } from "@/components/ui/switch";
 import { sanitizeContent } from "@/lib/utils";
 import { EditCategoryForm, editCategorySchema } from "@/lib/validations/board";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { UserRole } from "@prisma/client";
+import { MultiSelect } from "@/components/ui/multi-select";
+import { ROLE_OPTIONS } from "@/constant/constant";
 
 interface EditCategoryDialogProps {
   initialData: EditCategoryForm & { id: string };
@@ -54,7 +48,7 @@ export default function EditCategoryDialog({
     defaultValues: {
       name: initialData.name,
       isUsed: initialData.isUsed,
-      role: initialData.role || undefined,
+      roles: initialData.roles || [],
       template:
         typeof initialData.template === "string"
           ? JSON.parse(initialData.template)
@@ -130,33 +124,22 @@ export default function EditCategoryDialog({
 
             <FormField
               control={form.control}
-              name="role"
+              name="roles"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>권한</FormLabel>
                   <FormDescription>
-                    카테고리를 볼 수 있는 권한을 설정합니다.
+                    카테고리를 볼 수 있는 권한을 설정합니다. 권한을 설정하지
+                    않으면 조회가 불가능합니다.
                   </FormDescription>
                   <FormControl>
-                    <Select
-                      value={field.value ?? "ALL"}
-                      onValueChange={(value) =>
-                        field.onChange(value === "ALL" ? null : value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="전체" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">모두</SelectItem>
-                        <SelectItem value="STAFF">스태프</SelectItem>
-                        <SelectItem value="INGAME_ADMIN">
-                          인게임 관리자
-                        </SelectItem>
-                        <SelectItem value="MASTER">마스터</SelectItem>
-                        <SelectItem value="SUPERMASTER">슈퍼 마스터</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <MultiSelect
+                      modalPopover={true}
+                      options={ROLE_OPTIONS}
+                      placeholder="권한을 선택하세요"
+                      defaultValue={field.value}
+                      onValueChange={field.onChange}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

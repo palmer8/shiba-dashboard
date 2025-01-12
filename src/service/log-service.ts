@@ -374,6 +374,26 @@ export class LogService {
       const page = filters.page || 1;
       const offset = (page - 1) * pageSize;
 
+      let params: any[] = [];
+      let dateFilter = "";
+
+      if (filters.startDate && filters.endDate) {
+        const startDate = new Date(filters.startDate);
+        const endDate = new Date(filters.endDate);
+
+        // 시작일 09:00:00 KST (UTC+9)
+        startDate.setHours(9, 0, 0, 0);
+
+        endDate.setDate(endDate.getDate() + 1);
+        endDate.setHours(8, 59, 59, 999);
+
+        dateFilter = " AND time >= ? AND time <= ?";
+        params = [
+          startDate.toISOString().slice(0, 19).replace("T", " "),
+          endDate.toISOString().slice(0, 19).replace("T", " "),
+        ];
+      }
+
       const query = `
         SELECT 
           staff_id,
@@ -387,26 +407,20 @@ export class LogService {
         WHERE 1=1
         ${filters.staffId ? " AND staff_id = ?" : ""}
         ${filters.targetId ? " AND target_id = ?" : ""}
-        ${
-          filters.startDate && filters.endDate
-            ? " AND time BETWEEN ? AND ?"
-            : ""
-        }
+        ${dateFilter}
         ORDER BY time DESC
         LIMIT ? OFFSET ?
       `;
 
-      const params = [
+      const queryParams = [
         ...(filters.staffId ? [filters.staffId] : []),
         ...(filters.targetId ? [filters.targetId] : []),
-        ...(filters.startDate && filters.endDate
-          ? [filters.startDate, filters.endDate]
-          : []),
+        ...params,
         pageSize,
         offset,
       ];
 
-      const [rows] = await pool.execute<RowDataPacket[]>(query, params);
+      const [rows] = await pool.execute<RowDataPacket[]>(query, queryParams);
       const total = rows[0]?.total || 0;
 
       return {

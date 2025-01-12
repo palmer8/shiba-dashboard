@@ -64,9 +64,8 @@ interface BanPlayerDialogProps {
   data: RealtimeGameUserData;
   open: boolean;
   setOpen: (open: boolean) => void;
-  isBanned: boolean;
-  onStatusChange: (newStatus: boolean) => void;
   session: Session;
+  mutate: () => Promise<any>;
 }
 
 export default function BanPlayerDialog({
@@ -74,57 +73,64 @@ export default function BanPlayerDialog({
   data,
   open,
   setOpen,
-  isBanned,
-  onStatusChange,
   session,
+  mutate,
 }: BanPlayerDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
   const [isPermanentBan, setIsPermanentBan] = useState(false);
 
   const form = useForm<BanPlayerFormData>({
     resolver: zodResolver(banPlayerSchema),
     defaultValues: {
-      type: isBanned ? "unban" : "ban",
+      type: data.banned ? "unban" : "ban",
       reason: "",
-      bantime: isBanned ? 0 : 1,
+      bantime: data.banned ? 0 : 1,
     },
   });
 
-  // isBanned가 변경될 때마다 form 값 업데이트
   useEffect(() => {
     form.reset({
-      type: isBanned ? "unban" : "ban",
+      type: data.banned ? "unban" : "ban",
       reason: "",
-      bantime: isBanned ? 0 : 1,
+      bantime: data.banned ? 0 : 1,
     });
-  }, [isBanned, form]);
+    setIsPermanentBan(false);
+  }, [data.banned, form]);
 
-  const onSubmit = async (data: BanPlayerFormData) => {
+  const onSubmit = async (formData: BanPlayerFormData) => {
     try {
       setIsLoading(true);
       const result = await playerBanAction(
         userId,
-        data.reason,
-        data.type === "ban" ? data.bantime : 0,
-        data.type
+        formData.reason,
+        formData.type === "ban" ? formData.bantime : 0,
+        formData.type
       );
 
       if (result.success) {
-        onStatusChange(!isBanned); // 부모 컴포넌트의 상태 업데이트
+        toast({
+          title: `플레이어 ${
+            formData.type === "ban" ? "정지" : "정지 해제"
+          } 성공`,
+          description: "변경사항이 적용되었습니다.",
+        });
         setOpen(false);
         form.reset();
-        router.refresh();
+        await mutate();
       } else {
         toast({
-          title: `플레이어 ${data.type === "ban" ? "정지" : "정지 해제"} 실패`,
+          title: `플레이어 ${
+            formData.type === "ban" ? "정지" : "정지 해제"
+          } 실패`,
           description: result.error || "알 수 없는 오류가 발생했습니다",
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
-        title: `플레이어 ${data.type === "ban" ? "정지" : "정지 해제"} 실패`,
+        title: `플레이어 ${
+          formData.type === "ban" ? "정지" : "정지 해제"
+        } 실패`,
         description: "서버 오류가 발생했습니다",
         variant: "destructive",
       });
@@ -138,10 +144,10 @@ export default function BanPlayerDialog({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>
-            {isBanned ? "플레이어 정지 해제" : "플레이어 정지"}
+            {data.banned ? "플레이어 정지 해제" : "플레이어 정지"}
           </DialogTitle>
           <DialogDescription>
-            {isBanned
+            {data.banned
               ? "정지 해제 사유를 입력하세요."
               : "정보를 기입하고, 계정을 이용 정지합니다."}
           </DialogDescription>
@@ -154,11 +160,11 @@ export default function BanPlayerDialog({
               name="reason"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{isBanned ? "특이사항" : "사유"}</FormLabel>
+                  <FormLabel>{data.banned ? "특이사항" : "사유"}</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder={`${
-                        isBanned ? "정지 해제" : "정지"
+                        data.banned ? "정지 해제" : "정지"
                       } 사유를 입력하세요`}
                       className="resize-none"
                       {...field}
@@ -170,7 +176,7 @@ export default function BanPlayerDialog({
             />
 
             <div className="grid gap-4">
-              {!isBanned && (
+              {!data.banned && (
                 <FormField
                   control={form.control}
                   name="bantime"
@@ -244,7 +250,7 @@ export default function BanPlayerDialog({
                 취소
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "처리중..." : isBanned ? "정지 해제" : "정지"}
+                {isLoading ? "처리중..." : data.banned ? "정지 해제" : "정지"}
               </Button>
             </DialogFooter>
           </form>

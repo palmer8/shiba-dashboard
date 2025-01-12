@@ -37,7 +37,7 @@ interface AddUserMemoDialogProps {
   session: Session;
   open: boolean;
   setOpen: (open: boolean) => void;
-  onSuccess?: () => void;
+  mutate: () => Promise<any>;
 }
 
 export default function AddUserMemoDialog({
@@ -45,7 +45,7 @@ export default function AddUserMemoDialog({
   session,
   open,
   setOpen,
-  onSuccess,
+  mutate,
 }: AddUserMemoDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -72,7 +72,7 @@ export default function AddUserMemoDialog({
         });
         form.reset();
         setOpen(false);
-        onSuccess?.();
+        await mutate();
       } else {
         toast({
           title: "메모 등록 실패",

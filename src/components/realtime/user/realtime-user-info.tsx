@@ -26,7 +26,7 @@ import IncidentReportTable from "@/components/report/incident-report-table";
 import { Session } from "next-auth";
 import { returnPlayerSkinAction } from "@/actions/realtime/realtime-action";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import BanPlayerDialog from "@/components/dialog/ban-player-dialog";
 import {
   DropdownMenu,
@@ -37,7 +37,6 @@ import {
 import AddUserMemoDialog from "@/components/dialog/add-usermemo-dialog";
 import UpdateUserMemoDialog from "@/components/dialog/update-usermemo-dialog";
 import { deleteMemoAction } from "@/actions/realtime/realtime-action";
-import { UserRole } from "@prisma/client";
 import { UserMemo } from "@/types/realtime";
 
 interface RealtimeUserInfoProps {
@@ -45,6 +44,7 @@ interface RealtimeUserInfoProps {
   isAdmin: boolean;
   userId: number;
   session: Session;
+  mutate: () => Promise<any>;
 }
 
 export default function RealtimeUserInfo({
@@ -52,50 +52,44 @@ export default function RealtimeUserInfo({
   isAdmin,
   userId,
   session,
+  mutate,
 }: RealtimeUserInfoProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [banDialogOpen, setBanDialogOpen] = useState(false);
-  const [currentBanStatus, setCurrentBanStatus] = useState<boolean>(
-    data.banned ?? false
-  );
   const [selectedMemo, setSelectedMemo] = useState<UserMemo | null>(null);
   const [updateMemoOpen, setUpdateMemoOpen] = useState(false);
   const [addMemoOpen, setAddMemoOpen] = useState(false);
-
-  const canNotResolveBanStatus = !isAdmin && currentBanStatus;
+  const [canNotResolveBanStatus, setCanNotResolveBanStatus] = useState(false);
 
   useEffect(() => {
-    setCurrentBanStatus(data.banned || false);
-  }, [data.banned]);
-
-  const handleBanStatusChange = (newStatus: boolean) => {
-    setCurrentBanStatus(newStatus);
-  };
+    setCanNotResolveBanStatus(!isAdmin && Boolean(data.banned));
+  }, [data]);
 
   const handleRevokeSkin = async () => {
     if (!userId) return;
 
     try {
       setIsLoading(true);
-      const result = await returnPlayerSkinAction(Number(userId));
+      const result = await returnPlayerSkinAction(userId);
 
       if (result.success) {
         toast({
           title: "스킨 회수 성공",
           description: "스킨이 성공적으로 회수되었습니다.",
         });
+        await mutate();
       } else {
         toast({
           title: "스킨 회수 실패",
-          description: result.error,
+          description: result.error || "스킨 회수 중 오류가 발생했습니다.",
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
         title: "스킨 회수 실패",
-        description: "알 수 없는 오류가 발생했습니다.",
+        description: "스킨 회수 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
@@ -115,26 +109,26 @@ export default function RealtimeUserInfo({
   };
 
   const handleDeleteMemo = async (memo: UserMemo) => {
-    if (!confirm("정말로 이 메모를 삭제하시겠습니까?")) return;
-
     try {
       const result = await deleteMemoAction(memo);
+
       if (result.success) {
         toast({
-          title: "메모 삭제 완료",
+          title: "메모 삭제 성공",
           description: "메모가 성공적으로 삭제되었습니다.",
         });
+        await mutate();
       } else {
         toast({
           title: "메모 삭제 실패",
-          description: result.error,
+          description: result.error || "메모 삭제 중 오류가 발생했습니다.",
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
         title: "메모 삭제 실패",
-        description: "알 수 없는 오류가 발생했습니다.",
+        description: "메모 삭제 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }
@@ -157,8 +151,8 @@ export default function RealtimeUserInfo({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h2 className="text-2xl font-bold">{data.last_nickname}</h2>
-              {currentBanStatus && <Badge variant="destructive">비정상</Badge>}
-              {!currentBanStatus &&
+              {data.banned && <Badge variant="destructive">비정상</Badge>}
+              {!data.banned &&
                 (data.online ? (
                   <Badge variant="outline" className="bg-green-500/50">
                     온라인
@@ -229,7 +223,7 @@ export default function RealtimeUserInfo({
             disabled={canNotResolveBanStatus}
             onClick={() => setBanDialogOpen(true)}
           >
-            {currentBanStatus ? "정지 해제" : "이용 정지"}
+            {data.banned ? "정지 해제" : "이용 정지"}
           </Button>
         </div>
 
@@ -362,80 +356,55 @@ export default function RealtimeUserInfo({
 
                 <div className="space-y-4">
                   {data.memos && data.memos.length > 0 ? (
-                    data.memos.map((memo, index) => {
-                      const isStaff = session.user!.role === UserRole.STAFF;
-                      const isNotStaff = hasAccess(
-                        session.user!.role,
-                        UserRole.INGAME_ADMIN
-                      );
-                      const memoTime = new Date(memo.time);
-                      const currentTime = new Date();
-                      const timeDifferenceInMinutes =
-                        (currentTime.getTime() - memoTime.getTime()) /
-                        (1000 * 60);
-                      const isOwnMemo =
-                        memo.adminName === session.user!.nickname;
-                      const canEdit =
-                        isNotStaff ||
-                        (isStaff && isOwnMemo && timeDifferenceInMinutes <= 30);
-
-                      return (
-                        <div
-                          key={index}
-                          className="bg-muted/20 rounded-lg p-4 border border-border/50"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <div className="flex flex-col">
-                                <span className="font-medium text-sm">
-                                  {memo.adminName}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatKoreanDateTime(memo.time)}
-                                </span>
-                              </div>
+                    data.memos.map((memo: UserMemo, index: number) => (
+                      <div
+                        key={index}
+                        className="bg-muted/20 rounded-lg p-4 border border-border/50"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-col">
+                              <span className="font-medium text-sm">
+                                {memo.adminName}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {formatKoreanDateTime(memo.time)}
+                              </span>
                             </div>
-                            {canEdit && (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-muted"
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="w-32"
-                                >
-                                  <DropdownMenuItem
-                                    onClick={() => handleEditMemo(memo)}
-                                    className="cursor-pointer"
-                                  >
-                                    <Pencil className="mr-2 h-4 w-4" />
-                                    <span>수정</span>
-                                  </DropdownMenuItem>
-                                  {isNotStaff && (
-                                    <DropdownMenuItem
-                                      onClick={() => handleDeleteMemo(memo)}
-                                      className="text-destructive cursor-pointer"
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      <span>삭제</span>
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
                           </div>
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                            {memo.text}
-                          </p>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 hover:bg-muted"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-32">
+                              <DropdownMenuItem
+                                onClick={() => handleEditMemo(memo)}
+                                className="cursor-pointer"
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                <span>수정</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteMemo(memo)}
+                                className="text-destructive cursor-pointer"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>삭제</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                      );
-                    })
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                          {memo.text}
+                        </p>
+                      </div>
+                    ))
                   ) : (
                     <div className="flex items-center justify-center h-16 text-sm text-muted-foreground bg-muted/20 rounded-lg">
                       등록된 특이사항이 없습니다
@@ -544,7 +513,7 @@ export default function RealtimeUserInfo({
                   <h3 className="text-sm font-medium text-muted-foreground">
                     상태
                   </h3>
-                  {currentBanStatus ? (
+                  {data.banned ? (
                     <Badge variant="destructive">정지</Badge>
                   ) : (
                     <Badge variant="outline">정상</Badge>
@@ -578,8 +547,7 @@ export default function RealtimeUserInfo({
           data={data}
           open={banDialogOpen}
           setOpen={setBanDialogOpen}
-          isBanned={currentBanStatus || false}
-          onStatusChange={handleBanStatusChange}
+          mutate={mutate}
         />
       )}
 
@@ -588,15 +556,16 @@ export default function RealtimeUserInfo({
         session={session}
         open={addMemoOpen}
         setOpen={setAddMemoOpen}
+        mutate={mutate}
       />
 
       {selectedMemo && (
         <UpdateUserMemoDialog
-          userId={userId}
           session={session}
           open={updateMemoOpen}
           setOpen={setUpdateMemoOpen}
           memo={selectedMemo}
+          mutate={mutate}
           onClose={() => {
             setSelectedMemo(null);
             setUpdateMemoOpen(false);

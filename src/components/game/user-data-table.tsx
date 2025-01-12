@@ -36,13 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  MoreHorizontal,
-  Trash,
-  Download,
-  ChevronDown,
-  ChevronRight,
-} from "lucide-react";
+import { MoreHorizontal, Trash, Download } from "lucide-react";
 import { UserRole } from "@prisma/client";
 import { Session } from "next-auth";
 import {
@@ -55,7 +49,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useState, useCallback, useMemo } from "react";
 
 interface GameLogData {
   id: number;
@@ -91,76 +91,71 @@ export function UserDataTable({
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
-  const popoverRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      expandedRows.forEach((id) => {
-        if (
-          popoverRefs.current[id] &&
-          !popoverRefs.current[id]?.contains(event.target as Node)
-        ) {
-          setExpandedRows((prev) => prev.filter((rowId) => rowId !== id));
-        }
-      });
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [expandedRows]);
-
-  const toggleRow = useCallback((id: number, event: React.MouseEvent) => {
-    event.stopPropagation();
-    setExpandedRows((prev) =>
-      prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id]
-    );
-  }, []);
 
   const MetadataCell = useCallback(
     ({ row }: { row: Row<GameLogData> }) => {
-      const isExpanded = expandedRows.includes(row.original.id);
-
-      const setPopoverRef = (element: HTMLDivElement | null) => {
-        popoverRefs.current[row.original.id] = element;
-      };
-
       return (
-        <div className="relative">
-          <div
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={(e) => toggleRow(row.original.id, e)}
-          >
-            {row.original.metadata ? (
-              <>
-                <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
+        <Popover>
+          <PopoverTrigger asChild>
+            <div className="flex items-center gap-2 cursor-pointer">
+              {row.original.metadata ? (
+                <>
+                  <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
                     <ChevronRight className="h-4 w-4" />
-                  )}
-                </Button>
-                <div className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] text-muted-foreground">
-                  {JSON.stringify(row.original.metadata).slice(0, 50)}...
-                </div>
-              </>
-            ) : (
-              <span className="text-muted-foreground">-</span>
-            )}
-          </div>
-          {isExpanded && row.original.metadata && (
-            <div
-              ref={setPopoverRef}
-              className="absolute z-10 mt-2 p-4 bg-popover text-popover-foreground rounded-md shadow-md border w-[400px]"
-            >
+                  </Button>
+                  <div className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] text-muted-foreground">
+                    {JSON.stringify(row.original.metadata).slice(0, 50)}...
+                  </div>
+                </>
+              ) : (
+                <span className="text-muted-foreground">-</span>
+              )}
+            </div>
+          </PopoverTrigger>
+          {row.original.metadata && (
+            <PopoverContent className="w-96">
               <pre className="whitespace-pre-wrap text-sm">
                 {JSON.stringify(row.original.metadata, null, 2)}
               </pre>
-            </div>
+            </PopoverContent>
           )}
-        </div>
+        </Popover>
       );
     },
-    [expandedRows, toggleRow]
+    [expandedRows]
+  );
+
+  const handleSingleDelete = useCallback(
+    async (id: number) => {
+      if (isDeleting) return;
+
+      try {
+        setIsDeleting(true);
+        const result = await deleteGameLogsAction([id]);
+
+        if (result.success) {
+          toast({
+            title: "삭제 완료",
+            description: "로그가 삭제되었습니다.",
+          });
+          router.refresh();
+        } else {
+          throw new Error(result.error ?? "알 수 없는 오류가 발생했습니다.");
+        }
+      } catch (error) {
+        toast({
+          title: "삭제 실패",
+          description:
+            error instanceof Error
+              ? error.message
+              : "알 수 없는 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [router, isDeleting]
   );
 
   const columns = useMemo<ColumnDef<GameLogData>[]>(
@@ -270,7 +265,7 @@ export function UserDataTable({
         },
       },
     ],
-    [MetadataCell]
+    [MetadataCell, handleSingleDelete, isDeleting, session.user?.role]
   );
 
   const table = useReactTable({
@@ -278,45 +273,6 @@ export function UserDataTable({
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
-
-  const handleSingleDelete = useCallback(
-    async (id: number) => {
-      if (isDeleting) return;
-
-      try {
-        setIsDeleting(true);
-        const result = await deleteGameLogsAction([id]);
-
-        if (result.success) {
-          toast({
-            title: "삭제 완료",
-            description: "로그가 삭제되었습니다.",
-          });
-          router.refresh();
-        } else {
-          throw new Error(result.error ?? "알 수 없는 오류가 발생했습니다.");
-        }
-      } catch (error) {
-        toast({
-          title: "삭제 실패",
-          description:
-            error instanceof Error
-              ? error.message
-              : "알 수 없는 오류가 발생했습니다.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsDeleting(false);
-      }
-    },
-    [router, isDeleting]
-  );
-
-  const handleShowDeleteDialog = useCallback(() => {
-    const ids = table.getSelectedRowModel().rows.map((row) => row.original.id);
-    setSelectedIds(ids);
-    setShowDeleteDialog(true);
-  }, [table]);
 
   const handleBulkDelete = useCallback(async () => {
     if (isDeleting) return;
@@ -347,18 +303,15 @@ export function UserDataTable({
       setIsDeleting(false);
       setShowDeleteDialog(false);
       setSelectedIds([]);
+      table.resetRowSelection();
     }
-  }, [router, selectedIds, isDeleting]);
+  }, [router, selectedIds, isDeleting, table]);
 
-  if (!data?.length) {
-    return (
-      <div className="rounded-md p-8">
-        <div className="flex flex-col items-center justify-center text-center">
-          <Empty description="데이터가 존재하지 않습니다." />
-        </div>
-      </div>
-    );
-  }
+  const handleShowDeleteDialog = useCallback(() => {
+    const ids = table.getSelectedRowModel().rows.map((row) => row.original.id);
+    setSelectedIds(ids);
+    setShowDeleteDialog(true);
+  }, [table]);
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -387,6 +340,16 @@ export function UserDataTable({
       });
     }
   };
+
+  if (!data?.length) {
+    return (
+      <div className="rounded-md p-8">
+        <div className="flex flex-col items-center justify-center text-center">
+          <Empty description="데이터가 존재하지 않습니다." />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

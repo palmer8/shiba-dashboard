@@ -47,12 +47,15 @@ interface RealtimeUserItemProps {
   userId: number;
   isAdmin: boolean;
   session: Session;
+  mutate: () => Promise<any>;
 }
 
 export default function RealtimeUserItem({
   data,
   userId,
   isAdmin,
+  session,
+  mutate,
 }: RealtimeUserItemProps) {
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -83,6 +86,7 @@ export default function RealtimeUserItem({
       toast({
         title: "아이템 업데이트 성공",
       });
+      await mutate();
     } else {
       toast({
         title: "아이템 업데이트 실패",
@@ -115,7 +119,7 @@ export default function RealtimeUserItem({
       amount: Math.abs(newAmount - originalAmount),
       type: newAmount < originalAmount ? "remove" : "add",
     });
-
+    await mutate();
     setShowConfirmDialog(false);
     setEditingItem(null);
     setSelectedItem(null);
@@ -133,6 +137,7 @@ export default function RealtimeUserItem({
       toast({
         title: "무기 회수 성공",
       });
+      await mutate();
     } else {
       toast({
         title: "무기 회수 실패",
@@ -148,6 +153,7 @@ export default function RealtimeUserItem({
       toast({
         title: "차량 제거 성공",
       });
+      await mutate();
     } else {
       toast({
         title: "차량 제거 실패",
@@ -164,7 +170,7 @@ export default function RealtimeUserItem({
       user_id: userId,
       weapon: selectedWeapon.id,
     });
-
+    await mutate();
     setShowWeaponDialog(false);
     setSelectedWeapon(null);
   };
@@ -176,7 +182,7 @@ export default function RealtimeUserItem({
       user_id: userId,
       vehicle: selectedVehicle.id,
     });
-
+    await mutate();
     setShowVehicleDialog(false);
     setSelectedVehicle(null);
   };

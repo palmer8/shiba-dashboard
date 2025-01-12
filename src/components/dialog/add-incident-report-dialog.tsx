@@ -44,6 +44,7 @@ import { Session } from "next-auth";
 import { ImageUpload } from "@/components/ui/image-upload";
 import Image from "next/image";
 import { useDebounce } from "@/hooks/use-debounce";
+import { DateTimePicker24h } from "@/components/ui/datetime-picker";
 
 interface AddIncidentReportDialogProps {
   session: Session;
@@ -243,38 +244,14 @@ export default function AddIncidentReportDialog({
                 <FormItem>
                   <FormLabel>사건 발생 시간</FormLabel>
                   <FormControl>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        className="w-[220px] max-md:w-full"
-                        type="datetime-local"
-                        value={
-                          field.value
-                            ? new Date(
-                                field.value.getTime() -
-                                  field.value.getTimezoneOffset() * 60000
-                              )
-                                .toISOString()
-                                .slice(0, 16)
-                            : ""
-                        }
-                        onChange={(e) => {
-                          const localDate = new Date(e.target.value);
-                          field.onChange(localDate);
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const now = new Date();
-                          field.onChange(now);
-                        }}
-                      >
-                        현재 시간
-                      </Button>
-                    </div>
+                    <DateTimePicker24h
+                      date={field.value}
+                      onSelect={(date) => {
+                        field.onChange(date);
+                      }}
+                    />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />

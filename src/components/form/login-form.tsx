@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { toast } from "@/hooks/use-toast";
 import { LoginFormValues, loginSchema } from "@/lib/validations/auth";
+import { Checkbox } from "../ui/checkbox";
 
 export function LoginForm() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export function LoginForm() {
     defaultValues: {
       name: "",
       password: "",
+      autoLogin: false,
     },
   });
 
@@ -80,6 +82,29 @@ export function LoginForm() {
               <FormControl>
                 <Input type="password" placeholder="********" {...field} />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="autoLogin"
+          render={({ field }) => (
+            <FormItem className="flex justify-end">
+              <div className="flex items-center gap-2">
+                <FormLabel className="text-sm text-muted-foreground">
+                  자동 로그인
+                </FormLabel>
+                <FormControl className="mt-0">
+                  <Checkbox
+                    checked={field.value || false}
+                    onCheckedChange={field.onChange}
+                    name={field.name}
+                    onBlur={field.onBlur}
+                  />
+                </FormControl>
+              </div>
               <FormMessage />
             </FormItem>
           )}

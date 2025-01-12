@@ -2,11 +2,9 @@
 
 import { realtimeService } from "@/service/realtime-service";
 import { UserMemo } from "@/types/realtime";
-import { revalidatePath } from "next/cache";
 
 export async function returnPlayerSkinAction(userId: number) {
   const result = await realtimeService.returnPlayerSkin(userId);
-  if (result.success) revalidatePath("/realtime/user");
   return result;
 }
 
@@ -15,7 +13,6 @@ export async function updateCompanyCapitalAction(
   capital: number
 ) {
   const result = await realtimeService.updateCompanyCapital(companyId, capital);
-  if (result.success) revalidatePath("/log/game");
   return result;
 }
 
@@ -31,13 +28,11 @@ export async function playerBanAction(
     duration.toString(),
     type
   );
-  if (result.success) revalidatePath("/realtime/user", "layout");
   return result;
 }
 
 export async function deleteMemoAction(memo: UserMemo) {
   const result = await realtimeService.deleteMemo(memo);
-  if (result.success) revalidatePath("/realtime/user");
   return result;
 }
 
@@ -47,12 +42,15 @@ export async function createMemoAction(
   text: string
 ) {
   const result = await realtimeService.createMemo(userId, adminName, text);
-  if (result.success) revalidatePath("/realtime/user");
   return result;
 }
 
 export async function updateMemoAction(originData: UserMemo, text: string) {
   const result = await realtimeService.updateMemo(originData, text);
-  if (result.success) revalidatePath("/realtime/user");
+  return result;
+}
+
+export async function getUserDataAction(userId: number) {
+  const result = await realtimeService.getGameUserDataByUserId(userId);
   return result;
 }

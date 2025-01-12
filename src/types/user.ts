@@ -40,6 +40,8 @@ type RealtimeGameUserData = {
   lbPhonePin?: string;
   incidentReports: IncidentReport[];
   memos: UserMemo[] | null;
+  error?: number;
+  message?: string;
 };
 
 type UpdateUserData = {

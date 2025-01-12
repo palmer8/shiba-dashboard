@@ -1,5 +1,11 @@
 import { JSONContent } from "novel";
 
+export const ROLE_OPTIONS = [
+  { label: "스태프", value: "STAFF" },
+  { label: "인게임 관리자", value: "INGAME_ADMIN" },
+  { label: "마스터", value: "MASTER" },
+];
+
 const ROLE_LINKS = {
   dashboard: {
     name: "메인",

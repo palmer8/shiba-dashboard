@@ -21,6 +21,7 @@ import {
   formatKoreanDateTime,
   formatRole,
   handleDownloadJson2CSV,
+  cn,
 } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -31,7 +32,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Download, MoreHorizontal, Pencil, Trash } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { BoardCategory } from "@prisma/client";
+import { BoardCategory, UserRole } from "@prisma/client";
 import AddCategoryDialog from "@/components/dialog/add-category-dialog";
 import {
   deleteCategoryAction,
@@ -47,6 +48,20 @@ import { Badge } from "@/components/ui/badge";
 interface CategoryTableProps {
   data: BoardCategory[];
 }
+
+// 권한별 스타일 상수 추가
+const ROLE_STYLES = {
+  STAFF: "bg-blue-100 text-blue-800 border-blue-200",
+  INGAME_ADMIN: "bg-purple-100 text-purple-800 border-purple-200",
+  MASTER: "bg-amber-100 text-amber-800 border-amber-200",
+} as const;
+
+// 권한 레이블 상수 추가
+const ROLE_LABELS = {
+  STAFF: "스태프",
+  INGAME_ADMIN: "인게임 관리자",
+  MASTER: "마스터",
+} as const;
 
 export default function CategoryTable({ data }: CategoryTableProps) {
   const { data: session } = useSession();
@@ -93,9 +108,36 @@ export default function CategoryTable({ data }: CategoryTableProps) {
       },
       {
         header: "권한",
-        accessorKey: "role",
-        cell: ({ row }) =>
-          row.original.role ? formatRole(row.original.role) : "전체",
+        accessorKey: "roles",
+        cell: ({ row }) => {
+          const roles = row.original.roles as UserRole[];
+
+          // roles가 null이거나 빈 배열인 경우
+          if (!roles || roles.length === 0) {
+            return (
+              <Badge variant="outline" className="bg-red-50 text-red-800">
+                권한 없음
+              </Badge>
+            );
+          }
+
+          // 일반 권한들 표시 (SUPERMASTER 제외)
+          return (
+            <div className="flex flex-wrap gap-1">
+              {roles
+                .filter((role) => role !== "SUPERMASTER")
+                .map((role) => (
+                  <Badge
+                    key={role}
+                    variant="outline"
+                    className={cn("border font-medium", ROLE_STYLES[role])}
+                  >
+                    {ROLE_LABELS[role]}
+                  </Badge>
+                ))}
+            </div>
+          );
+        },
       },
       {
         header: "템플릿",
@@ -135,6 +177,7 @@ export default function CategoryTable({ data }: CategoryTableProps) {
                           id: row.original.id,
                           name: row.original.name,
                           isUsed: row.original.isUsed,
+                          roles: row.original.roles as UserRole[],
                           template: row.original.template,
                         }}
                         trigger={

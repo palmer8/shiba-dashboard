@@ -24,12 +24,7 @@ import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { sanitizeContent } from "@/lib/utils";
 import { CommonFormLayout } from "@/components/boards/common-form-layout";
-
-interface Category {
-  id: string;
-  name: string;
-  template: JSONContent | null;
-}
+import { BoardCategory } from "@prisma/client";
 
 interface Draft {
   id: string;
@@ -122,7 +117,7 @@ export default function BoardWriteForm() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<JSONContent>(DEFAULT_EDITOR_CONTENT);
   const [categoryId, setCategoryId] = useState("");
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<BoardCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<{
@@ -136,13 +131,7 @@ export default function BoardWriteForm() {
     const fetchCategories = async () => {
       const result = await getCategoriesAction();
       if (result.success) {
-        setCategories(
-          result.data?.map((category) => ({
-            id: category.id,
-            name: category.name,
-            template: category.template as JSONContent | null,
-          })) || []
-        );
+        setCategories(result.data || []);
       } else {
         toast({
           title: "카테고리 로드 실패",
@@ -165,11 +154,11 @@ export default function BoardWriteForm() {
 
     if (
       selectedCategory?.template &&
-      !isEmptyTemplate(selectedCategory.template)
+      !isEmptyTemplate(selectedCategory.template as JSONContent)
     ) {
       setPendingCategory({
         id: value,
-        template: selectedCategory.template,
+        template: selectedCategory.template as JSONContent,
       });
       setShowTemplateDialog(true);
     } else {

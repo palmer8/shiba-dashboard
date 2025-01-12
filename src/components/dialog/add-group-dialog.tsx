@@ -33,13 +33,17 @@ import { addGroupSchema } from "@/lib/validations/group";
 interface AddGroupDialogProps {
   userId: number;
   page: "group" | "user";
+  mutate?: () => Promise<any>;
   onSuccess?: () => void;
+  modal?: boolean;
 }
 
 export default function AddGroupDialog({
   userId,
   page,
+  mutate,
   onSuccess,
+  modal = true,
 }: AddGroupDialogProps) {
   const [open, setOpen] = useState(false);
 
@@ -88,6 +92,8 @@ export default function AddGroupDialog({
       });
       setOpen(false);
       form.reset();
+      await mutate?.();
+      onSuccess?.();
     } else {
       toast({
         title: "그룹 추가 실패",
@@ -98,7 +104,7 @@ export default function AddGroupDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen} modal={modal}>
       <DialogTrigger asChild>
         <Button size="sm">그룹 추가</Button>
       </DialogTrigger>
@@ -121,7 +127,7 @@ export default function AddGroupDialog({
                 <FormItem>
                   <FormLabel>그룹 이름</FormLabel>
                   <FormControl>
-                    <GroupComboBox {...field} />
+                    <GroupComboBox modal={true} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

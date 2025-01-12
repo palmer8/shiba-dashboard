@@ -13,6 +13,7 @@ interface PageProps {
     level?: string;
     startDate?: string;
     endDate?: string;
+    message?: string;
   }>;
 }
 
@@ -30,6 +31,7 @@ export default async function LogUserPage({ searchParams }: PageProps) {
     startDate: params.startDate ? new Date(params.startDate) : undefined,
     endDate: params.endDate ? new Date(params.endDate) : undefined,
     limit: 50,
+    message: params.message || undefined,
   };
 
   const result = await logService.getGameLogs(filters);

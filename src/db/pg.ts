@@ -74,6 +74,7 @@ const batchInsert = async (
 const queryLogs = async (filters: {
   type?: string;
   level?: string;
+  message?: string;
   startDate?: Date;
   endDate?: Date;
   limit?: number;
@@ -86,6 +87,10 @@ const queryLogs = async (filters: {
 
   if (filters.type) baseQuery = sql`${baseQuery} AND type = ${filters.type}`;
   if (filters.level) baseQuery = sql`${baseQuery} AND level = ${filters.level}`;
+  if (filters.message)
+    baseQuery = sql`${baseQuery} AND message LIKE ${
+      "%" + filters.message + "%"
+    }`;
   if (filters.startDate)
     baseQuery = sql`${baseQuery} AND timestamp >= ${filters.startDate}`;
   if (filters.endDate)

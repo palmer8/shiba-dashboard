@@ -29,6 +29,7 @@ export interface GameLogFilters {
   endDate?: Date;
   page?: number;
   limit?: number;
+  message?: string;
 }
 
 export interface GameLogResponse {

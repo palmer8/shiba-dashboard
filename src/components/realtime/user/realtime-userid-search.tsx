@@ -16,14 +16,13 @@ interface RecentSearch {
 
 interface RealtimeUseridSearchProps {
   userId: number | null;
-  data?: RealtimeGameUserData;
+  onSearch: (userId: number) => void;
 }
 
 export default function RealtimeUseridSearch({
   userId,
-  data,
+  onSearch,
 }: RealtimeUseridSearchProps) {
-  const router = useRouter();
   const [userIdValue, setUserIdValue] = useState(userId);
   const [isFocused, setIsFocused] = useState(false);
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
@@ -36,26 +35,17 @@ export default function RealtimeUseridSearch({
     }
   }, []);
 
-  useEffect(() => {
-    if (data && userId) {
-      const newSearch = {
-        userId,
-        nickname: data.last_nickname || `고유번호 ${userId}`,
-        timestamp: Date.now(),
-      };
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!userIdValue) return;
+    onSearch(userIdValue);
+  }
 
-      const updatedSearches = [
-        newSearch,
-        ...recentSearches.filter((search) => search.userId !== userId),
-      ].slice(0, 10);
-
-      setRecentSearches(updatedSearches);
-      localStorage.setItem(
-        "recentUserSearches",
-        JSON.stringify(updatedSearches)
-      );
-    }
-  }, [data, userId]);
+  const handleSearchClick = (searchUserId: number) => {
+    setUserIdValue(searchUserId);
+    onSearch(searchUserId);
+    setIsFocused(false);
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -72,18 +62,6 @@ export default function RealtimeUseridSearch({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!userIdValue) return;
-    router.replace(`/realtime/user?userId=${userIdValue}`);
-  }
-
-  const handleSearchClick = (searchUserId: number) => {
-    setUserIdValue(searchUserId);
-    router.replace(`/realtime/user?userId=${searchUserId}`);
-    setIsFocused(false);
-  };
 
   const handleRemoveSearch = (e: React.MouseEvent, searchUserId: number) => {
     e.stopPropagation();

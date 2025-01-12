@@ -34,17 +34,15 @@ const updateMemoSchema = z.object({
 type UpdateMemoFormData = z.infer<typeof updateMemoSchema>;
 
 interface UpdateUserMemoDialogProps {
-  userId: number;
   session: Session;
   open: boolean;
   setOpen: (open: boolean) => void;
   memo: UserMemo;
   onClose: () => void;
+  mutate: () => Promise<any>;
 }
 
 export default function UpdateUserMemoDialog({
-  userId,
-  session,
   open,
   setOpen,
   memo,

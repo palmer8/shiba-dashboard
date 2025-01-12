@@ -19,18 +19,19 @@ import {
 } from "@/components/ui/popover";
 import { useDebounce } from "@/hooks/use-debounce";
 import { getGroupsByGroupIdAction } from "@/actions/realtime/realtime-group-action";
-import { useSession } from "next-auth/react";
 
 interface GroupComboBoxProps {
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
+  modal?: boolean;
 }
 
 export function GroupComboBox({
   value,
   onChange,
   placeholder,
+  modal = true,
 }: GroupComboBoxProps) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState("");
@@ -64,7 +65,7 @@ export function GroupComboBox({
   }, [debouncedSearch]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover modal={modal} open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -82,6 +83,7 @@ export function GroupComboBox({
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="그룹 ID 검색..."
+            autoFocus
             value={inputValue}
             onValueChange={setInputValue}
           />

@@ -43,10 +43,10 @@ import { UserRole } from "@prisma/client";
 import {
   EditIncidentReportFormData,
   editIncidentReportSchema,
-  IncidentReportFormData,
 } from "@/lib/validations/report";
 import { ImageUpload } from "@/components/ui/image-upload";
 import Image from "next/image";
+import { DateTimePicker24h } from "../ui/datetime-picker";
 
 interface EditIncidentReportDialogProps {
   initialData: IncidentReport;
@@ -228,40 +228,14 @@ export default function EditIncidentReportDialog({
                 <FormItem>
                   <FormLabel>사건 발생 시간</FormLabel>
                   <FormControl>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        className="w-[220px] max-md:w-full"
-                        type="datetime-local"
-                        value={
-                          field.value
-                            ? new Date(
-                                field.value.getTime() -
-                                  field.value.getTimezoneOffset() * 60000
-                              )
-                                .toISOString()
-                                .slice(0, 16)
-                            : ""
-                        }
-                        onChange={(e) => {
-                          const localDate = new Date(e.target.value);
-                          field.onChange(localDate);
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const now = new Date(
-                            new Date().setHours(new Date().getHours() + 9)
-                          );
-                          field.onChange(now);
-                        }}
-                      >
-                        현재 시간
-                      </Button>
-                    </div>
+                    <DateTimePicker24h
+                      date={field.value}
+                      onSelect={(date) => {
+                        field.onChange(date);
+                      }}
+                    />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />

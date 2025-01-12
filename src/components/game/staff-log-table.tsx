@@ -20,10 +20,12 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const searchParams = useSearchParams();
 
+  const createLogId = (log: StaffLog) => {
+    return `${log.staff_id}-${log.target_id}-${new Date(log.time).getTime()}`;
+  };
+
   const handleSelect = (log: StaffLog) => {
-    const logId = `${log.staff_id}-${log.target_id}-${new Date(
-      log.time
-    ).getTime()}`;
+    const logId = createLogId(log);
     setSelectedRows((prev) =>
       prev.includes(logId)
         ? prev.filter((rowId) => rowId !== logId)
@@ -35,20 +37,15 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
     setSelectedRows((prev) =>
       prev.length === data.records.length
         ? []
-        : data.records.map(
-            (log) =>
-              `${log.staff_id}-${log.target_id}-${new Date(log.time).getTime()}`
-          )
+        : data.records.map((log) => createLogId(log))
     );
   };
 
   const handlePageChange = (newPage: number) => {
-    const currentPage = Number(data.page);
-    const totalPages = Number(data.totalPages);
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", String(newPage));
 
-    if (newPage < 1 || newPage > totalPages) return;
+    if (newPage < 1 || newPage > data.totalPages) return;
 
     router.push(`/log/staff?${params.toString()}`);
   };
@@ -56,9 +53,7 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
   const handleDownload = () => {
     try {
       const selectedLogs = data.records.filter((log) => {
-        const logId = `${log.staff_id}-${log.target_id}-${new Date(
-          log.time
-        ).getTime()}`;
+        const logId = createLogId(log);
         return selectedRows.includes(logId);
       });
 
@@ -80,9 +75,7 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
   };
 
   const renderLogCard = (log: StaffLog) => {
-    const logId = `${log.staff_id}-${log.target_id}-${
-      log.description
-    }-${new Date(log.time).getTime()}`;
+    const logId = createLogId(log);
 
     return (
       <Card key={logId} className="hover:bg-muted/50 transition-colors">
@@ -164,7 +157,7 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => router.push(`/log/staff?page=${data.page - 1}`)}
+            onClick={() => handlePageChange(data.page - 1)}
             disabled={data.page <= 1}
           >
             이전
@@ -196,8 +189,8 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlePageChange(Number(data.page) + 1)}
-            disabled={Number(data.page) >= Number(data.totalPages)}
+            onClick={() => handlePageChange(data.page + 1)}
+            disabled={data.page >= data.totalPages}
           >
             다음
           </Button>

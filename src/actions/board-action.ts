@@ -9,7 +9,6 @@ import { ApiResponse } from "@/types/global.dto";
 import { cache } from "react";
 import { BoardList, BoardFilter } from "@/types/board";
 import { CategoryForm, EditCategoryForm } from "@/lib/validations/board";
-import { auth } from "@/lib/auth-config";
 
 // 게시글 목록 캐싱
 const getCachedBoardList = cache(async (filters: BoardFilter) => {

@@ -6,7 +6,7 @@ export const categorySchema = z.object({
     message: "카테고리 이름을 입력해주세요.",
   }),
   isUsed: z.boolean(),
-  role: z.nativeEnum(UserRole).optional(),
+  roles: z.array(z.nativeEnum(UserRole)),
   template: z.any(),
 });
 
@@ -17,7 +17,7 @@ export const editCategorySchema = z.object({
     message: "카테고리 이름을 입력해주세요.",
   }),
   isUsed: z.boolean(),
-  role: z.nativeEnum(UserRole).optional(),
+  roles: z.array(z.nativeEnum(UserRole)),
   template: z.any(),
 });
 

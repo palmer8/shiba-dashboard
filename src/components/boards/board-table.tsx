@@ -30,6 +30,7 @@ import {
   getBoardListsByIdsOriginAction,
 } from "@/actions/board-action";
 import { toast } from "@/hooks/use-toast";
+import Empty from "@/components/ui/empty";
 
 interface BoardTableProps {
   data: BoardData[];
@@ -219,35 +220,42 @@ export function BoardTable({
       )}
 
       <div className="space-y-2">
+        {data.length === 0 && (
+          <div className="flex items-center justify-center h-full">
+            <Empty description="게시글이 없습니다." />
+          </div>
+        )}
         {data.map((board, i) => renderBoardCard(board, i))}
       </div>
 
       {/* 페이지네이션 */}
-      <div className="flex items-center justify-center gap-2 mt-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            router.push(`/boards?page=${metadata.currentPage - 1}`)
-          }
-          disabled={metadata.currentPage <= 1}
-        >
-          이전
-        </Button>
-        <span className="text-sm">
-          {metadata.currentPage} / {metadata.totalPages || 1}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            router.push(`/boards?page=${metadata.currentPage + 1}`)
-          }
-          disabled={metadata.currentPage >= metadata.totalPages}
-        >
-          다음
-        </Button>
-      </div>
+      {data.length > 0 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              router.push(`/boards?page=${metadata.currentPage - 1}`)
+            }
+            disabled={metadata.currentPage <= 1}
+          >
+            이전
+          </Button>
+          <span className="text-sm">
+            {metadata.currentPage} / {metadata.totalPages || 1}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              router.push(`/boards?page=${metadata.currentPage + 1}`)
+            }
+            disabled={metadata.currentPage >= metadata.totalPages}
+          >
+            다음
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

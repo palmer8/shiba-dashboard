@@ -1,12 +1,7 @@
 import pool from "@/db/mysql";
 import prisma from "@/db/prisma";
 import { auth } from "@/lib/auth-config";
-import {
-  formatKoreanNumber,
-  hasAccess,
-  parseCustomDateString,
-  ROLE_HIERARCHY,
-} from "@/lib/utils";
+import { formatKoreanNumber, hasAccess, ROLE_HIERARCHY } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { RowDataPacket } from "mysql2";
 import { ApiResponse } from "@/types/global.dto";
@@ -76,7 +71,8 @@ class RealtimeService {
           ...options.headers,
         },
         signal: controller.signal,
-        next: { revalidate: 15 }, // 브라우저 캐시 15초 활용
+        cache: "no-store",
+        next: { revalidate: 0 },
       });
 
       if (!response.ok) {
@@ -85,7 +81,6 @@ class RealtimeService {
 
       return await response.json();
     } catch (error) {
-      // 타임아웃이나 네트워크 에러시 한 번만 재시도
       if (
         error instanceof Error &&
         (error.name === "AbortError" || error.name === "TypeError")
@@ -183,6 +178,14 @@ class RealtimeService {
             registrantId: session.user.id,
           },
         });
+      }
+
+      if (userDataResponse.error) {
+        return {
+          success: false,
+          data: null,
+          error: userDataResponse.message || "알 수 없는 오류가 발생했습니다.",
+        };
       }
 
       return {
@@ -1356,34 +1359,7 @@ class RealtimeService {
     }
 
     try {
-      const isInGameAdmin = hasAccess(session.user.role, UserRole.INGAME_ADMIN);
-
-      // 권한 체크
-      if (!isInGameAdmin) {
-        if (originData.adminName !== session.user.nickname) {
-          return {
-            success: false,
-            data: null,
-            error: "본인이 작성한 메모만 수정할 수 있습니다.",
-          };
-        }
-
-        const memoTime = new Date(originData.time);
-        const currentTime = new Date();
-        const timeDifferenceInMinutes =
-          (currentTime.getTime() - memoTime.getTime()) / (1000 * 60);
-
-        if (timeDifferenceInMinutes > 30) {
-          return {
-            success: false,
-            data: null,
-            error: "작성 후 30분이 지난 메모는 수정할 수 없습니다.",
-          };
-        }
-      }
-
-      // 여러 조건으로 정확한 메모를 찾아 업데이트
-      const updateQuery = `
+      const query = `
         UPDATE dokku_usermemo 
         SET text = ?, adminName = ?
         WHERE user_id = ? 
@@ -1392,7 +1368,7 @@ class RealtimeService {
           AND time = ?
       `;
 
-      await pool.execute(updateQuery, [
+      const [result] = await pool.execute(query, [
         text,
         session.user.nickname,
         originData.user_id,
@@ -1447,15 +1423,6 @@ class RealtimeService {
       };
     }
 
-    const isInGameAdmin = hasAccess(session.user.role, UserRole.INGAME_ADMIN);
-    if (!isInGameAdmin) {
-      return {
-        success: false,
-        data: null,
-        error: "권한이 없습니다/",
-      };
-    }
-
     try {
       const query = `
         DELETE FROM dokku_usermemo 
@@ -1472,7 +1439,6 @@ class RealtimeService {
         memo.time,
       ]);
 
-      // 삭제된 행이 있는지 확인
       const deleteResult = result as { affectedRows: number };
       if (deleteResult.affectedRows === 0) {
         return {

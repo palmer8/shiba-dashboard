@@ -16,14 +16,14 @@ export interface BoardAuthor {
   id: string;
   nickname: string;
   image: string | null;
-  role?: UserRole;
+  role: UserRole;
 }
 
 // 카테고리 정보
 export interface BoardCategory {
   id: string;
   name: string;
-  role?: UserRole | null;
+  roles: UserRole[];
 }
 
 // 통계 정보 (좋아요, 댓글 수 등)
