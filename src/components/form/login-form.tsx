@@ -45,6 +45,9 @@ export function LoginForm() {
         });
         return;
       }
+
+      localStorage.setItem("autoLogin", data.autoLogin ? "true" : "false");
+
       router.replace("/");
     } catch (error) {
       console.error(error);

@@ -2,7 +2,7 @@
 
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toaster";
-import { SessionProvider, useSession } from "next-auth/react";
+import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "next-themes";
 import StaleTokenProvider from "./stale-token-provider";
 

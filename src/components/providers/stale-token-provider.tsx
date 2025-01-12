@@ -11,12 +11,23 @@ const StaleTokenProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const validateSession = async () => {
+      const autoLogin = localStorage.getItem("autoLogin");
+
       if (status !== "authenticated") return;
 
       if (!session || !session.user || !session.user.id) {
         router.replace("/login");
         return;
       }
+
+      console.log(autoLogin);
+
+      if (autoLogin === undefined || autoLogin === null) {
+        signOut({ callbackUrl: "/login" });
+        return;
+      }
+
+      if (autoLogin === "false") localStorage.removeItem("autoLogin");
 
       try {
         const result = await getUserByIdAction(session.user.id);
