@@ -67,22 +67,22 @@ export default function AddChunobotDialog({
 
       if (result.success) {
         toast({
-          title: "유저 메모 등록 완료",
-          description: "유저메모가 성공적으로 등록되었습니다.",
+          title: "추노 알림 등록 완료",
+          description: "추노 알림이 성공적으로 등록되었습니다.",
         });
         form.reset();
         setOpen(false);
         await mutate();
       } else {
         toast({
-          title: "유저 메모 등록 실패",
+          title: "추노 알림 등록 실패",
           description: result.error,
           variant: "destructive",
         });
       }
     } catch (error) {
       toast({
-        title: "유저 메모 등록 실패",
+        title: "추노 알림 등록 실패",
         description: "알 수 없는 오류가 발생했습니다.",
         variant: "destructive",
       });
@@ -95,8 +95,10 @@ export default function AddChunobotDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>유저 메모 등록</DialogTitle>
-          <DialogDescription>해당 유저의 메모를 등록합니다.</DialogDescription>
+          <DialogTitle>추노 알림 등록</DialogTitle>
+          <DialogDescription>
+            해당 유저의 추노 알림을 등록합니다.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -106,10 +108,10 @@ export default function AddChunobotDialog({
               name="reason"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>메모 내용</FormLabel>
+                  <FormLabel>추노 알림 내용</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="메모 내용을 입력하세요"
+                      placeholder="추노 알림 내용을 입력하세요"
                       className="resize-none"
                       {...field}
                     />

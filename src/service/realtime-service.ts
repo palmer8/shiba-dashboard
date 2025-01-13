@@ -1480,11 +1480,11 @@ class RealtimeService {
       await pool.execute(query, [userId, adminName, reason]);
       return { success: true, data: null, error: null };
     } catch (error) {
-      console.error("추노봇 등록 중 오류:", error);
+      console.error("추노 알림 등록 중 오류:", error);
       return {
         success: false,
         data: null,
-        error: "추노봇 등록 중 오류가 발생했습니다.",
+        error: "추노 알림 등록 중 오류가 발생했습니다.",
       };
     }
   }
@@ -1504,17 +1504,17 @@ class RealtimeService {
       }
       const query = `
         UPDATE dokku_chunobot 
-        SET reason = ?, adminName = ?, date = NOW()
+        SET reason = ?, adminName = ?, time = NOW()
         WHERE user_id = ?
       `;
       await pool.execute(query, [reason, session.user.nickname, userId]);
       return { success: true, data: null, error: null };
     } catch (error) {
-      console.error("추노봇 수정 중 오류:", error);
+      console.error("추노 알림 수정 중 오류:", error);
       return {
         success: false,
         data: null,
-        error: "추노봇 수정 중 오류가 발생했습니다.",
+        error: "추노 알림 수정 중 오류가 발생했습니다.",
       };
     }
   }
