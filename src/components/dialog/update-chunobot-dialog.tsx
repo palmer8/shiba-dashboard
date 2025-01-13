@@ -61,7 +61,7 @@ export default function UpdateChunobotDialog({
   const onSubmit = async (data: UpdateChunobotFormData) => {
     try {
       setIsLoading(true);
-      const result = await updateChunobotAction(chunobot, data.reason);
+      const result = await updateChunobotAction(chunobot.user_id, data.reason);
 
       if (result.success) {
         toast({

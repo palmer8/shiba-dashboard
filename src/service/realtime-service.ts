@@ -1491,16 +1491,23 @@ class RealtimeService {
 
   async updateChunobot(
     userId: number,
-    adminName: string,
     reason: string
   ): Promise<ApiResponse<null>> {
     try {
+      const session = await auth();
+      if (!session?.user) {
+        return {
+          success: false,
+          data: null,
+          error: "로그인이 필요합니다.",
+        };
+      }
       const query = `
         UPDATE dokku_chunobot 
         SET reason = ?, adminName = ?, date = NOW()
         WHERE user_id = ?
       `;
-      await pool.execute(query, [reason, adminName, userId]);
+      await pool.execute(query, [reason, session.user.nickname, userId]);
       return { success: true, data: null, error: null };
     } catch (error) {
       console.error("추노봇 수정 중 오류:", error);

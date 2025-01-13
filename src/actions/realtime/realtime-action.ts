@@ -69,16 +69,8 @@ export async function createChunobotAction(
   return result;
 }
 
-export async function updateChunobotAction(
-  userId: number,
-  adminName: string,
-  reason: string
-) {
-  const result = await realtimeService.updateChunobot(
-    userId,
-    adminName,
-    reason
-  );
+export async function updateChunobotAction(userId: number, reason: string) {
+  const result = await realtimeService.updateChunobot(userId, reason);
   return result;
 }
 
