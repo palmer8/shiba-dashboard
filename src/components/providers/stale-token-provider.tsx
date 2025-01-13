@@ -37,7 +37,6 @@ const StaleTokenProvider = ({ children }: { children: React.ReactNode }) => {
 
         const currentUser = result.data;
 
-        // 세션의 정보와 DB의 정보 비교
         const isValidSession =
           session.user.role === currentUser.role &&
           session.user.nickname === currentUser.nickname &&

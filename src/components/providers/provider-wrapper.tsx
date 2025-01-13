@@ -14,7 +14,7 @@ export default function ProviderWrapper({
 }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="light">
-      <SessionProvider>
+      <SessionProvider refetchOnWindowFocus={false}>
         <StaleTokenProvider>
           <SidebarProvider>
             {children}
