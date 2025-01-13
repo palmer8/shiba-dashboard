@@ -10,6 +10,7 @@ import { CompanyResult, InstagramResult } from "@/types/game";
 import { redirect } from "next/navigation";
 import { RealtimeGameUserData } from "@/types/user";
 import { MemoResponse, UserMemo } from "@/types/realtime";
+import { Chunobot } from "@/types/user";
 
 type ComparisonOperator = "gt" | "gte" | "lt" | "lte" | "eq";
 type PaginationParams = { page: number };
@@ -101,40 +102,53 @@ class RealtimeService {
     if (!session || !session.user) return redirect("/login");
 
     try {
-      // 1. 기본 유저 데이터 쿼리
+      // 모든 데이터를 한 번에 가져오는 통합 쿼리
       const userDataQuery = `
         SELECT 
           n.code as newbie_code,
           COALESCE(w.count, 0) as warning_count,
           p.phone_number,
           p.pin,
-          REPLACE(v.identifier, 'discord:', '') as discord_id
+          REPLACE(v.identifier, 'discord:', '') as discord_id,
+          NULLIF(JSON_ARRAYAGG(
+            CASE 
+              WHEN m.user_id IS NOT NULL THEN
+                JSON_OBJECT(
+                  'user_id', m.user_id,
+                  'adminName', m.adminName,
+                  'text', m.text,
+                  'time', m.time
+                )
+              ELSE NULL
+            END
+          ), '[null]') as memos,
+          NULLIF(JSON_ARRAYAGG(
+            CASE 
+              WHEN c.user_id IS NOT NULL THEN
+                JSON_OBJECT(
+                  'user_id', c.user_id,
+                  'adminName', c.adminName,
+                  'reason', c.reason
+                )
+              ELSE NULL
+            END
+          ), '[null]') as chunoreasons
         FROM (SELECT ? as user_id) as u
         LEFT JOIN dokku_newbie n ON n.user_id = u.user_id
         LEFT JOIN dokku_warning w ON w.user_id = u.user_id
         LEFT JOIN phone_phones p ON p.id = u.user_id
         LEFT JOIN vrp_user_ids v ON v.user_id = u.user_id 
           AND v.identifier LIKE 'discord:%'
+        LEFT JOIN dokku_usermemo m ON m.user_id = u.user_id
+        LEFT JOIN dokku_chunobot c ON c.user_id = u.user_id
+        GROUP BY u.user_id, n.code, w.count, p.phone_number, p.pin, v.identifier
         LIMIT 1
       `;
 
-      // 메모 데이터를 위한 별도 쿼리 (시간순 정렬 추가)
-      const memoQuery = `
-        SELECT 
-          user_id,
-          adminName,
-          text,
-          time
-        FROM dokku_usermemo 
-        WHERE user_id = ?
-        ORDER BY time DESC
-      `;
-
-      // 2. 병렬로 실행: DB 쿼리들과 API 요청
-      const [[[basicUserData]], [memoRows], userDataResponse, incidentReports] =
+      // 2. 병렬로 실행: DB 쿼리와 API 요청
+      const [[[userData]], userDataResponse, incidentReports] =
         await Promise.all([
           pool.execute<RowDataPacket[]>(userDataQuery, [userId]),
-          pool.execute<RowDataPacket[]>(memoQuery, [userId]),
           this.fetchWithRetry<RealtimeGameUserData>("/DokkuApi/getPlayerData", {
             method: "POST",
             body: JSON.stringify({ user_id: userId }),
@@ -142,34 +156,25 @@ class RealtimeService {
           reportService.getIncidentReportsByTargetUserId(userId),
         ]);
 
-      if (!userDataResponse) {
-        return {
-          success: false,
-          data: null,
-          error: "유저 데이터 조회 실패",
-        };
-      }
-
-      // 메모 데이터를 배열로 변환 (타입 단언 제거)
-      const memos = memoRows.map((row: RowDataPacket) => ({
-        adminName: row.adminName,
-        text: row.text,
-        time: row.time,
-        user_id: userId,
-      }));
-
       // 3. 데이터 통합
       const enrichedData = {
         ...userDataResponse,
-        newbieCode: basicUserData?.newbie_code ?? null,
-        warningCount: basicUserData?.warning_count ?? 0,
+        newbieCode: userData?.newbie_code ?? null,
+        warningCount: userData?.warning_count ?? 0,
         incidentReports: incidentReports.success
           ? incidentReports.data.records
           : [],
-        lbPhoneNumber: basicUserData?.phone_number ?? null,
-        lbPhonePin: basicUserData?.pin ?? null,
-        discordId: basicUserData?.discord_id ?? null,
-        memos, // 메모 배열로 변경
+        lbPhoneNumber: userData?.phone_number ?? null,
+        lbPhonePin: userData?.pin ?? null,
+        discordId: userData?.discord_id ?? null,
+        memos:
+          userData?.memos && userData.memos !== "[null]"
+            ? JSON.parse(userData.memos)
+            : [],
+        chunoreasons:
+          userData?.chunoreasons && userData.chunoreasons !== "[null]"
+            ? JSON.parse(userData.chunoreasons)
+            : [],
       };
       if (userDataResponse.last_nickname) {
         await prisma.accountUsingQuerylog.create({
@@ -1459,6 +1464,141 @@ class RealtimeService {
         success: false,
         data: null,
         error: "메모 삭제 중 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  async createChunobot(
+    userId: number,
+    adminName: string,
+    reason: string
+  ): Promise<ApiResponse<null>> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        data: null,
+        error: "로그인이 필요합니다.",
+      };
+    }
+
+    try {
+      const insertQuery = `
+        INSERT INTO dokku_chunobot (user_id, adminName, reason) 
+        VALUES (?, ?, ?)
+      `;
+      await pool.execute(insertQuery, [userId, adminName, reason]);
+
+      return {
+        success: true,
+        data: null,
+        error: null,
+      };
+    } catch (error) {
+      console.error("특이사항 등록 중 오류:", error);
+      return {
+        success: false,
+        data: null,
+        error: "특이사항 등록 중 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  async updateChunobot(
+    originData: Chunobot,
+    reason: string
+  ): Promise<ApiResponse<null>> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        data: null,
+        error: "로그인이 필요합니다.",
+      };
+    }
+
+    try {
+      const query = `
+        UPDATE dokku_chunobot 
+        SET reason = ?, adminName = ?
+        WHERE user_id = ? 
+          AND adminName = ? 
+          AND reason = ?
+      `;
+
+      const [result] = await pool.execute(query, [
+        reason,
+        session.user.nickname,
+        originData.user_id,
+        originData.adminName,
+        originData.reason,
+      ]);
+
+      return {
+        success: true,
+        data: null,
+        error: null,
+      };
+    } catch (error) {
+      console.error("특이사항 수정 중 오류:", error);
+      return {
+        success: false,
+        data: null,
+        error: "특이사항 수정 중 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  async deleteChunobot(chunobot: Chunobot): Promise<ApiResponse<null>> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        data: null,
+        error: "로그인이 필요합니다.",
+      };
+    }
+
+    try {
+      const query = `
+        DELETE FROM dokku_chunobot 
+        WHERE user_id = ? 
+          AND adminName = ? 
+          AND reason = ?
+      `;
+
+      const [result] = await pool.execute(query, [
+        Number(chunobot.user_id),
+        chunobot.adminName,
+        chunobot.reason,
+      ]);
+
+      console.log(result, {
+        user_id: Number(chunobot.user_id),
+        adminName: chunobot.adminName,
+        reason: chunobot.reason,
+      });
+
+      const deleteResult = result as { affectedRows: number };
+      if (deleteResult.affectedRows === 0) {
+        return {
+          success: false,
+          data: null,
+          error: "삭제할 특이사항을 찾을 수 없습니다.",
+        };
+      }
+
+      return {
+        success: true,
+        data: null,
+        error: null,
+      };
+    } catch (error) {
+      console.error("특이사항 삭제 중 오류:", error);
+      return {
+        success: false,
+        data: null,
+        error: "특이사항 삭제 중 오류가 발생했습니다.",
       };
     }
   }

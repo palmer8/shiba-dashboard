@@ -3,6 +3,12 @@ import { UserRole } from "@prisma/client";
 import { IncidentReport } from "./report";
 import { UserMemo } from "./realtime";
 
+export type Chunobot = {
+  user_id: number;
+  reason: string;
+  adminName: string | null;
+};
+
 type SignUpUser = Omit<Prisma.UserCreateInput, "hashedPassword">;
 type RealtimeGameUserData = {
   banadmin: string | null;
@@ -11,6 +17,7 @@ type RealtimeGameUserData = {
   banreason: string | null;
   bantime: string | null;
   chunoreason: string | null;
+  chunoreasons: Chunobot[];
   credit: string | null;
   credit2: string | null;
   cumulative_cash: number | null;

@@ -8,7 +8,6 @@ import {
   formatKoreanDateTime,
   formatKoreanNumber,
   getFirstNonEmojiCharacter,
-  hasAccess,
 } from "@/lib/utils";
 import { parseCustomDateString } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -26,7 +25,7 @@ import IncidentReportTable from "@/components/report/incident-report-table";
 import { Session } from "next-auth";
 import { returnPlayerSkinAction } from "@/actions/realtime/realtime-action";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import BanPlayerDialog from "@/components/dialog/ban-player-dialog";
 import {
   DropdownMenu,
@@ -38,6 +37,10 @@ import AddUserMemoDialog from "@/components/dialog/add-usermemo-dialog";
 import UpdateUserMemoDialog from "@/components/dialog/update-usermemo-dialog";
 import { deleteMemoAction } from "@/actions/realtime/realtime-action";
 import { UserMemo } from "@/types/realtime";
+import AddChunobotDialog from "@/components/dialog/add-chunobot-dialog";
+import UpdateChunobotDialog from "@/components/dialog/update-chunobot-dialog";
+import { deleteChunobotAction } from "@/actions/realtime/realtime-action";
+import { Chunobot } from "@/types/user";
 
 interface RealtimeUserInfoProps {
   data: RealtimeGameUserData;
@@ -61,6 +64,13 @@ export default function RealtimeUserInfo({
   const [updateMemoOpen, setUpdateMemoOpen] = useState(false);
   const [addMemoOpen, setAddMemoOpen] = useState(false);
   const [canNotResolveBanStatus, setCanNotResolveBanStatus] = useState(false);
+  const [addChunobotOpen, setAddChunobotOpen] = useState(false);
+  const [updateChunobotOpen, setUpdateChunobotOpen] = useState(false);
+  const [selectedChunobot, setSelectedChunobot] = useState<Chunobot | null>(
+    null
+  );
+
+  console.log(data);
 
   useEffect(() => {
     setCanNotResolveBanStatus(!isAdmin && Boolean(data.banned));
@@ -129,6 +139,30 @@ export default function RealtimeUserInfo({
       toast({
         title: "메모 삭제 실패",
         description: "메모 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditChunobot = (chunobot: Chunobot) => {
+    setSelectedChunobot(chunobot);
+    setUpdateChunobotOpen(true);
+  };
+
+  const handleDeleteChunobot = async (chunobot: Chunobot) => {
+    if (!confirm("정말로 이 메모를 삭제하시겠습니까?")) return;
+
+    const result = await deleteChunobotAction(chunobot);
+    if (result.success) {
+      toast({
+        title: "유저 메모 삭제 완료",
+        description: "유저 메모가 성공적으로 삭제되었습니다.",
+      });
+      mutate();
+    } else {
+      toast({
+        title: "유저 메모 삭제 실패",
+        description: result.error,
         variant: "destructive",
       });
     }
@@ -263,12 +297,6 @@ export default function RealtimeUserInfo({
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-muted-foreground">
-                    유저 메모
-                  </h3>
-                  <p>{data?.chunoreason || "-"}</p>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-muted-foreground">
                     뉴비 코드
                   </h3>
                   <p>{data.newbieCode || "-"}</p>
@@ -340,7 +368,76 @@ export default function RealtimeUserInfo({
                   </div>
                 </div>
               </div>
-              <div className="mt-6">
+              <div className="mt-2">
+                <div className="space-y-4 mb-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">유저 메모</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setAddChunobotOpen(true)}
+                      className="h-8 hover:bg-muted"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      추가
+                    </Button>
+                  </div>
+                  <div className="space-y-4">
+                    {data.chunoreasons && data.chunoreasons.length > 0 ? (
+                      data.chunoreasons.map((item, index) => (
+                        <div
+                          key={index}
+                          className="bg-muted/20 rounded-lg p-4 border border-border/50"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex flex-col">
+                                <span className="font-medium text-sm">
+                                  {item.adminName}
+                                </span>
+                              </div>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 hover:bg-muted"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-32">
+                                <DropdownMenuItem
+                                  onClick={() => handleEditChunobot(item)}
+                                  className="cursor-pointer"
+                                >
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  <span>수정</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteChunobot(item)}
+                                  className="text-destructive cursor-pointer"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  <span>삭제</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                            {item.reason}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center justify-center h-16 text-sm text-muted-foreground bg-muted/20 rounded-lg">
+                        등록된 메모가 없습니다
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">특이사항</h3>
                   <Button
@@ -569,6 +666,28 @@ export default function RealtimeUserInfo({
           onClose={() => {
             setSelectedMemo(null);
             setUpdateMemoOpen(false);
+          }}
+        />
+      )}
+
+      <AddChunobotDialog
+        userId={userId}
+        session={session}
+        open={addChunobotOpen}
+        setOpen={setAddChunobotOpen}
+        mutate={mutate}
+      />
+
+      {selectedChunobot && (
+        <UpdateChunobotDialog
+          session={session}
+          open={updateChunobotOpen}
+          setOpen={setUpdateChunobotOpen}
+          chunobot={selectedChunobot}
+          mutate={mutate}
+          onClose={() => {
+            setSelectedChunobot(null);
+            setUpdateChunobotOpen(false);
           }}
         />
       )}

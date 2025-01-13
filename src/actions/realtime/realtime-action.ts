@@ -2,6 +2,7 @@
 
 import { realtimeService } from "@/service/realtime-service";
 import { UserMemo } from "@/types/realtime";
+import { Chunobot } from "@/types/user";
 
 export async function returnPlayerSkinAction(userId: number) {
   const result = await realtimeService.returnPlayerSkin(userId);
@@ -52,5 +53,31 @@ export async function updateMemoAction(originData: UserMemo, text: string) {
 
 export async function getUserDataAction(userId: number) {
   const result = await realtimeService.getGameUserDataByUserId(userId);
+  return result;
+}
+
+export async function createChunobotAction(
+  userId: number,
+  adminName: string,
+  reason: string
+) {
+  const result = await realtimeService.createChunobot(
+    userId,
+    adminName,
+    reason
+  );
+  return result;
+}
+
+export async function updateChunobotAction(
+  originData: Chunobot,
+  reason: string
+) {
+  const result = await realtimeService.updateChunobot(originData, reason);
+  return result;
+}
+
+export async function deleteChunobotAction(chunobot: Chunobot) {
+  const result = await realtimeService.deleteChunobot(chunobot);
   return result;
 }

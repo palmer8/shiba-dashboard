@@ -43,7 +43,7 @@ export function DateTimePicker24h({ date, onSelect }: DateTimePicker24hProps) {
 
   return (
     <div className="flex gap-2 items-center">
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <Popover open={isOpen} onOpenChange={setIsOpen} modal={true}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -69,9 +69,9 @@ export function DateTimePicker24h({ date, onSelect }: DateTimePicker24hProps) {
               initialFocus
             />
             <div className="flex flex-col sm:flex-row sm:h-[300px] divide-y sm:divide-y-0 sm:divide-x">
-              <ScrollArea className="w-64 sm:w-auto">
+              <ScrollArea className="w-64 sm:w-16 h-[300px]" type="always">
                 <div className="flex sm:flex-col p-2">
-                  {hours.reverse().map((hour) => (
+                  {hours.map((hour) => (
                     <Button
                       key={hour}
                       size="icon"
@@ -85,9 +85,9 @@ export function DateTimePicker24h({ date, onSelect }: DateTimePicker24hProps) {
                     </Button>
                   ))}
                 </div>
-                <ScrollBar orientation="horizontal" className="sm:hidden" />
+                <ScrollBar orientation="vertical" className="hidden sm:block" />
               </ScrollArea>
-              <ScrollArea className="w-64 sm:w-auto">
+              <ScrollArea className="w-64 sm:w-16 h-[300px]" type="always">
                 <div className="flex sm:flex-col p-2">
                   {Array.from({ length: 12 }, (_, i) => i * 5).map((minute) => (
                     <Button
@@ -107,7 +107,7 @@ export function DateTimePicker24h({ date, onSelect }: DateTimePicker24hProps) {
                     </Button>
                   ))}
                 </div>
-                <ScrollBar orientation="horizontal" className="sm:hidden" />
+                <ScrollBar orientation="vertical" className="hidden sm:block" />
               </ScrollArea>
             </div>
           </div>
