@@ -25,7 +25,7 @@ import IncidentReportTable from "@/components/report/incident-report-table";
 import { Session } from "next-auth";
 import { returnPlayerSkinAction } from "@/actions/realtime/realtime-action";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import BanPlayerDialog from "@/components/dialog/ban-player-dialog";
 import {
   DropdownMenu,
@@ -69,8 +69,6 @@ export default function RealtimeUserInfo({
   const [selectedChunobot, setSelectedChunobot] = useState<Chunobot | null>(
     null
   );
-
-  console.log(data);
 
   useEffect(() => {
     setCanNotResolveBanStatus(!isAdmin && Boolean(data.banned));
@@ -149,19 +147,17 @@ export default function RealtimeUserInfo({
     setUpdateChunobotOpen(true);
   };
 
-  const handleDeleteChunobot = async (chunobot: Chunobot) => {
-    if (!confirm("정말로 이 메모를 삭제하시겠습니까?")) return;
-
-    const result = await deleteChunobotAction(chunobot);
+  const handleDeleteChunobot = async (userId: number) => {
+    const result = await deleteChunobotAction(userId);
     if (result.success) {
       toast({
-        title: "유저 메모 삭제 완료",
-        description: "유저 메모가 성공적으로 삭제되었습니다.",
+        title: "추노 알림 삭제 완료",
+        description: "추노 알림이 성공적으로 삭제되었습니다.",
       });
       mutate();
     } else {
       toast({
-        title: "유저 메모 삭제 실패",
+        title: "추노 알림 삭제 실패",
         description: result.error,
         variant: "destructive",
       });
@@ -361,154 +357,160 @@ export default function RealtimeUserInfo({
                         <span>{data.skinName}</span>
                       </div>
                     ) : (
-                      <span className="text-muted-foreground">
+                      <span className="text-muted-foreground text-sm">
                         장착중인 스킨 없음
                       </span>
                     )}
                   </div>
                 </div>
-              </div>
-              <div className="mt-2">
-                <div className="space-y-4 mb-2">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">유저 메모</h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setAddChunobotOpen(true)}
-                      className="h-8 hover:bg-muted"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      추가
-                    </Button>
-                  </div>
-                  <div className="space-y-4">
-                    {data.chunoreasons && data.chunoreasons.length > 0 ? (
-                      data.chunoreasons.map((item, index) => (
-                        <div
-                          key={index}
-                          className="bg-muted/20 rounded-lg p-4 border border-border/50"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <div className="flex flex-col">
-                                <span className="font-medium text-sm">
-                                  {item.adminName}
-                                </span>
-                              </div>
-                            </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 hover:bg-muted"
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-32">
-                                <DropdownMenuItem
-                                  onClick={() => handleEditChunobot(item)}
-                                  className="cursor-pointer"
-                                >
-                                  <Pencil className="mr-2 h-4 w-4" />
-                                  <span>수정</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleDeleteChunobot(item)}
-                                  className="text-destructive cursor-pointer"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  <span>삭제</span>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                            {item.reason}
-                          </p>
-                        </div>
-                      ))
+                    <h3 className="text-sm font-medium text-muted-foreground">
+                      추노 알림
+                    </h3>
+                    {!data.chunobot ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAddChunobotOpen(true)}
+                        className="h-6 px-2 text-xs hover:bg-muted"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        등록
+                      </Button>
                     ) : (
-                      <div className="flex items-center justify-center h-16 text-sm text-muted-foreground bg-muted/20 rounded-lg">
-                        등록된 메모가 없습니다
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 hover:bg-muted"
+                          >
+                            <MoreHorizontal className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-24">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              if (data.chunobot) {
+                                handleEditChunobot(data.chunobot);
+                              }
+                            }}
+                            className="cursor-pointer text-xs"
+                          >
+                            <Pencil className="mr-2 h-3 w-3" />
+                            <span>수정</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              if (data.chunobot) {
+                                handleDeleteChunobot(data.chunobot.user_id);
+                              }
+                            }}
+                            className="text-destructive cursor-pointer text-xs"
+                          >
+                            <Trash2 className="mr-2 h-3 w-3" />
+                            <span>삭제</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
-                </div>
-
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">특이사항</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setAddMemoOpen(true)}
-                    className="h-8 hover:bg-muted"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    메모 추가
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  {data.memos && data.memos.length > 0 ? (
-                    data.memos.map((memo: UserMemo, index: number) => (
-                      <div
-                        key={index}
-                        className="bg-muted/20 rounded-lg p-4 border border-border/50"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <div className="flex flex-col">
-                              <span className="font-medium text-sm">
-                                {memo.adminName}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {formatKoreanDateTime(memo.time)}
-                              </span>
-                            </div>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 hover:bg-muted"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-32">
-                              <DropdownMenuItem
-                                onClick={() => handleEditMemo(memo)}
-                                className="cursor-pointer"
-                              >
-                                <Pencil className="mr-2 h-4 w-4" />
-                                <span>수정</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteMemo(memo)}
-                                className="text-destructive cursor-pointer"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                <span>삭제</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                          {memo.text}
-                        </p>
+                  {data.chunobot ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{data.chunobot.adminName}</span>
+                        <span>{formatKoreanDateTime(data.chunobot.time)}</span>
                       </div>
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-center h-16 text-sm text-muted-foreground bg-muted/20 rounded-lg">
-                      등록된 특이사항이 없습니다
+                      <p className="text-sm">{data.chunobot.reason}</p>
                     </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      등록된 특이사항이 없습니다
+                    </p>
                   )}
                 </div>
               </div>
+              <Fragment>
+                <Card>
+                  <CardHeader className="p-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle>유저 메모</CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAddMemoOpen(true)}
+                        className="h-8 hover:bg-muted"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        추가
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {data.memos && data.memos.length > 0 ? (
+                        data.memos.map((memo, index) => (
+                          <div
+                            key={index}
+                            className="bg-muted/20 rounded-lg p-4 border border-border/50"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm">
+                                    {memo.adminName}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatKoreanDateTime(memo.time)}
+                                  </span>
+                                </div>
+                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-muted"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-32"
+                                >
+                                  <DropdownMenuItem
+                                    onClick={() => handleEditMemo(memo)}
+                                    className="cursor-pointer"
+                                  >
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    <span>수정</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteMemo(memo)}
+                                    className="text-destructive cursor-pointer"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    <span>삭제</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                              {memo.text}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex items-center justify-center h-16 text-sm text-muted-foreground bg-muted/20 rounded-lg">
+                          등록된 유저 메모가 없습니다
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Fragment>
             </CardContent>
           </Card>
         </TabsContent>

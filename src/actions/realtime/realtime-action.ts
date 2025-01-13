@@ -70,14 +70,19 @@ export async function createChunobotAction(
 }
 
 export async function updateChunobotAction(
-  originData: Chunobot,
+  userId: number,
+  adminName: string,
   reason: string
 ) {
-  const result = await realtimeService.updateChunobot(originData, reason);
+  const result = await realtimeService.updateChunobot(
+    userId,
+    adminName,
+    reason
+  );
   return result;
 }
 
-export async function deleteChunobotAction(chunobot: Chunobot) {
-  const result = await realtimeService.deleteChunobot(chunobot);
+export async function deleteChunobotAction(userId: number) {
+  const result = await realtimeService.deleteChunobot(userId);
   return result;
 }

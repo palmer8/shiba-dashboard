@@ -7,6 +7,7 @@ export type Chunobot = {
   user_id: number;
   reason: string;
   adminName: string | null;
+  time: Date;
 };
 
 type SignUpUser = Omit<Prisma.UserCreateInput, "hashedPassword">;
@@ -17,7 +18,7 @@ type RealtimeGameUserData = {
   banreason: string | null;
   bantime: string | null;
   chunoreason: string | null;
-  chunoreasons: Chunobot[];
+  chunobot: Chunobot | null;
   credit: string | null;
   credit2: string | null;
   cumulative_cash: number | null;
