@@ -14,15 +14,15 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
 import { Payment } from "@/types/payment";
 import { Checkbox } from "@/components/ui/checkbox";
 import Empty from "@/components/ui/empty";
-import { getPaymentsByIdsOriginAction } from "@/actions/payment-action";
-import { toast } from "@/hooks/use-toast";
+// import { getPaymentsByIdsOriginAction } from "@/actions/payment-action";
+// import { toast } from "@/hooks/use-toast";
 
 interface PaymentTableProps {
   data: {
@@ -38,6 +38,11 @@ export default function PaymentTable({ data }: PaymentTableProps) {
   const searchParams = useSearchParams();
 
   const [columnVisibility, setColumnVisibility] = useState({});
+  const [inputPage, setInputPage] = useState(data.page.toString());
+
+  useEffect(() => {
+    setInputPage(data.page.toString());
+  }, [data.page]);
 
   const columns: ColumnDef<Payment>[] = useMemo(
     () => [
@@ -184,12 +189,18 @@ export default function PaymentTable({ data }: PaymentTableProps) {
           <div className="flex items-center gap-1">
             <input
               type="number"
-              value={data.page}
-              onChange={(e) => {
-                const page = parseInt(e.target.value);
-                if (page > 0 && page <= data.totalPages) {
-                  handlePageChange(page);
+              value={inputPage}
+              onChange={(e) => setInputPage(e.target.value)}
+              onBlur={(e) => {
+                let newPage = parseInt(e.target.value);
+                if (isNaN(newPage) || newPage < 1) {
+                  newPage = 1;
+                  setInputPage("1");
+                } else if (newPage > data.totalPages) {
+                  newPage = data.totalPages;
+                  setInputPage(data.totalPages.toString());
                 }
+                handlePageChange(newPage);
               }}
               className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               min={1}

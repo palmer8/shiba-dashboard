@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth-config";
 import { logService } from "@/service/log-service";
 import { StaffLogFilter } from "@/types/log";
 import { redirect } from "next/navigation";
+import Empty from "@/components/ui/empty";
 
 export default async function StaffLogPage({
   searchParams,
@@ -45,17 +46,11 @@ export default async function StaffLogPage({
         description="스태프들의 활동 내역을 조회할 수 있습니다."
       />
       <StaffLogFilters filters={filters} />
-      <StaffLogTable
-        data={
-          data || {
-            records: [],
-            total: 0,
-            page: 1,
-            totalPages: 1,
-            pageSize: 50,
-          }
-        }
-      />
+      {data && data.records.length > 0 ? (
+        <StaffLogTable data={data} />
+      ) : (
+        <Empty description="스태프 로그가 없습니다." />
+      )}
     </main>
   );
 }

@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Download } from "lucide-react";
 import Empty from "@/components/ui/empty";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 
 interface StaffLogTableProps {
@@ -19,6 +19,11 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
   const router = useRouter();
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const searchParams = useSearchParams();
+  const [inputPage, setInputPage] = useState(data.page.toString());
+
+  useEffect(() => {
+    setInputPage(data.page.toString());
+  }, [data.page]);
 
   const createLogId = (log: StaffLog) => {
     return `${log.staff_id}-${log.target_id}-${new Date(log.time).getTime()}`;
@@ -147,10 +152,9 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
       </div>
 
       {/* 페이지네이션 */}
-      <div className="flex items-center justify-between pt-4 border-t mt-4">
+      <div className="flex items-center justify-between py-2">
         <div className="text-sm text-muted-foreground">
-          총 {data.total.toLocaleString()}개 중{" "}
-          {(data.page - 1) * data.pageSize + 1}-
+          총 {data.total}개 중 {(data.page - 1) * data.pageSize + 1}-
           {Math.min(data.page * data.pageSize, data.total)}개 표시
         </div>
         <div className="flex items-center gap-2">
@@ -165,18 +169,18 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
           <div className="flex items-center gap-1">
             <input
               type="number"
-              value={data.page}
-              onChange={(e) => {
-                const newPage = parseInt(e.target.value);
-                if (newPage >= 1 && newPage <= data.totalPages) {
-                  handlePageChange(newPage);
-                }
-              }}
+              value={inputPage}
+              onChange={(e) => setInputPage(e.target.value)}
               onBlur={(e) => {
-                const newPage = parseInt(e.target.value);
-                if (newPage >= 1 && newPage <= data.totalPages) {
-                  handlePageChange(newPage);
+                let newPage = parseInt(e.target.value);
+                if (isNaN(newPage) || newPage < 1) {
+                  newPage = 1;
+                  setInputPage("1");
+                } else if (newPage > data.totalPages) {
+                  newPage = data.totalPages;
+                  setInputPage(data.totalPages.toString());
                 }
+                handlePageChange(newPage);
               }}
               className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               min={1}

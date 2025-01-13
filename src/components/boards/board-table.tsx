@@ -212,19 +212,20 @@ export function BoardTable({
         </Button>
       </div>
 
-      {notices.length > 0 && (
-        <div className="space-y-2">
-          {notices.map((notice, i) => renderBoardCard(notice, i, true))}
-        </div>
-      )}
+      <div className="min-h-[50vh] space-y-4">
+        {notices.length > 0 && (
+          <div className="space-y-2">
+            {notices.map((notice, i) => renderBoardCard(notice, i, true))}
+          </div>
+        )}
 
-      <div className="space-y-2">
-        {data.map((board, i) => renderBoardCard(board, i))}
+        <div className="space-y-2">
+          {data.map((board, i) => renderBoardCard(board, i))}
+        </div>
       </div>
 
-      {/* 페이지네이션 */}
       {data.length > 0 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
+        <div className="flex items-center justify-center gap-2 mt-auto pt-4">
           <Button
             variant="outline"
             size="sm"

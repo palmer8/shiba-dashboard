@@ -18,7 +18,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import Empty from "@/components/ui/empty";
 import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -33,6 +33,11 @@ interface AdminLogTableProps {
 export default function AdminLogTable({ data }: AdminLogTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [inputPage, setInputPage] = useState(data.page.toString());
+
+  useEffect(() => {
+    setInputPage(data.page.toString());
+  }, [data.page]);
 
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
@@ -192,14 +197,20 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
           이전
         </Button>
         <div className="flex items-center gap-1">
-          <Input
+          <input
             type="number"
-            value={data.page}
-            onChange={(e) => {
-              const page = parseInt(e.target.value);
-              if (page > 0 && page <= data.totalPages) {
-                handlePageChange(page);
+            value={inputPage}
+            onChange={(e) => setInputPage(e.target.value)}
+            onBlur={(e) => {
+              let newPage = parseInt(e.target.value);
+              if (isNaN(newPage) || newPage < 1) {
+                newPage = 1;
+                setInputPage("1");
+              } else if (newPage > data.totalPages) {
+                newPage = data.totalPages;
+                setInputPage(data.totalPages.toString());
               }
+              handlePageChange(newPage);
             }}
             className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             min={1}

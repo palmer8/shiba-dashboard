@@ -54,8 +54,8 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { useState, useCallback, useMemo } from "react";
+import { ChevronRight } from "lucide-react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 
 interface GameLogData {
   id: number;
@@ -90,40 +90,39 @@ export function UserDataTable({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [expandedRows, setExpandedRows] = useState<number[]>([]);
+  const [inputPage, setInputPage] = useState(page.toString());
 
-  const MetadataCell = useCallback(
-    ({ row }: { row: Row<GameLogData> }) => {
-      return (
-        <Popover>
-          <PopoverTrigger asChild>
-            <div className="flex items-center gap-2 cursor-pointer">
-              {row.original.metadata ? (
-                <>
-                  <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  <div className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] text-muted-foreground">
-                    {JSON.stringify(row.original.metadata).slice(0, 50)}...
-                  </div>
-                </>
-              ) : (
-                <span className="text-muted-foreground">-</span>
-              )}
-            </div>
-          </PopoverTrigger>
-          {row.original.metadata && (
-            <PopoverContent className="w-96">
-              <pre className="whitespace-pre-wrap text-sm">
-                {JSON.stringify(row.original.metadata, null, 2)}
-              </pre>
-            </PopoverContent>
-          )}
-        </Popover>
-      );
-    },
-    [expandedRows]
-  );
+  useEffect(() => {
+    setInputPage(page.toString());
+  }, [page]);
+
+  const MetadataCell = useCallback(({ row }: { row: Row<GameLogData> }) => {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <div className="flex items-center gap-2 cursor-pointer">
+            {row.original.metadata ? (
+              <>
+                <ChevronRight className="h-4 w-4" />
+                <div className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] text-muted-foreground">
+                  {JSON.stringify(row.original.metadata).slice(0, 50)}...
+                </div>
+              </>
+            ) : (
+              <span className="text-muted-foreground">-</span>
+            )}
+          </div>
+        </PopoverTrigger>
+        {row.original.metadata && (
+          <PopoverContent className="w-96">
+            <pre className="whitespace-pre-wrap text-sm">
+              {JSON.stringify(row.original.metadata, null, 2)}
+            </pre>
+          </PopoverContent>
+        )}
+      </Popover>
+    );
+  }, []);
 
   const handleSingleDelete = useCallback(
     async (id: number) => {
@@ -430,16 +429,25 @@ export function UserDataTable({
             <div className="flex items-center gap-1">
               <input
                 type="number"
-                value={page}
+                value={inputPage}
                 onChange={(e) => {
-                  const newPage = parseInt(e.target.value);
-                  if (newPage >= 1 && newPage <= metadata.totalPages) {
-                    handlePageChange(newPage);
+                  setInputPage(e.target.value);
+                }}
+                onBlur={(e) => {
+                  let newPage = parseInt(e.target.value);
+
+                  if (isNaN(newPage) || newPage < 1) {
+                    newPage = 1;
+                    setInputPage("1");
+                  } else if (newPage > metadata.totalPages) {
+                    newPage = metadata.totalPages;
+                    setInputPage(metadata.totalPages.toString());
                   }
+                  handlePageChange(newPage);
                 }}
                 className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                min={1}
                 max={metadata.totalPages}
+                maxLength={metadata.totalPages}
               />
               <span className="text-sm text-muted-foreground">
                 / {metadata.totalPages}

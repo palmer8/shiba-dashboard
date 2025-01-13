@@ -14,7 +14,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import Empty from "@/components/ui/empty";
 import { Download } from "lucide-react";
@@ -116,6 +116,12 @@ export function InstagramTable({ data }: InstagramTableProps) {
     toast({ title: "CSV 다운로드 성공" });
   };
 
+  const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+
+  useEffect(() => {
+    setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
+
   if (data.records.length === 0) {
     return (
       <div className="flex h-[400px] items-center justify-center">
@@ -186,12 +192,21 @@ export function InstagramTable({ data }: InstagramTableProps) {
           <div className="flex items-center gap-1">
             <input
               type="number"
-              value={data.metadata.page}
+              value={inputPage}
               onChange={(e) => {
-                const page = parseInt(e.target.value);
-                if (page > 0 && page <= data.metadata.totalPages) {
-                  handlePageChange(page);
+                setInputPage(e.target.value);
+              }}
+              onBlur={(e) => {
+                let newPage = parseInt(e.target.value);
+
+                if (isNaN(newPage) || newPage < 1) {
+                  newPage = 1;
+                  setInputPage("1");
+                } else if (newPage > data.metadata.totalPages) {
+                  newPage = data.metadata.totalPages;
+                  setInputPage(data.metadata.totalPages.toString());
                 }
+                handlePageChange(newPage);
               }}
               className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               min={1}

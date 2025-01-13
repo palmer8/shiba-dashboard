@@ -14,7 +14,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatKoreanDateTime } from "@/lib/utils";
@@ -41,6 +41,11 @@ export function CouponLogTable({ data }: CouponLogTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+  const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+
+  useEffect(() => {
+    setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
 
   const columns = useMemo<ColumnDef<CouponLog>[]>(
     () => [
@@ -212,12 +217,18 @@ export function CouponLogTable({ data }: CouponLogTableProps) {
           <div className="flex items-center gap-1">
             <input
               type="number"
-              value={data.metadata.page}
-              onChange={(e) => {
-                const page = parseInt(e.target.value);
-                if (page > 0 && page <= data.metadata.totalPages) {
-                  handlePageChange(page);
+              value={inputPage}
+              onChange={(e) => setInputPage(e.target.value)}
+              onBlur={(e) => {
+                let newPage = parseInt(e.target.value);
+                if (isNaN(newPage) || newPage < 1) {
+                  newPage = 1;
+                  setInputPage("1");
+                } else if (newPage > data.metadata.totalPages) {
+                  newPage = data.metadata.totalPages;
+                  setInputPage(data.metadata.totalPages.toString());
                 }
+                handlePageChange(newPage);
               }}
               className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               min={1}

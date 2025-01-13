@@ -16,7 +16,7 @@ import {
 import { CouponGroup, CouponGroupList } from "@/types/coupon";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useState } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { ExpandedCouponRow } from "./expanded-coupon-row";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -66,6 +66,11 @@ export function CouponTable({ data, page, session }: CouponTableProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [inputPage, setInputPage] = useState((page + 1).toString());
+
+  useEffect(() => {
+    setInputPage((page + 1).toString());
+  }, [page]);
 
   const columns: ColumnDef<CouponGroup>[] = [
     {
@@ -366,18 +371,25 @@ export function CouponTable({ data, page, session }: CouponTableProps) {
           <div className="flex items-center gap-1">
             <input
               type="number"
-              value={page + 1}
-              onChange={(e) => {
-                const newPage = parseInt(e.target.value) - 1;
-                if (newPage >= 0) {
-                  handlePageChange(newPage);
+              value={inputPage}
+              onChange={(e) => setInputPage(e.target.value)}
+              onBlur={(e) => {
+                let newPage = parseInt(e.target.value) - 1;
+                if (isNaN(newPage) || newPage < 0) {
+                  newPage = 0;
+                  setInputPage("1");
+                } else if (newPage >= data.metadata.totalPages) {
+                  newPage = data.metadata.totalPages - 1;
+                  setInputPage(data.metadata.totalPages.toString());
                 }
+                handlePageChange(newPage);
               }}
               className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               min={1}
+              max={data.metadata.totalPages}
             />
             <span className="text-sm text-muted-foreground">
-              / {data.metadata.totalPages || 1}
+              / {data.metadata.totalPages}
             </span>
           </div>
           <Button

@@ -14,7 +14,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import Empty from "@/components/ui/empty";
 import { formatKoreanNumber, hasAccess } from "@/lib/utils";
@@ -51,6 +51,11 @@ export function CompanyTable({ data }: CompanyTableProps) {
     capital: number;
   } | null>(null);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
+  const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+
+  useEffect(() => {
+    setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
 
   const columns: ColumnDef<any>[] = [
     {
@@ -161,16 +166,42 @@ export function CompanyTable({ data }: CompanyTableProps) {
       <div className="flex justify-end gap-2">
         <Button
           variant="outline"
+          size="sm"
           onClick={() => handlePageChange(data.metadata.page - 1)}
           disabled={data.metadata.page <= 1}
         >
           이전
         </Button>
-        <span className="flex items-center px-2 text-sm text-muted-foreground">
-          {data.metadata.page} / {data.metadata.totalPages}
-        </span>
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            value={inputPage}
+            onChange={(e) => {
+              setInputPage(e.target.value);
+            }}
+            onBlur={(e) => {
+              let newPage = parseInt(e.target.value);
+
+              if (isNaN(newPage) || newPage < 1) {
+                newPage = 1;
+                setInputPage("1");
+              } else if (newPage > data.metadata.totalPages) {
+                newPage = data.metadata.totalPages;
+                setInputPage(data.metadata.totalPages.toString());
+              }
+              handlePageChange(newPage);
+            }}
+            className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            min={1}
+            max={data.metadata.totalPages}
+          />
+          <span className="text-sm text-muted-foreground">
+            / {data.metadata.totalPages}
+          </span>
+        </div>
         <Button
           variant="outline"
+          size="sm"
           onClick={() => handlePageChange(data.metadata.page + 1)}
           disabled={data.metadata.page >= data.metadata.totalPages}
         >

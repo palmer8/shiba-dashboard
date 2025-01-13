@@ -1,5 +1,4 @@
-// import AdminManagementFilter from "@/components/admin/admin-management-filter";
-import AdminManagementTable from "@/components/admin/admin-management-table";
+import { AdminManagementTable } from "@/components/admin/admin-management-table";
 import { GlobalTitle } from "@/components/global/global-title";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { auth } from "@/lib/auth-config";

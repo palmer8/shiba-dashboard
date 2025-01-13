@@ -39,7 +39,7 @@ import { UserRole } from "@prisma/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import Empty from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Session } from "next-auth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -76,7 +76,7 @@ const SORT_OPTIONS = [
   { label: "권한", value: "role" },
 ] as const;
 
-export default function AdminManagementTable({
+export function AdminManagementTable({
   data,
   session,
 }: AdminManagementTableProps) {
@@ -86,6 +86,11 @@ export default function AdminManagementTable({
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortDirection, setSortDirection] = useState("desc");
+  const [inputPage, setInputPage] = useState(data.page.toString());
+
+  useEffect(() => {
+    setInputPage(data.page.toString());
+  }, [data.page]);
 
   const filteredItems = data.items
     .filter((item: AdminDto["items"][number]) => {
@@ -203,201 +208,203 @@ export default function AdminManagementTable({
         </div>
       </div>
 
-      {filteredItems.length > 0 ? (
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredItems.map((admin: AdminDto["items"][number]) => (
-            <Card key={admin.id} className="relative">
-              <CardContent className="p-3">
-                <div className="absolute top-2 right-2 z-10">
-                  {session.user && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-[200px]">
-                        {isSameOrHigherRole(session.user.role, admin.role) ? (
-                          <div className="px-3 py-2 text-sm">
-                            {formatRole(admin.role)}
-                          </div>
-                        ) : (
-                          <Select
-                            defaultValue={admin.role}
-                            onValueChange={async (value) => {
-                              await updateDashboardUserRoleAction(
+      <div className="min-h-[50vh]">
+        {filteredItems.length > 0 ? (
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredItems.map((admin: AdminDto["items"][number]) => (
+              <Card key={admin.id} className="relative">
+                <CardContent className="p-3">
+                  <div className="absolute top-2 right-2 z-10">
+                    {session.user && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[200px]">
+                          {isSameOrHigherRole(session.user.role, admin.role) ? (
+                            <div className="px-3 py-2 text-sm">
+                              {formatRole(admin.role)}
+                            </div>
+                          ) : (
+                            <Select
+                              defaultValue={admin.role}
+                              onValueChange={async (value) => {
+                                await updateDashboardUserRoleAction(
+                                  admin.id,
+                                  value as UserRole
+                                );
+                              }}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="권한 변경" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ROLE_OPTIONS.filter(
+                                  (option) =>
+                                    option.value !== "ALL" &&
+                                    // 자신보다 낮은 권한만 표시
+                                    ROLE_HIERARCHY[option.value as UserRole] <
+                                      ROLE_HIERARCHY[
+                                        session.user?.role as UserRole
+                                      ]
+                                ).map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              await toggleDashboardUserPermissionAction(
                                 admin.id,
-                                value as UserRole
+                                !admin.isPermissive
                               );
                             }}
+                            disabled={
+                              session.user.userId !== 1 &&
+                              isSameOrHigherRole(session.user.role, admin.role)
+                            }
                           >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="권한 변경" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ROLE_OPTIONS.filter(
-                                (option) =>
-                                  option.value !== "ALL" &&
-                                  // 자신보다 낮은 권한만 표시
-                                  ROLE_HIERARCHY[option.value as UserRole] <
-                                    ROLE_HIERARCHY[
-                                      session.user?.role as UserRole
-                                    ]
-                              ).map((option) => (
-                                <SelectItem
-                                  key={option.value}
-                                  value={option.value}
-                                >
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={async () => {
-                            await toggleDashboardUserPermissionAction(
-                              admin.id,
-                              !admin.isPermissive
-                            );
-                          }}
-                          disabled={
-                            session.user.userId !== 1 &&
-                            isSameOrHigherRole(session.user.role, admin.role)
-                          }
-                        >
-                          {admin.isPermissive ? (
-                            <>
-                              <Ban className="mr-2 h-4 w-4" />
-                              <span>비활성화</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              <span>활성화</span>
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <DropdownMenuItem
-                              onSelect={(e) => e.preventDefault()}
-                              className="text-destructive"
-                              disabled={
-                                session.user.userId !== 1 &&
-                                isSameOrHigherRole(
-                                  session.user.role,
-                                  admin.role
-                                )
-                              }
-                            >
-                              <Trash className="mr-2 h-4 w-4" />
-                              <span>탈퇴</span>
-                            </DropdownMenuItem>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                정말 탈퇴시키시겠습니까?
-                              </AlertDialogTitle>
-                              <div className="text-sm grid gap-1">
-                                {admin.nickname} ({admin.userId})
-                              </div>
-                              <AlertDialogDescription>
-                                계정을 삭제하면 모든 데이터가 영구적으로
-                                삭제되며 복구할 수 없습니다.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>취소</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={async () => {
-                                  await removeDashboardUserAction(admin.id);
-                                }}
-                                className="bg-destructive hover:bg-destructive/90"
+                            {admin.isPermissive ? (
+                              <>
+                                <Ban className="mr-2 h-4 w-4" />
+                                <span>비활성화</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                <span>활성화</span>
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                                className="text-destructive"
+                                disabled={
+                                  session.user.userId !== 1 &&
+                                  isSameOrHigherRole(
+                                    session.user.role,
+                                    admin.role
+                                  )
+                                }
                               >
-                                탈퇴
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
+                                <Trash className="mr-2 h-4 w-4" />
+                                <span>탈퇴</span>
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  정말 탈퇴시키시겠습니까?
+                                </AlertDialogTitle>
+                                <div className="text-sm grid gap-1">
+                                  {admin.nickname} ({admin.userId})
+                                </div>
+                                <AlertDialogDescription>
+                                  계정을 삭제하면 모든 데이터가 영구적으로
+                                  삭제되며 복구할 수 없습니다.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>취소</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={async () => {
+                                    await removeDashboardUserAction(admin.id);
+                                  }}
+                                  className="bg-destructive hover:bg-destructive/90"
+                                >
+                                  탈퇴
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={admin.image || undefined} />
-                      <AvatarFallback>
-                        {getFirstNonEmojiCharacter(admin.nickname)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-medium truncate text-sm">
-                        {admin.nickname}
-                      </h3>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {admin.name}
-                      </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={admin.image || undefined} />
+                        <AvatarFallback>
+                          {getFirstNonEmojiCharacter(admin.nickname)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-medium truncate text-sm">
+                          {admin.nickname}
+                        </h3>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {admin.name}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-xs">
+                          고유번호
+                        </span>
+                        <span className="truncate ml-2 text-xs">
+                          {admin.userId}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-xs">
+                          권한
+                        </span>
+                        <span className="truncate ml-2 text-xs">
+                          {formatRole(admin.role)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-xs">
+                          상태
+                        </span>
+                        <span
+                          className={cn(
+                            "truncate ml-2 text-xs",
+                            admin.isPermissive
+                              ? "text-primary"
+                              : "text-destructive"
+                          )}
+                        >
+                          {admin.isPermissive ? "활성" : "비활성"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-xs">
+                          가입일
+                        </span>
+                        <span className="truncate ml-2 text-xs">
+                          {formatKoreanDateTime(admin.createdAt)}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground text-xs">
-                        고유번호
-                      </span>
-                      <span className="truncate ml-2 text-xs">
-                        {admin.userId}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground text-xs">
-                        권한
-                      </span>
-                      <span className="truncate ml-2 text-xs">
-                        {formatRole(admin.role)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground text-xs">
-                        상태
-                      </span>
-                      <span
-                        className={cn(
-                          "truncate ml-2 text-xs",
-                          admin.isPermissive
-                            ? "text-primary"
-                            : "text-destructive"
-                        )}
-                      >
-                        {admin.isPermissive ? "활성" : "비활성"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground text-xs">
-                        가입일
-                      </span>
-                      <span className="truncate ml-2 text-xs">
-                        {formatKoreanDateTime(admin.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="flex items-center justify-center py-8">
-          <Empty description="데이터가 존재하지 않습니다." />
-        </div>
-      )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-8">
+            <Empty description="데이터가 존재하지 않습니다." />
+          </div>
+        )}
+      </div>
 
-      <div className="flex items-center justify-center gap-2 py-4">
+      <div className="flex items-center justify-center gap-2 pt-4">
         <Button
           variant="outline"
           size="sm"
@@ -407,8 +414,27 @@ export default function AdminManagementTable({
           이전
         </Button>
         <div className="flex items-center gap-1">
-          <span className="text-xs font-normal">
-            {data.page} / {data.totalPages}
+          <input
+            type="number"
+            value={inputPage}
+            onChange={(e) => setInputPage(e.target.value)}
+            onBlur={(e) => {
+              let newPage = parseInt(e.target.value);
+              if (isNaN(newPage) || newPage < 1) {
+                newPage = 1;
+                setInputPage("1");
+              } else if (newPage > data.totalPages) {
+                newPage = data.totalPages;
+                setInputPage(data.totalPages.toString());
+              }
+              handlePageChange(newPage);
+            }}
+            className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            min={1}
+            max={data.totalPages}
+          />
+          <span className="text-sm text-muted-foreground">
+            / {data.totalPages}
           </span>
         </div>
         <Button

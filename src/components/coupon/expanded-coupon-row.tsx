@@ -13,7 +13,7 @@ import {
 import { getCouponsByGroupIdAction } from "@/actions/coupon-action";
 import { Button } from "@/components/ui/button";
 import { CouponGroup } from "@/types/coupon";
-import { LoadingBar } from "../global/loading";
+import { LoadingBar } from "@/components/global/loading";
 
 interface ExpandedCouponRowProps {
   couponGroup: CouponGroup;

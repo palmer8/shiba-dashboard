@@ -24,9 +24,9 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { CreditTableData, RewardRevoke } from "@/types/credit";
-import AddCreditDialog from "../dialog/add-credit-dialog";
+import AddCreditDialog from "@/components/dialog/add-credit-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   approveCreditAction,
@@ -73,6 +73,11 @@ export function CreditTable({ data, session }: CreditTableProps) {
   const [selectedCredit, setSelectedCredit] = useState<RewardRevoke | null>(
     null
   );
+  const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+
+  useEffect(() => {
+    setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
 
   // columns 정의를 useMemo로 최적화
   const columns = useMemo<ColumnDef<RewardRevoke>[]>(
@@ -641,12 +646,18 @@ export function CreditTable({ data, session }: CreditTableProps) {
           <div className="flex items-center gap-1">
             <input
               type="number"
-              value={data.metadata.page}
-              onChange={(e) => {
-                const page = parseInt(e.target.value);
-                if (page > 0 && page <= data.metadata.totalPages) {
-                  handlePageChange(page);
+              value={inputPage}
+              onChange={(e) => setInputPage(e.target.value)}
+              onBlur={(e) => {
+                let newPage = parseInt(e.target.value);
+                if (isNaN(newPage) || newPage < 1) {
+                  newPage = 1;
+                  setInputPage("1");
+                } else if (newPage > data.metadata.totalPages) {
+                  newPage = data.metadata.totalPages;
+                  setInputPage(data.metadata.totalPages.toString());
                 }
+                handlePageChange(newPage);
               }}
               className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               min={1}
