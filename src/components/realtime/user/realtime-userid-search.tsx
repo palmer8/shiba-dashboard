@@ -2,11 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { Clock, Search, X } from "lucide-react";
 import { cn, formatKoreanDateTime } from "@/lib/utils";
-import { RealtimeGameUserData } from "@/types/user";
+import { getGameNicknameByUserIdAction } from "@/actions/user-action";
 
 interface RecentSearch {
   userId: number;
@@ -35,13 +34,60 @@ export default function RealtimeUseridSearch({
     }
   }, []);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!userIdValue) return;
+
+    const nicknameResult = await getGameNicknameByUserIdAction(userIdValue);
+    const nickname = nicknameResult.success ? nicknameResult.data : null;
+
+    if (!nickname) return;
+
+    const newSearch: RecentSearch = {
+      userId: userIdValue,
+      nickname: nickname,
+      timestamp: Date.now(),
+    };
+
+    const existingSearches = JSON.parse(
+      localStorage.getItem("recentUserSearches") || "[]"
+    );
+
+    const updatedSearches = [
+      newSearch,
+      ...existingSearches.filter(
+        (search: RecentSearch) => search.userId !== userIdValue
+      ),
+    ].slice(0, 10);
+
+    localStorage.setItem("recentUserSearches", JSON.stringify(updatedSearches));
+    setRecentSearches(updatedSearches);
+
     onSearch(userIdValue);
+    setIsFocused(false);
   }
 
-  const handleSearchClick = (searchUserId: number) => {
+  const handleSearchClick = async (searchUserId: number) => {
+    const existingSearch = recentSearches.find(
+      (search) => search.userId === searchUserId
+    );
+
+    if (!existingSearch?.nickname) {
+      const nicknameResult = await getGameNicknameByUserIdAction(searchUserId);
+      if (nicknameResult.success) {
+        const updatedSearches = recentSearches.map((search) =>
+          search.userId === searchUserId
+            ? { ...search, nickname: nicknameResult.data }
+            : search
+        );
+        setRecentSearches(updatedSearches as RecentSearch[]);
+        localStorage.setItem(
+          "recentUserSearches",
+          JSON.stringify(updatedSearches)
+        );
+      }
+    }
+
     setUserIdValue(searchUserId);
     onSearch(searchUserId);
     setIsFocused(false);
@@ -72,6 +118,12 @@ export default function RealtimeUseridSearch({
     localStorage.setItem("recentUserSearches", JSON.stringify(newSearches));
   };
 
+  const handleBlur = () => {
+    setTimeout(() => {
+      setIsFocused(false);
+    }, 200);
+  };
+
   return (
     <div className="relative w-[350px] max-md:w-full" ref={containerRef}>
       <form className="grid gap-2" onSubmit={handleSubmit}>
@@ -87,6 +139,7 @@ export default function RealtimeUseridSearch({
               maxLength={6}
               onChange={(e) => setUserIdValue(Number(e.target.value))}
               onFocus={() => setIsFocused(true)}
+              onBlur={handleBlur}
             />
           </div>
           <Button type="submit">조회</Button>
