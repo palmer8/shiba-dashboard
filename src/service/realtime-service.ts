@@ -10,7 +10,7 @@ import { CompanyResult, InstagramResult } from "@/types/game";
 import { redirect } from "next/navigation";
 import { RealtimeGameUserData } from "@/types/user";
 import { MemoResponse, UserMemo } from "@/types/realtime";
-import { Chunobot } from "@/types/user";
+import { logService } from "./log-service";
 
 type ComparisonOperator = "gt" | "gte" | "lt" | "lte" | "eq";
 type PaginationParams = { page: number };
@@ -176,12 +176,9 @@ class RealtimeService {
           : null,
       };
       if (userDataResponse.last_nickname) {
-        await prisma.accountUsingQuerylog.create({
-          data: {
-            content: `유저 조회: ${userDataResponse.last_nickname}(${userId})`,
-            registrantId: session.user.id,
-          },
-        });
+        await logService.writeAdminLog(
+          `${userDataResponse.last_nickname}(${userId}) 유저 조회`
+        );
       }
 
       if (userDataResponse.error) {
@@ -224,6 +221,7 @@ class RealtimeService {
     );
 
     const groupData = await groupDataResponse.json();
+    await logService.writeAdminLog(`그룹 이름으로 그룹 조회 : ${groupName}`);
 
     return {
       success: true,
@@ -401,6 +399,10 @@ class RealtimeService {
       const total = rows[0]?.total || 0;
       const totalPages = Math.ceil(total / pageSize);
 
+      await logService.writeAdminLog(
+        `아이템 ${itemId} 보유량 ${value}개 ${condition} 데이터 조회 (${page}페이지)`
+      );
+
       return {
         data: rows.map(
           (row: RowDataPacket): BaseQueryResult => ({
@@ -460,6 +462,8 @@ class RealtimeService {
 
       const total = rows[0]?.total || 0;
       const totalPages = Math.ceil(total / pageSize);
+
+      await logService.writeAdminLog(`차량 번호 조회 ${value} (${page}페이지)`);
 
       return {
         data: rows.map(
@@ -525,6 +529,10 @@ class RealtimeService {
 
       const total = rows[0]?.total || 0;
       const totalPages = Math.ceil(total / pageSize);
+
+      await logService.writeAdminLog(
+        `재화 ${creditType} ${value}  ${condition} 데이터 조회 (${page}페이지)`
+      );
 
       return {
         data: rows.map(
@@ -599,6 +607,12 @@ class RealtimeService {
       const total = countRows[0].total;
       const totalPages = Math.ceil(total / pageSize);
 
+      await logService.writeAdminLog(
+        `${
+          moneyType === "WALLET" ? "현금" : "계좌"
+        } ${value}원 ${condition} 데이터 조회 (${page}페이지)`
+      );
+
       return {
         data: rows.map(
           (row: RowDataPacket): BaseQueryResult => ({
@@ -668,6 +682,10 @@ class RealtimeService {
 
       const total = countRows[0].total;
       const totalPages = Math.ceil(total / pageSize);
+
+      await logService.writeAdminLog(
+        `마일리지 ${value} ${condition} 데이터 조회 (${page}페이지)`
+      );
 
       return {
         data: rows.map(
@@ -750,6 +768,12 @@ class RealtimeService {
 
       const total = countRows[0].total;
       const totalPages = Math.ceil(total / pageSize);
+
+      await logService.writeAdminLog(
+        `${
+          cashType === "CURRENT_CASH" ? "현재 캐시" : "누적 캐시"
+        } ${value} ${condition} 데이터 조회 (${page}페이지)`
+      );
 
       return {
         data: rows.map(
@@ -936,6 +960,8 @@ class RealtimeService {
             break;
         }
 
+        await logService.writeAdminLog(`${userId} 스킨 제거`);
+
         return {
           success: false,
           data: null,
@@ -1053,6 +1079,10 @@ class RealtimeService {
       const total = rows[0]?.total || 0;
       const totalPages = Math.ceil(total / pageSize);
 
+      await logService.writeAdminLog(
+        `인스타그램 ${value} 계정 조회 (${page}페이지)`
+      );
+
       return {
         data: rows.map(
           (row: RowDataPacket): InstagramResult => ({
@@ -1119,6 +1149,10 @@ class RealtimeService {
       const total = rows[0]?.total || 0;
       const totalPages = Math.ceil(total / pageSize);
 
+      await logService.writeAdminLog(
+        `팩션 공동 잔고 ${value} 데이터 조회 (${page}페이지)`
+      );
+
       return {
         data: rows.map(
           (row: RowDataPacket): CompanyResult => ({
@@ -1173,6 +1207,9 @@ class RealtimeService {
         await connection.execute(query, [capital, companyId]);
 
         await connection.commit();
+        await logService.writeAdminLog(
+          `팩션 공동 잔고 ${companyId} ${capital}원 업데이트`
+        );
         return { success: true, data: null, error: null };
       } catch (error) {
         await connection.rollback();
@@ -1245,6 +1282,16 @@ class RealtimeService {
         await this.createMemo(userId, session.user.nickname, reason);
       }
 
+      if (type === "ban") {
+        await logService.writeAdminLog(
+          `${userId} 플레이어 정지 ${duration} (${reason})`
+        );
+      } else {
+        await logService.writeAdminLog(
+          `${userId} 플레이어 정지 해제 (${reason})`
+        );
+      }
+
       return {
         success: data.success,
         data: data.success,
@@ -1257,61 +1304,6 @@ class RealtimeService {
         data: null,
         error: "밴 처리 중 오류가 발생했습니다.",
       };
-    }
-  }
-
-  async getGameDataByCompanyName(
-    query: {
-      value: string;
-    } & PaginationParams
-  ): Promise<PaginatedResult<CompanyResult>> {
-    try {
-      const { value, page } = query;
-      const pageSize = 50;
-      const offset = (page - 1) * pageSize;
-
-      // LIKE 쿼리 최적화를 위한 인덱스 활용
-      const dataQuery = `
-        SELECT 
-          c.id,
-          c.name,
-          c.capital,
-          COUNT(*) OVER() as total
-        FROM dokku_company c
-        WHERE c.name LIKE ?
-        ORDER BY c.capital DESC
-        LIMIT ? OFFSET ?
-      `;
-
-      const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
-        `%${value}%`,
-        pageSize,
-        offset,
-      ]);
-
-      const total = rows[0]?.total || 0;
-      const totalPages = Math.ceil(total / pageSize);
-
-      return {
-        data: rows.map(
-          (row: RowDataPacket): CompanyResult => ({
-            id: row.id,
-            name: row.name,
-            capital: row.capital,
-          })
-        ),
-        total,
-        currentPage: page,
-        totalPages,
-        pageSize,
-      };
-    } catch (error) {
-      console.error("팩션 데이터 조회 에러:", error);
-      throw new Error(
-        error instanceof Error
-          ? error.message
-          : "알 수 없는 오류가 발생했습니다."
-      );
     }
   }
 
@@ -1336,6 +1328,8 @@ class RealtimeService {
         VALUES (?, ?, ?, NOW())
       `;
       await pool.execute(insertQuery, [userId, adminName, text]);
+
+      await logService.writeAdminLog(`${userId} 플레이어 메모 생성`);
 
       return {
         success: true,
@@ -1380,6 +1374,8 @@ class RealtimeService {
         originData.text,
         originData.time,
       ]);
+
+      await logService.writeAdminLog(`${originData.user_id} 메모 수정`);
 
       return {
         success: true,
@@ -1443,6 +1439,8 @@ class RealtimeService {
         memo.time,
       ]);
 
+      await logService.writeAdminLog(`${memo.user_id} 메모 삭제`);
+
       const deleteResult = result as { affectedRows: number };
       if (deleteResult.affectedRows === 0) {
         return {
@@ -1478,6 +1476,7 @@ class RealtimeService {
         VALUES (?, ?, ?, NOW())
       `;
       await pool.execute(query, [userId, adminName, reason]);
+      await logService.writeAdminLog(`${userId} 추노 알림 등록`);
       return { success: true, data: null, error: null };
     } catch (error) {
       console.error("추노 알림 등록 중 오류:", error);
@@ -1508,6 +1507,7 @@ class RealtimeService {
         WHERE user_id = ?
       `;
       await pool.execute(query, [reason, session.user.nickname, userId]);
+      await logService.writeAdminLog(`${userId} 추노 알림 수정`);
       return { success: true, data: null, error: null };
     } catch (error) {
       console.error("추노 알림 수정 중 오류:", error);
@@ -1520,9 +1520,18 @@ class RealtimeService {
   }
 
   async deleteChunobot(userId: number): Promise<ApiResponse<null>> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        data: null,
+        error: "로그인이 필요합니다.",
+      };
+    }
     try {
       const query = `DELETE FROM dokku_chunobot WHERE user_id = ?`;
       await pool.execute(query, [userId]);
+      await logService.writeAdminLog(`${userId} 추노 알림 삭제`);
       return { success: true, data: null, error: null };
     } catch (error) {
       console.error("추노봇 삭제 중 오류:", error);

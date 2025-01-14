@@ -17,6 +17,7 @@ import { CouponGroupValues } from "@/lib/validations/coupon";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
 import { ApiResponse } from "@/types/global.dto";
+import { logService } from "./log-service";
 export class CouponService {
   async getCouponGroupList(
     page: number = 0,
@@ -84,6 +85,32 @@ export class CouponService {
         }),
       ]);
 
+      let filterArr = [];
+
+      if (filter.groupReason) {
+        filterArr.push(`그룹 사유: ${filter.groupReason}`);
+      }
+      if (filter.groupType) {
+        filterArr.push(`타입: ${filter.groupType}`);
+      }
+      if (filter.groupStatus) {
+        filterArr.push(`상태: ${filter.groupStatus}`);
+      }
+      if (filter.startDate) {
+        filterArr.push(`시작일: ${filter.startDate}`);
+      }
+      if (filter.endDate) {
+        filterArr.push(`종료일: ${filter.endDate}`);
+      }
+      if (filter.page) {
+        filterArr.push(`페이지: ${filter.page}`);
+      }
+      await logService.writeAdminLog(
+        `쿠폰 그룹 목록 조회 : ${
+          filterArr.length ? filterArr.join(", ") : "전체"
+        }`
+      );
+
       return {
         success: true,
         data: {
@@ -136,6 +163,8 @@ export class CouponService {
           where: { couponGroupId: groupId },
         }),
       ]);
+
+      await logService.writeAdminLog(`쿠폰 목록 조회 : ${groupId}`);
 
       return {
         success: true,
@@ -195,6 +224,8 @@ export class CouponService {
         },
       });
 
+      await logService.writeAdminLog(`쿠폰 그룹 생성 : ${result.groupName}`);
+
       return {
         success: true,
         data: result,
@@ -234,6 +265,10 @@ export class CouponService {
 
     const hasInvalidGroup = selectedGroups.some(
       (group) => group.groupType === "PUBLIC" || group.isIssued
+    );
+
+    await logService.writeAdminLog(
+      `쿠폰 발급 : ${selectedGroups.map((group) => group.groupName).join(", ")}`
     );
 
     if (hasInvalidGroup) {
@@ -349,6 +384,8 @@ export class CouponService {
         return deletedGroup;
       });
 
+      await logService.writeAdminLog(`쿠폰 그룹 삭제 : ${result.groupName}`);
+
       return {
         success: true,
         data: result,
@@ -387,6 +424,8 @@ export class CouponService {
           groupType: data.groupType as CouponGroupType,
         },
       });
+
+      await logService.writeAdminLog(`쿠폰 그룹 수정 : ${result.groupName}`);
 
       return {
         success: true,
@@ -508,6 +547,16 @@ export class CouponService {
       // 총 개수 조회
       const total = await prisma.couponLog.count({ where });
       const totalPages = Math.ceil(total / itemsPerPage);
+
+      let filterArr = [];
+      if (filters?.userId) filterArr.push(`유저 ID: ${filters.userId}`);
+      if (filters?.nickname) filterArr.push(`닉네임: ${filters.nickname}`);
+      if (filters?.startDate) filterArr.push(`시작일: ${filters.startDate}`);
+      if (filters?.endDate) filterArr.push(`종료일: ${filters.endDate}`);
+
+      await logService.writeAdminLog(
+        `쿠폰 로그 조회 : ${filterArr.length ? filterArr.join(", ") : "전체"}`
+      );
 
       // 데이터 조회
       const records = await prisma.couponLog.findMany({

@@ -15,12 +15,13 @@ import {
   BlockTicketListResponse,
   WhitelistListResponse,
 } from "@/types/report";
-import { formatKoreanDateTime, hasAccess } from "@/lib/utils";
+import { hasAccess } from "@/lib/utils";
 import { auth } from "@/lib/auth-config";
 import prisma from "@/db/prisma";
 import { redirect } from "next/navigation";
 import { BlockTicket, Status, UserRole } from "@prisma/client";
 import { ApiResponse } from "@/types/global.dto";
+import { logService } from "./log-service";
 
 class ReportService {
   async getIncidentReports(filters: ReportFilters): Promise<ApiResponse<any>> {
@@ -89,6 +90,30 @@ class ReportService {
          ORDER BY incident_time DESC LIMIT ? OFFSET ?`,
         [...queryParams, pageSize, offset]
       );
+
+      const filterDescription = [];
+      if (filters.penalty_type)
+        filterDescription.push(`제재 유형: ${filters.penalty_type}`);
+      if (filters.reason) filterDescription.push(`사유: ${filters.reason}`);
+      if (filters.target_user_id)
+        filterDescription.push(`대상 유저 ID: ${filters.target_user_id}`);
+      if (filters.reporting_user_id)
+        filterDescription.push(`신고자 ID: ${filters.reporting_user_id}`);
+      if (filters.admin) filterDescription.push(`처리자: ${filters.admin}`);
+      if (filters.incident_time)
+        filterDescription.push(
+          `처리 기간: ${filters.incident_time[0]} ~ ${filters.incident_time[1]}`
+        );
+
+      if (
+        filterDescription.filter((desc) => !desc.includes("페이지")).length > 0
+      ) {
+        await logService.writeAdminLog(
+          `사건 처리 보고서 조회 (${filterDescription
+            .filter((desc) => !desc.includes("페이지"))
+            .join(", ")})`
+        );
+      }
 
       return {
         success: true,
@@ -201,6 +226,10 @@ class ReportService {
         ]
       );
 
+      await logService.writeAdminLog(
+        `사건 처리 보고서 작성 : ${result.insertId}`
+      );
+
       return {
         success: true,
         data: result.insertId,
@@ -239,6 +268,8 @@ class ReportService {
         "DELETE FROM dokku_incident_report WHERE report_id = ?",
         [reportId]
       );
+
+      await logService.writeAdminLog(`사건 처리 보고서 삭제 : ${reportId}`);
 
       return {
         success: result.affectedRows > 0,
@@ -350,6 +381,10 @@ class ReportService {
         ]
       );
 
+      await logService.writeAdminLog(
+        `사건 처리 보고서 수정 : ${data.reportId}`
+      );
+
       return {
         success: result.affectedRows > 0,
         data: result.affectedRows > 0 ? data.reportId : null,
@@ -424,6 +459,10 @@ class ReportService {
         [...queryParams, pageSize, offset]
       );
 
+      await logService.writeAdminLog(
+        `IP 관리 데이터 조회 : ${whereClause.join(" AND ")}`
+      );
+
       return {
         success: true,
         data: {
@@ -483,6 +522,13 @@ class ReportService {
           );
         }
       }
+
+      await prisma.accountUsingQuerylog.createMany({
+        data: values.map((value) => ({
+          content: `IP 관리 데이터 추가 : ${value[0]} ${data.comment} ${data.status}`,
+          userId: session.user!.id as string,
+        })),
+      });
 
       return {
         success: true,
@@ -545,6 +591,10 @@ class ReportService {
         queryParams
       );
 
+      await logService.writeAdminLog(
+        `IP 관리 데이터 수정 : ${data.user_ip} ${data.id}`
+      );
+
       return {
         success: result.affectedRows > 0,
         data: result.affectedRows > 0 ? data.id : null,
@@ -578,6 +628,8 @@ class ReportService {
         "DELETE FROM dokku_whitelist_ip WHERE id = ?",
         [id]
       );
+
+      await logService.writeAdminLog(`IP 관리 데이터 삭제 : ${id}`);
 
       return {
         success: result.affectedRows > 0,
@@ -911,19 +963,22 @@ class ReportService {
         connection.release();
       }
 
-      // BlockTicket 상태 업데이트
-      await prisma.blockTicket.updateMany({
-        where: {
-          id: {
-            in: ticketIds,
+      prisma.$transaction([
+        prisma.blockTicket.updateMany({
+          where: { id: { in: ticketIds } },
+          data: {
+            status: "APPROVED",
+            approverId: session.user.id,
+            approvedAt: new Date(),
           },
-        },
-        data: {
-          status: "APPROVED",
-          approverId: session.user.id,
-          approvedAt: new Date(),
-        },
-      });
+        }),
+        prisma.accountUsingQuerylog.createMany({
+          data: tickets.map((ticket) => ({
+            content: `사건처리 보고 승인 : ${ticket.reportId}`,
+            userId: session.user!.id as string,
+          })),
+        }),
+      ]);
 
       return {
         success: true,
@@ -1043,14 +1098,22 @@ class ReportService {
         connection.release();
       }
 
-      await prisma.blockTicket.updateMany({
-        where: { status: "PENDING" },
-        data: {
-          status: "APPROVED",
-          approverId: session.user.id,
-          approvedAt: new Date(),
-        },
-      });
+      await prisma.$transaction([
+        prisma.blockTicket.updateMany({
+          where: { status: "PENDING" },
+          data: {
+            status: "APPROVED",
+            approverId: session.user.id,
+            approvedAt: new Date(),
+          },
+        }),
+        prisma.accountUsingQuerylog.createMany({
+          data: pendingTickets.map((ticket) => ({
+            content: `사건처리 보고 승인 : ${ticket.reportId}`,
+            userId: session.user!.id as string,
+          })),
+        }),
+      ]);
 
       return {
         success: true,
@@ -1088,20 +1151,28 @@ class ReportService {
         };
       }
 
-      const result = await prisma.blockTicket.updateMany({
-        where: {
-          id: { in: ids },
-          status: "PENDING",
-        },
-        data: {
-          status: "REJECTED",
-          approverId: session.user.id,
-        },
-      });
+      await prisma.$transaction([
+        prisma.blockTicket.updateMany({
+          where: {
+            id: { in: ids },
+            status: "PENDING",
+          },
+          data: {
+            status: "REJECTED",
+            approverId: session.user.id,
+          },
+        }),
+        prisma.accountUsingQuerylog.createMany({
+          data: ids.map((id) => ({
+            content: `사건처리 보고 거절 : ${id}`,
+            userId: session.user!.id as string,
+          })),
+        }),
+      ]);
 
       return {
         success: true,
-        data: result.count,
+        data: ids.length,
         error: null,
       };
     } catch (error) {
@@ -1133,17 +1204,33 @@ class ReportService {
         };
       }
 
-      const result = await prisma.blockTicket.updateMany({
+      const pendingTickets = await prisma.blockTicket.findMany({
         where: { status: "PENDING" },
-        data: {
-          status: "REJECTED",
-          approverId: session.user.id,
-        },
       });
+
+      await prisma.$transaction([
+        prisma.blockTicket.updateMany({
+          where: {
+            id: {
+              in: pendingTickets.map((ticket) => ticket.id),
+            },
+          },
+          data: {
+            status: "REJECTED",
+            approverId: session.user.id,
+          },
+        }),
+        prisma.accountUsingQuerylog.createMany({
+          data: pendingTickets.map((ticket) => ({
+            content: `사건처리 보고 거절 : ${ticket.reportId}`,
+            userId: session.user!.id as string,
+          })),
+        }),
+      ]);
 
       return {
         success: true,
-        data: result.count,
+        data: pendingTickets.length,
         error: null,
       };
     } catch (error) {

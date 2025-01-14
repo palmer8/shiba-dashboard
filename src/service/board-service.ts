@@ -21,6 +21,7 @@ import {
 } from "@/types/board";
 import { ApiResponse } from "@/types/global.dto";
 import { CategoryForm } from "@/lib/validations/board";
+import { logService } from "@/service/log-service";
 
 // 공통으로 사용되는 게시글 조회 옵션
 const commonBoardSelect = {
@@ -97,6 +98,10 @@ class BoardService {
         },
       });
 
+      await logService.writeAdminLog(
+        `게시글 작성: ${this.truncateText(data.title)}`
+      );
+
       return {
         success: true,
         error: null,
@@ -169,6 +174,10 @@ class BoardService {
         },
       });
 
+      await logService.writeAdminLog(
+        `게시글 수정: ${this.truncateText(data.title)}`
+      );
+
       return {
         success: true,
         error: null,
@@ -198,7 +207,7 @@ class BoardService {
     try {
       const board = await prisma.board.findUnique({
         where: { id },
-        select: { registrantId: true },
+        select: { registrantId: true, title: true },
       });
 
       if (!board) {
@@ -220,6 +229,10 @@ class BoardService {
       await prisma.board.delete({
         where: { id },
       });
+
+      await logService.writeAdminLog(
+        `${this.truncateText(board.title)} 게시글 삭제`
+      );
 
       return {
         success: true,
@@ -277,6 +290,10 @@ class BoardService {
         },
       };
 
+      await logService.writeAdminLog(
+        `댓글 작성: ${this.truncateText(data.content)}`
+      );
+
       return {
         success: true,
         data: transformedComment,
@@ -315,6 +332,10 @@ class BoardService {
         },
       });
 
+      await logService.writeAdminLog(
+        `댓글 수정: ${this.truncateText(data.content)}`
+      );
+
       return {
         success: true,
         error: null,
@@ -339,7 +360,7 @@ class BoardService {
     try {
       const comment = await prisma.boardComment.findUnique({
         where: { id: commentId },
-        select: { registrantId: true },
+        select: { registrantId: true, content: true },
       });
 
       if (!comment) {
@@ -361,6 +382,10 @@ class BoardService {
       await prisma.boardComment.delete({
         where: { id: commentId },
       });
+
+      await logService.writeAdminLog(
+        `댓글 삭제: ${this.truncateText(comment.content)}`
+      );
 
       return {
         success: true,
@@ -1033,22 +1058,31 @@ class BoardService {
           },
         },
       });
-
       if (existingLike) {
-        await prisma.boardLike.delete({
-          where: {
-            boardId_userId: {
-              boardId,
-              userId: session.user.id as string,
+        await prisma.$transaction(async (tx) => {
+          await tx.boardLike.delete({
+            where: {
+              boardId_userId: {
+                boardId,
+                userId: session.user!.id as string,
+              },
             },
-          },
+          });
+          await logService.writeAdminLog(
+            `${this.truncateText(board.title)} 게시글 좋아요 취소`
+          );
         });
       } else {
-        await prisma.boardLike.create({
-          data: {
-            boardId,
-            userId: session.user.id as string,
-          },
+        await prisma.$transaction(async (tx) => {
+          await tx.boardLike.create({
+            data: {
+              boardId,
+              userId: session.user!.id as string,
+            },
+          });
+          await logService.writeAdminLog(
+            `${this.truncateText(board.title)} 게시글 좋아요`
+          );
         });
       }
 
@@ -1260,6 +1294,14 @@ class BoardService {
         data: null,
       };
     }
+  }
+
+  // 텍스트를 4글자로 축약하고 '...'을 추가하는 헬퍼 함수
+  private truncateText(text: string): string {
+    if (text.length > 4) {
+      return `${text.substring(0, 4)}...`;
+    }
+    return text;
   }
 }
 

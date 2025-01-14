@@ -47,6 +47,7 @@ export default function UpdateUserMemoDialog({
   setOpen,
   memo,
   onClose,
+  mutate,
 }: UpdateUserMemoDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -68,6 +69,7 @@ export default function UpdateUserMemoDialog({
           description: "메모가 성공적으로 수정되었습니다.",
         });
         onClose();
+        await mutate();
       } else {
         toast({
           title: "메모 수정 실패",

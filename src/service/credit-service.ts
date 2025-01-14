@@ -14,6 +14,7 @@ import { unstable_cache } from "next/cache";
 import { revalidateTag } from "next/cache";
 import { realtimeService } from "./realtime-service";
 import { userService } from "./user-service";
+import { logService } from "./log-service";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -528,6 +529,10 @@ class CreditService {
         },
       });
 
+      await logService.writeAdminLog(
+        `재화 지급/회수 티켓 생성 : ${data.reason}`
+      );
+
       return { success: true, error: null, data: true };
     } catch (error) {
       console.error("Create reward revoke error:", error);
@@ -544,10 +549,18 @@ class CreditService {
     if (!session?.user) return redirect("/login");
 
     try {
-      await prisma.rewardRevoke.delete({
-        where: {
-          id,
-        },
+      await prisma.$transaction(async (tx) => {
+        await tx.rewardRevoke.delete({
+          where: {
+            id,
+          },
+        });
+        await tx.accountUsingQuerylog.create({
+          data: {
+            content: `재화 지급/회수 티켓 삭제 : ${id}`,
+            registrantId: session.user!.id,
+          },
+        });
       });
 
       return { success: true, error: null, data: true };
@@ -569,19 +582,27 @@ class CreditService {
     if (!session?.user) return redirect("/login");
 
     try {
-      await prisma.rewardRevoke.update({
-        where: {
-          id,
-          registrantId: session.user.id,
-          status: "PENDING",
-        },
-        data: {
-          userId: Number(data.userId),
-          type: data.type,
-          creditType: data.creditType,
-          amount: data.amount,
-          reason: data.reason,
-        },
+      const result = await prisma.$transaction(async (tx) => {
+        await tx.rewardRevoke.update({
+          where: {
+            id,
+            registrantId: session.user!.id,
+            status: "PENDING",
+          },
+          data: {
+            userId: Number(data.userId),
+            type: data.type,
+            creditType: data.creditType,
+            amount: data.amount,
+            reason: data.reason,
+          },
+        });
+        await tx.accountUsingQuerylog.create({
+          data: {
+            content: `재화 지급/회수 티켓 수정 : ${data.reason}`,
+            registrantId: session.user!.id,
+          },
+        });
       });
 
       return { success: true, error: null, data: true };

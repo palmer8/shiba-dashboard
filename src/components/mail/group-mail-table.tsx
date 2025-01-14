@@ -38,6 +38,7 @@ import { MoreHorizontal, Trash, Edit2, Plus, Download } from "lucide-react";
 import EditGroupMailDialog from "@/components/dialog/edit-group-mail-dialog";
 import Empty from "@/components/ui/empty";
 import { Session } from "next-auth";
+import { writeAdminLogAction } from "@/actions/log-action";
 
 interface GroupMailTableProps {
   data: GroupMailTableData;
@@ -214,12 +215,17 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
         data: result.data || [],
         fileName: `group-mail-list.csv`,
       });
+      await writeAdminLogAction(
+        `단체 우편 CSV 다운로드 : ${selectedRows
+          .map((row) => row.original.reason)
+          .join(", ")}`
+      );
       toast({
-        title: "단체 우편 목록 CSV 파일을 다운로드하였습니다.",
+        title: "CSV 다운로드 성공",
       });
     } else {
       toast({
-        title: "단체 우편 목록 CSV 파일 다운로드에 실패하였습니다.",
+        title: "CSV 다운로드 실패",
         description: result.error || "알 수 없는 에러가 발생하였습니다.",
         variant: "destructive",
       });

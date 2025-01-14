@@ -1,7 +1,6 @@
 import prisma from "@/db/prisma";
 import { auth } from "@/lib/auth-config";
 import { UpdateUserData } from "@/types/user";
-import { userService } from "./user-service";
 import { UserRole } from "@prisma/client";
 import { hasAccess } from "@/lib/utils";
 import { ApiResponse } from "@/types/global.dto";
@@ -10,6 +9,7 @@ import {
   RemoveUserWeaponDto,
   UpdateUserGroupDto,
 } from "@/types/realtime";
+import { logService } from "./log-service";
 
 class RealtimeUpdateService {
   async updateUserInventory(
@@ -46,12 +46,9 @@ class RealtimeUpdateService {
 
     const [result, _] = await Promise.all([
       response.json(),
-      prisma.accountUsingQuerylog.create({
-        data: {
-          content: `${data.user_id}의 인벤토리 ${data.type} :  ${data.itemcode}, (${data.amount}개)`,
-          registrantId: session.user.id,
-        },
-      }),
+      logService.writeAdminLog(
+        `${data.user_id}의 인벤토리 ${data.type} :  ${data.itemcode}, (${data.amount}개)`
+      ),
     ]);
 
     if (result.success) {
@@ -95,12 +92,7 @@ class RealtimeUpdateService {
 
     const [result, _] = await Promise.all([
       response.json(),
-      prisma.accountUsingQuerylog.create({
-        data: {
-          content: `${data.user_id}의 무기 제거: ${data.weapon}`,
-          registrantId: session.user.id,
-        },
-      }),
+      logService.writeAdminLog(`${data.user_id}의 ${data.weapon} 무기 제거`),
     ]);
 
     return result;
@@ -132,12 +124,7 @@ class RealtimeUpdateService {
 
     const [result, _] = await Promise.all([
       response.json(),
-      prisma.accountUsingQuerylog.create({
-        data: {
-          content: `${data.user_id}의 차량 제거: ${data.vehicle}`,
-          registrantId: session.user.id,
-        },
-      }),
+      logService.writeAdminLog(`${data.user_id}의 ${data.vehicle} 차량 제거`),
     ]);
 
     return result;
@@ -201,12 +188,9 @@ class RealtimeUpdateService {
 
     const [result, _] = await Promise.all([
       response.json(),
-      prisma.accountUsingQuerylog.create({
-        data: {
-          content: `${data.user_id}의 그룹 ${data.action}: ${data.group}`,
-          registrantId: session.user.id,
-        },
-      }),
+      logService.writeAdminLog(
+        `${data.user_id}의 그룹 ${data.action}: ${data.group}`
+      ),
     ]);
     return result;
   }

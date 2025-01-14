@@ -19,9 +19,14 @@ import { Button } from "@/components/ui/button";
 import Empty from "@/components/ui/empty";
 import { Download } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
+import {
+  formatKoreanDateTime,
+  handleDownloadJson2CSV,
+  parseSearchParams,
+} from "@/lib/utils";
 import { InstagramResult } from "@/types/game";
 import { Checkbox } from "@/components/ui/checkbox";
+import { writeAdminLogAction } from "@/actions/log-action";
 
 interface InstagramTableProps {
   data: {
@@ -109,6 +114,17 @@ export function InstagramTable({ data }: InstagramTableProps) {
     const selectedRows = table
       .getSelectedRowModel()
       .rows.map((row) => row.original);
+
+    const params = new URLSearchParams(window.location.search);
+    const decodedParams = parseSearchParams(params);
+    const searchParamsText = decodedParams
+      ? ` (type=${decodedParams.type}&value=${decodedParams.value}&condition=${decodedParams.condition}&page=${decodedParams.page})`
+      : "";
+
+    await writeAdminLogAction(
+      `인스타그램 데이터 CSV 다운로드 ${searchParamsText}`
+    );
+
     handleDownloadJson2CSV({
       data: selectedRows,
       fileName: "instagram_accounts",

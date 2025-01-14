@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { UpdateUserData } from "@/types/user";
 import { ApiResponse } from "@/types/global.dto";
 import { userService } from "./user-service";
+import { logService } from "./log-service";
 
 const ITEMS_PER_PAGE = 50;
 const BATCH_SIZE = 100;
@@ -159,9 +160,8 @@ class ItemQuantityService {
         })
       );
 
-      await this.createLog(
-        `아이템 지급/회수 티켓 승인 처리 (${ids.length}건)`,
-        session.user!.id as string
+      await logService.writeAdminLog(
+        `아이템 지급/회수 티켓 승인 처리 (${ids.length}건)`
       );
 
       return { success: true, data: approveResults, error: null };
@@ -251,9 +251,8 @@ class ItemQuantityService {
         })
       );
 
-      await this.createLog(
-        `아이템 지급/회수 티켓 전체 승인 처리 (${pendingItems.length}건)`,
-        session.user!.id as string
+      await logService.writeAdminLog(
+        `아이템 지급/회수 티켓 전체 승인 처리 (${pendingItems.length}건)`
       );
 
       return { success: true, data: approveResults, error: null };
@@ -290,9 +289,8 @@ class ItemQuantityService {
               },
             });
 
-            await this.createLog(
-              `아이템 지급/회수 티켓 거절 - [${chunkIds.length}] 건`,
-              session.user!.id as string
+            await logService.writeAdminLog(
+              `아이템 지급/회수 티켓 거절 - [${chunkIds.length}] 건`
             );
           });
         })
@@ -336,9 +334,8 @@ class ItemQuantityService {
           },
         });
 
-        await this.createLog(
-          `아이템 지급/회수 티켓 전체 거절 처리 (${count}건)`,
-          session.user!.id as string
+        await logService.writeAdminLog(
+          `아이템 지급/회수 티켓 전체 거절 처리 (${count}건)`
         );
       });
 
@@ -371,9 +368,8 @@ class ItemQuantityService {
               },
               data: { status: "CANCELLED" },
             }),
-              this.createLog(
-                `아이템 지급/회수 티켓 취소 - [${chunkIds.length}] 건`,
-                session.user!.id as string
+              logService.writeAdminLog(
+                `아이템 지급/회수 티켓 취소 - [${chunkIds.length}] 건`
               );
           });
         })
@@ -413,13 +409,12 @@ class ItemQuantityService {
           where: { id },
         });
 
-        await this.createLog(
+        await logService.writeAdminLog(
           `아이템 ${
             deleteResult.type === "ADD" ? "지급" : "회수"
           } 티켓 삭제 - [${deleteResult.itemName}] ${
             deleteResult.amount
-          }개 / 대상: ${deleteResult.userId}`,
-          session.user!.id as string
+          }개 / 대상: ${deleteResult.userId}`
         );
 
         return deleteResult;
@@ -478,11 +473,10 @@ class ItemQuantityService {
           },
         });
 
-        await this.createLog(
+        await logService.writeAdminLog(
           `아이템 ${data.type === "ADD" ? "지급" : "회수"} 티켓 수정 - [${
             data.itemName
-          }] ${data.amount}개 / 대상: ${data.userId}`,
-          session.user!.id as string
+          }] ${data.amount}개 / 대상: ${data.userId}`
         );
 
         return updateResult;
@@ -560,11 +554,10 @@ class ItemQuantityService {
           },
         });
 
-        await this.createLog(
+        await logService.writeAdminLog(
           `아이템 ${data.type === "ADD" ? "지급" : "회수"} 티켓 생성 - [${
             data.itemName
-          }] ${data.amount}개 / 대상: ${data.userId}`,
-          session.user!.id as string
+          }] ${data.amount}개 / 대상: ${data.userId}`
         );
 
         return createResult;
@@ -590,12 +583,6 @@ class ItemQuantityService {
     return Array.from({ length: Math.ceil(array.length / size) }, (_, i) =>
       array.slice(i * size, (i + 1) * size)
     );
-  }
-
-  private async createLog(content: string, registrantId: string) {
-    return await prisma.accountUsingQuerylog.create({
-      data: { content, registrantId },
-    });
   }
 
   private async updateItemQuantityByGame(data: UpdateUserData): Promise<

@@ -1,11 +1,7 @@
 import prisma from "@/db/prisma";
 import { auth } from "@/lib/auth-config";
 import { hasAccess, ROLE_HIERARCHY } from "@/lib/utils";
-import {
-  AdminFilter,
-  AdminGroupFilter,
-  GroupFilter,
-} from "@/types/filters/admin-filter";
+import { AdminFilter, GroupFilter } from "@/types/filters/admin-filter";
 import { Prisma, User, UserRole } from "@prisma/client";
 import { AdminDto, GroupTableData } from "@/types/user";
 import { ApiResponse } from "@/types/global.dto";
@@ -18,6 +14,7 @@ import {
 } from "@/types/attendance";
 import { format } from "date-fns";
 import { eachDayOfInterval, isWeekend } from "date-fns";
+import { logService } from "./log-service";
 
 class AdminService {
   async getDashboardUsers(params: AdminFilter): Promise<ApiResponse<AdminDto>> {
@@ -136,13 +133,25 @@ class AdminService {
       };
     }
 
-    const user = await prisma.user.update({
-      where: { id },
-      data: { role },
-      select: {
-        id: true,
-        role: true,
-      },
+    const user = await prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id },
+        data: { role },
+        select: {
+          id: true,
+          role: true,
+          nickname: true,
+          userId: true,
+        },
+      });
+
+      await tx.accountUsingQuerylog.create({
+        data: {
+          content: `${updatedUser.nickname}(${updatedUser.userId}) 권한 변경: ${role}`,
+          registrantId: session.user!.id,
+        },
+      });
+      return updatedUser;
     });
 
     return {
@@ -193,8 +202,18 @@ class AdminService {
       }
     }
 
-    const user = await prisma.user.delete({
-      where: { id },
+    const user = await prisma.$transaction(async (tx) => {
+      const deletedUser = await tx.user.delete({
+        where: { id },
+      });
+
+      await tx.accountUsingQuerylog.create({
+        data: {
+          content: `${deletedUser.nickname}(${deletedUser.id}) 어드민 제거`,
+          registrantId: session.user!.id,
+        },
+      });
+      return deletedUser;
     });
     return {
       success: true,
@@ -247,10 +266,24 @@ class AdminService {
       }
     }
 
-    const result = await prisma.user.update({
-      where: { id },
-      data: { isPermissive: value },
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id },
+        data: { isPermissive: value },
+      });
+
+      await tx.accountUsingQuerylog.create({
+        data: {
+          content: `${updatedUser.nickname}(${updatedUser.id}) 어드민 활성화 변경: ${value}`,
+          registrantId: session.user!.id,
+        },
+      });
+      return updatedUser;
     });
+
+    await logService.writeAdminLog(
+      `${result.nickname}(${result.userId}) 어드민 활성화 변경: ${value}`
+    );
 
     return {
       success: true,
@@ -341,6 +374,10 @@ class AdminService {
             registrantId: session.user!.id,
           },
         });
+
+        await logService.writeAdminLog(
+          `그룹 권한 수정 - [${updateResult.groupId}] 최소 권한: ${minRole}`
+        );
 
         return { updateResult, logResult };
       });

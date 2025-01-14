@@ -40,6 +40,7 @@ import Empty from "@/components/ui/empty";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { Session } from "next-auth";
+import { writeAdminLogAction } from "@/actions/log-action";
 
 interface PersonalMailTableProps {
   data: PersonalMailTableData;
@@ -219,6 +220,7 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
       const result = await uploadPersonalMailCSVAction(formData);
 
       if (result.success && result.data) {
+        await writeAdminLogAction(`개인 우편 CSV 업로드`);
         toast({
           title: "CSV 업로드 성공",
           description: `${result.data.count}개의 개인 우편이 생성되었습니다.`,
@@ -249,6 +251,11 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         data: csvData.data || [],
         fileName: `personal_mails.csv`,
       });
+      await writeAdminLogAction(
+        `개인 우편 CSV 다운로드 : ${selectedRows
+          .map((row) => row.original.content)
+          .join(", ")}`
+      );
       toast({
         title: "CSV 다운로드 성공",
         description: "해당 항목을 성공적으로 제거했습니다.",

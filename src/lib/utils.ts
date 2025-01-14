@@ -579,3 +579,13 @@ export function isSameOrHigherRole(
 ): boolean {
   return ROLE_HIERARCHY[userRole] <= ROLE_HIERARCHY[targetRole];
 }
+
+export function parseSearchParams(
+  searchParams: URLSearchParams
+): Record<string, string> {
+  const params: Record<string, string> = {};
+  searchParams.forEach((value, key) => {
+    params[key] = decodeURIComponent(value);
+  });
+  return params;
+}

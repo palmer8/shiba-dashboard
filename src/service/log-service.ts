@@ -241,6 +241,20 @@ export class LogService {
         offset,
       });
 
+      const filterDescription = [];
+      if (filters.type) filterDescription.push(`타입: ${filters.type}`);
+      if (filters.level) filterDescription.push(`레벨: ${filters.level}`);
+      if (filters.startDate)
+        filterDescription.push(`시작일: ${filters.startDate}`);
+      if (filters.endDate) filterDescription.push(`종료일: ${filters.endDate}`);
+      if (filters.page) filterDescription.push(`페이지: ${filters.page}`);
+
+      await this.writeAdminLog(
+        `유저 로그 조회 (${
+          filterDescription.length ? filterDescription.join(", ") : "전체"
+        })`
+      );
+
       const totalCount = result[0]?.total_count || 0;
 
       return {
@@ -261,10 +275,10 @@ export class LogService {
         error: null,
       };
     } catch (error) {
-      console.error("게임 로그 조회 실패:", error);
+      console.error("유저 로그 조회 실패:", error);
       return {
         success: false,
-        error: "게임 로그 조회 실패",
+        error: "유저 로그 조회 실패",
         data: {
           records: [],
           total: 0,
@@ -423,6 +437,26 @@ export class LogService {
       const [rows] = await pool.execute<RowDataPacket[]>(query, queryParams);
       const total = rows[0]?.total || 0;
 
+      if (filters.staffId || filters.targetId || (params[0] && params[1])) {
+        const filterDescription = [];
+
+        if (filters.staffId) {
+          filterDescription.push(`스태프: ${filters.staffId}`);
+        }
+        if (filters.targetId) {
+          filterDescription.push(`대상: ${filters.targetId}`);
+        }
+        if (params[0] && params[1]) {
+          filterDescription.push(
+            `범위: ${params[0].slice(0, 10)} ~ ${params[1].slice(0, 10)}`
+          );
+        }
+
+        await this.writeAdminLog(
+          `스태프 로그 조회 (${filterDescription.join(", ")})`
+        );
+      }
+
       return {
         success: true,
         data: {
@@ -472,6 +506,8 @@ export class LogService {
 
     try {
       const deletedRows = await db.deleteLogsByIds(ids);
+
+      await this.writeAdminLog(`${deletedRows.count}개 유저 로그 삭제`);
 
       return {
         success: true,
@@ -577,6 +613,42 @@ export class LogService {
         error: "로그 상태 확인 중 오류가 발생했습니다",
         data: null,
       };
+    }
+  }
+
+  async writeAdminLog(content: string) {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "세션이 존재하지 않습니다",
+        data: null,
+      };
+    }
+    const currentTime = new Date();
+    try {
+      const existingLog = await prisma.accountUsingQuerylog.findFirst({
+        where: {
+          content: content,
+          createdAt: {
+            gte: new Date(currentTime.getTime() - 1000),
+            lt: new Date(currentTime.getTime() + 1000),
+          },
+        },
+      });
+
+      if (existingLog) {
+        return;
+      }
+
+      await prisma.accountUsingQuerylog.create({
+        data: {
+          content: `${session.user.nickname}(${session.user.userId}) > ${content}`,
+          registrantId: session.user.id,
+        },
+      });
+    } catch (error) {
+      console.error("로그를 작성하는 중 에러가 발생하였습니다.", error);
     }
   }
 }

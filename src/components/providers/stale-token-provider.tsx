@@ -1,13 +1,22 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { getUserByIdAction } from "@/actions/user-action";
 import { useRouter } from "next/navigation";
+import { writeAdminLogAction } from "@/actions/log-action";
 
 const StaleTokenProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const hasLoggedRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const validateSession = async () => {
@@ -42,6 +51,17 @@ const StaleTokenProvider = ({ children }: { children: React.ReactNode }) => {
           session.user.nickname === currentUser.nickname &&
           session.user.id === currentUser.id &&
           session.user.image === currentUser.image;
+
+        if (
+          session.user &&
+          status === "authenticated" &&
+          isValidSession &&
+          !hasLoggedRef.current &&
+          isMountedRef.current
+        ) {
+          await writeAdminLogAction("대시보드 접속");
+          hasLoggedRef.current = true;
+        }
 
         if (!isValidSession) {
           signOut({ callbackUrl: "/login" });

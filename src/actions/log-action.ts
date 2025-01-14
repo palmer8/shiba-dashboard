@@ -18,3 +18,7 @@ export const deleteGameLogsAction = async (ids: number[]) => {
   revalidatePath("/log/user");
   return result;
 };
+
+export const writeAdminLogAction = async (content: string) => {
+  await logService.writeAdminLog(content);
+};

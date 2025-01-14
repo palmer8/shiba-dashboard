@@ -17,10 +17,15 @@ import {
 import { useCallback, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import Empty from "@/components/ui/empty";
-import { formatKoreanNumber, hasAccess } from "@/lib/utils";
+import {
+  formatKoreanNumber,
+  handleDownloadJson2CSV,
+  hasAccess,
+  parseSearchParams,
+} from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { UserRole } from "@prisma/client";
-import { MoreHorizontal, Edit2 } from "lucide-react";
+import { MoreHorizontal, Edit2, Download } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +33,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import UpdateCompanyDialog from "@/components/dialog/update-company-dialog";
+import { writeAdminLogAction } from "@/actions/log-action";
+import { toast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface CompanyTableProps {
   data: {
@@ -58,6 +66,29 @@ export function CompanyTable({ data }: CompanyTableProps) {
   }, [data.metadata.page]);
 
   const columns: ColumnDef<any>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          onClick={(e) => e.stopPropagation()}
+          checked={row.getIsSelected()}
+          onCheckedChange={() => row.toggleSelected()}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
     {
       id: "no",
       header: "No.",
@@ -129,10 +160,43 @@ export function CompanyTable({ data }: CompanyTableProps) {
     );
   }
 
+  const handleDownloadCSV = async () => {
+    const selectedRows = table
+      .getSelectedRowModel()
+      .rows.map((row) => row.original);
+
+    const params = new URLSearchParams(window.location.search);
+    const decodedParams = parseSearchParams(params);
+    const searchParamsText = decodedParams
+      ? ` (type=${decodedParams.type}&value=${decodedParams.value}&condition=${decodedParams.condition}&page=${decodedParams.page})`
+      : "";
+
+    await writeAdminLogAction(
+      `팩션 공동 계좌 CSV 다운로드 ${searchParamsText}`
+    );
+
+    handleDownloadJson2CSV({
+      data: selectedRows,
+      fileName: "company_bank",
+    });
+    toast({ title: "CSV 다운로드 성공" });
+  };
+
   return (
     <div className="grid gap-2">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">조회 결과</h2>
+      </div>
+      <div className="flex justify-end">
+        <Button
+          disabled={table.getSelectedRowModel().rows.length === 0}
+          variant="outline"
+          size="sm"
+          onClick={handleDownloadCSV}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          CSV 다운로드
+        </Button>
       </div>
       <Table>
         <TableHeader>

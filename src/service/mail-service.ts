@@ -13,6 +13,7 @@ import {
 } from "@/types/mail";
 import { Prisma, GroupMail, PersonalMail } from "@prisma/client";
 import { redirect } from "next/navigation";
+import { logService } from "./log-service";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -115,6 +116,10 @@ class MailService {
         },
       });
 
+      await logService.writeAdminLog(
+        `단체 우편 생성 : ${newGroupMail.content}`
+      );
+
       return {
         success: true,
         data: newGroupMail,
@@ -146,6 +151,8 @@ class MailService {
         },
       });
 
+      await logService.writeAdminLog(`단체 우편 수정 : ${updatedMail.content}`);
+
       return {
         success: true,
         data: updatedMail,
@@ -169,6 +176,8 @@ class MailService {
       await prisma.groupMail.delete({
         where: { id },
       });
+
+      await logService.writeAdminLog(`단체 우편 삭제 : ${id}`);
 
       return {
         success: true,
@@ -276,6 +285,10 @@ class MailService {
         },
       });
 
+      await logService.writeAdminLog(
+        `개인 우편 생성 : ${newPersonalMail.content}`
+      );
+
       return {
         success: true,
         data: newPersonalMail,
@@ -307,6 +320,8 @@ class MailService {
         },
       });
 
+      await logService.writeAdminLog(`개인 우편 수정 : ${updatedMail.content}`);
+
       return {
         success: true,
         data: updatedMail,
@@ -330,6 +345,8 @@ class MailService {
       await prisma.personalMail.delete({
         where: { id },
       });
+
+      await logService.writeAdminLog(`개인 우편 삭제 : ${id}`);
 
       return {
         success: true,

@@ -141,13 +141,21 @@ const queryLogsByIds = async (ids: number[]) => {
 };
 
 const deleteLogsByIds = async (ids: number[]) => {
-  if (!ids.length) return { count: 0 };
+  if (!ids.length) return { count: 0, deletedLogs: [] };
 
-  return sql`
-    DELETE FROM game_logs 
-    WHERE id = ANY(${ids})
-    RETURNING id
+  const deletedLogs = await sql`
+    WITH deleted AS (
+      DELETE FROM game_logs 
+      WHERE id = ANY(${ids})
+      RETURNING *
+    )
+    SELECT * FROM deleted
   `;
+
+  return {
+    count: deletedLogs.length,
+    deletedLogs,
+  };
 };
 
 export default {
