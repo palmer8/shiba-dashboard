@@ -67,10 +67,12 @@ export default function IncidentReportTable({
       }
 
       if (session?.user?.role === UserRole.STAFF) {
-        const creationTime = new Date(report.incident_time).getTime();
+        if (!report.report_time) return false;
+
+        const reportCreationTime = new Date(report.report_time).getTime();
         const currentTime = new Date().getTime();
         const timeDifferenceMinutes =
-          (currentTime - creationTime) / (1000 * 60);
+          (currentTime - reportCreationTime) / (1000 * 60);
 
         return (
           report.admin === session.user.nickname && timeDifferenceMinutes <= 30
@@ -165,6 +167,18 @@ export default function IncidentReportTable({
         header: "사건 발생 일자",
         accessorKey: "incident_time",
         cell: ({ row }) => formatKoreanDateTime(row.original.incident_time),
+      },
+      {
+        header: "보고서 작성 일자",
+        accessorKey: "report_time",
+        cell: ({ row }) =>
+          row.original.report_time ? (
+            <span className="whitespace-nowrap">
+              {formatKoreanDateTime(row.original.report_time)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">정보없음</span>
+          ),
       },
       {
         id: "actions",

@@ -7,7 +7,7 @@ import {
   BoardCategory,
 } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
-import { extractTextFromJSON, formatRole, hasAccess } from "@/lib/utils";
+import { hasAccess } from "@/lib/utils";
 import { JSONContent } from "novel";
 import { redirect } from "next/navigation";
 import {

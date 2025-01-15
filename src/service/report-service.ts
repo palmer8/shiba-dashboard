@@ -313,7 +313,8 @@ class ReportService {
                target_user_id = ?,
                target_user_nickname = ?,
                reporting_user_id = ?,
-               reporting_user_nickname = ?
+               reporting_user_nickname = ?,
+               detention_time_minutes = ?,
            WHERE report_id = ?`,
           [
             data.reason,
@@ -327,6 +328,7 @@ class ReportService {
             data.targetUserNickname,
             data.reportingUserId || null,
             data.reportingUserNickname || null,
+            data.detentionTimeMinutes || null,
             data.reportId,
           ]
         );
@@ -363,7 +365,8 @@ class ReportService {
              target_user_id = ?,
              target_user_nickname = ?,
              reporting_user_id = ?,
-             reporting_user_nickname = ?
+             reporting_user_nickname = ?,
+             detention_time_minutes = ?
          WHERE report_id = ?`,
         [
           processedData.reason,
@@ -377,6 +380,7 @@ class ReportService {
           processedData.targetUserNickname,
           processedData.reportingUserId,
           processedData.reportingUserNickname,
+          processedData.detentionTimeMinutes,
           processedData.reportId,
         ]
       );
@@ -1304,7 +1308,8 @@ class ReportService {
           detention_time_minutes,
           ban_duration_hours,
           admin,
-          image
+          image,
+          report_time
         FROM dokku_incident_report 
         WHERE target_user_id = ? 
         ORDER BY incident_time DESC`,

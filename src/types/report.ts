@@ -20,6 +20,7 @@ export type IncidentReport = {
   ban_duration_hours: number | null;
   image: string | null;
   admin: string;
+  report_time: Date | null;
 };
 
 export type WhitelistIP = {

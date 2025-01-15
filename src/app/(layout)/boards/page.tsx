@@ -9,6 +9,9 @@ import { redirect } from "next/navigation";
 import { getBoardListAction } from "@/actions/board-action";
 import BoardTableSkeleton from "@/components/boards/board-table-skeleton";
 import { Session } from "next-auth";
+import { BoardContent } from "@/components/boards/board-content";
+import { boardService } from "@/service/board-service";
+import Empty from "@/components/ui/empty";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
@@ -41,6 +44,8 @@ export default async function BoardsPage({ searchParams }: PageProps) {
     title: params.title,
   };
 
+  const boards = await boardService.getBoardList(filters);
+
   return (
     <main>
       <PageBreadcrumb />
@@ -51,45 +56,18 @@ export default async function BoardsPage({ searchParams }: PageProps) {
       <div className="space-y-4">
         <BoardFilters filters={filters} />
         <Suspense fallback={<BoardTableSkeleton />}>
-          <BoardContent session={session} filters={filters} page={page} />
+          {boards.error || !boards.data ? (
+            <Empty description="게시글 목록을 불러오는데 실패했습니다." />
+          ) : (
+            <BoardContent
+              session={session}
+              filters={filters}
+              page={page}
+              boards={boards.data}
+            />
+          )}
         </Suspense>
       </div>
     </main>
-  );
-}
-
-async function BoardContent({
-  filters,
-  page,
-  session,
-}: {
-  filters: BoardFilter;
-  page: number;
-  session: Session;
-}) {
-  const result = await getBoardListAction(filters);
-
-  if (!result.success) {
-    return (
-      <div className="text-center text-red-500">
-        {result.error || "게시글 목록을 불러오는데 실패했습니다."}
-      </div>
-    );
-  }
-
-  return (
-    <BoardTable
-      data={result.data?.boards || []}
-      notices={result.data?.notices || []}
-      metadata={
-        result.data?.metadata || {
-          currentPage: 1,
-          totalPages: 1,
-          totalCount: 0,
-        }
-      }
-      page={page}
-      session={session}
-    />
   );
 }
