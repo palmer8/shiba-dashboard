@@ -154,6 +154,7 @@ export function formatGameDataType(type: string): string {
     registration: "차량번호",
     CURRENT_CASH: "보유 캐시",
     ACCUMULATED_CASH: "누적 캐시",
+    IP: "IP",
   };
   return types[type] || type;
 }

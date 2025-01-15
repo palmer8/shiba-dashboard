@@ -4,12 +4,15 @@ import { GameDataType } from "@/types/game";
 import { CompanyTable } from "./tables/company-table";
 import { InstagramTable } from "./tables/instagram-table";
 import { DataTable } from "./tables/data-table";
+import { Session } from "next-auth";
+import { IpTable } from "./tables/ip-table";
 
 interface GameDataTableProps {
   data: any;
   currentPage: number;
   totalPages: number;
   queryType: GameDataType;
+  session: Session;
 }
 
 export function GameDataTable({
@@ -17,6 +20,7 @@ export function GameDataTable({
   currentPage,
   totalPages,
   queryType,
+  session,
 }: GameDataTableProps) {
   const metadata = {
     total: data?.total || 0,
@@ -32,6 +36,7 @@ export function GameDataTable({
             records: data?.data || [],
             metadata,
           }}
+          session={session}
         />
       );
     case "INSTAGRAM":
@@ -41,8 +46,11 @@ export function GameDataTable({
             records: data?.data || [],
             metadata,
           }}
+          session={session}
         />
       );
+    case "IP":
+      return <IpTable data={data.data} session={session} />;
     default:
       return (
         <DataTable
@@ -51,6 +59,7 @@ export function GameDataTable({
             records: data?.data || [],
             metadata,
           }}
+          session={session}
         />
       );
   }

@@ -101,6 +101,11 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
         value,
         page: Number(page),
       });
+    } else if (type === "IP" && value) {
+      data = await realtimeService.getGameDataByIP({
+        value,
+        page: Number(page),
+      });
     }
   } catch (e) {
     error =
@@ -127,8 +132,9 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
       <GameDataTable
         data={data}
         currentPage={Number(params.page) || 1}
-        totalPages={data?.totalPages || 1}
+        totalPages={data?.data?.metadata?.totalPages || 1}
         queryType={params.type as GameDataType}
+        session={session}
       />
     </main>
   );

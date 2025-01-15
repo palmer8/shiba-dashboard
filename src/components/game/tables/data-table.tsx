@@ -22,6 +22,7 @@ import { toast } from "@/hooks/use-toast";
 import { handleDownloadJson2CSV, parseSearchParams } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { writeAdminLogAction } from "@/actions/log-action";
+import { Session } from "next-auth";
 
 interface DataTableProps {
   data: {
@@ -38,9 +39,10 @@ interface DataTableProps {
     };
   };
   queryType: string;
+  session: Session;
 }
 
-export function DataTable({ data, queryType }: DataTableProps) {
+export function DataTable({ data, queryType, session }: DataTableProps) {
   const columns: ColumnDef<any>[] = [
     {
       id: "select",

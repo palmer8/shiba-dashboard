@@ -13,7 +13,8 @@ export type GameDataType =
   | "ITEM_NAME"
   | "NICKNAME"
   | "INSTAGRAM"
-  | "COMPANY";
+  | "COMPANY"
+  | "IP";
 
 export type UserLogFilter = {
   message?: string;
@@ -31,6 +32,13 @@ export interface InstagramResult {
   username: string;
   phone_number: string;
   date_joined: string;
+}
+
+export interface IpResult {
+  id: number;
+  nickname: string;
+  first_join: Date;
+  result: string;
 }
 
 export interface CompanyResult {

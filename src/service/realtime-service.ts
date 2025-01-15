@@ -1542,6 +1542,70 @@ class RealtimeService {
       };
     }
   }
+
+  async getGameDataByIP(query: {
+    value: string;
+    page?: number;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const page = query.page || 1;
+      const limit = 50;
+      const offset = (page - 1) * limit;
+
+      const dataQuery = `
+        SELECT 
+          u.id,
+          SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname,          ui.first_join,
+          SUBSTRING_INDEX(u.last_login, ' ', 1) as result,
+          ui.first_join as first_join,
+          COUNT(*) OVER() as total
+        FROM vrp_users u
+        LEFT JOIN vrp_user_identities ui ON ui.user_id = u.id
+        WHERE SUBSTRING_INDEX(u.last_login, ' ', 1) LIKE ?
+        ORDER BY u.last_login DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
+        `%${query.value}%`,
+        limit,
+        offset,
+      ]);
+
+      const total = rows[0]?.total || 0;
+      const totalPages = Math.ceil(total / limit);
+
+      await logService.writeAdminLog(`IP 조회 ${query.value} (${page}페이지)`);
+
+      return {
+        success: true,
+        data: {
+          records: rows.map((row) => ({
+            id: row.id,
+            nickname: row.nickname,
+            result: row.result,
+            first_join: row.first_join,
+          })),
+          metadata: {
+            total,
+            page,
+            totalPages,
+          },
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("IP 주소 조회 에러:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 에러가 발생했습니다.",
+      };
+    }
+  }
 }
 
 export const realtimeService = new RealtimeService();

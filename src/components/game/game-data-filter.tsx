@@ -131,6 +131,7 @@ export default function GameDataFilter({
                 {hasAccess(session.user?.role, UserRole.INGAME_ADMIN) && (
                   <SelectItem value="COMPANY">팩션 공동 계좌 잔고</SelectItem>
                 )}
+                <SelectItem value="IP">IP</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -168,7 +169,7 @@ export default function GameDataFilter({
             />
           </div>
 
-          {!["INSTAGRAM", "NICKNAME", "REGISTRATION", "COMPANY"].includes(
+          {!["INSTAGRAM", "NICKNAME", "REGISTRATION", "COMPANY", "IP"].includes(
             query.type
           ) && (
             <div className="space-y-2">

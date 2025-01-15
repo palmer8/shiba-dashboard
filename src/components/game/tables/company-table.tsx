@@ -36,6 +36,7 @@ import UpdateCompanyDialog from "@/components/dialog/update-company-dialog";
 import { writeAdminLogAction } from "@/actions/log-action";
 import { toast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Session } from "next-auth";
 
 interface CompanyTableProps {
   data: {
@@ -50,10 +51,10 @@ interface CompanyTableProps {
       totalPages: number;
     };
   };
+  session: Session;
 }
 
-export function CompanyTable({ data }: CompanyTableProps) {
-  const { data: session } = useSession();
+export function CompanyTable({ data, session }: CompanyTableProps) {
   const [selectedCompany, setSelectedCompany] = useState<{
     id: number;
     capital: number;

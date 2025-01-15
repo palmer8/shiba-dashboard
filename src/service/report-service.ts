@@ -464,7 +464,9 @@ class ReportService {
       );
 
       await logService.writeAdminLog(
-        `IP 관리 데이터 조회 : ${whereClause.join(" AND ")}`
+        `IP 관리 데이터 조회${
+          whereClause.length > 0 ? ` : ${whereClause.join(" AND ")}` : " : 전체"
+        }`
       );
 
       return {
