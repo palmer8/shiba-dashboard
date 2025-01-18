@@ -504,6 +504,19 @@ class ReportService {
         return redirect("/login");
       }
 
+      if (
+        !data?.user_ip ||
+        !Array.isArray(data.user_ip) ||
+        data.user_ip.length === 0
+      ) {
+        return {
+          success: false,
+          data: null,
+          error: "유효하지 않은 IP 데이터입니다.",
+        };
+      }
+
+      // 모든 IP에 대한 values 배열 생성
       const values = data.user_ip.map((ip) => [
         ip,
         data.status ?? 0,
@@ -512,33 +525,25 @@ class ReportService {
         new Date(),
       ]);
 
-      const [result] = await pool.execute<ResultSetHeader>(
+      await pool.execute<ResultSetHeader>(
         `INSERT INTO dokku_whitelist_ip (user_ip, status, comment, registrant, date) 
-         VALUES (?, ?, ?, ?, ?)`,
-        values[0]
+         VALUES ${values.map(() => "(?, ?, ?, ?, ?)").join(", ")}`,
+        values.flat()
       );
 
-      // 첫 번째 이후의 IP들에 대해 추가 insert 실행
-      if (values.length > 1) {
-        for (let i = 1; i < values.length; i++) {
-          await pool.execute<ResultSetHeader>(
-            `INSERT INTO dokku_whitelist_ip (user_ip, status, comment, registrant, date)
-             VALUES (?, ?, ?, ?, ?)`,
-            values[i]
-          );
-        }
-      }
-
+      // 로그 기록
       await prisma.accountUsingQuerylog.createMany({
-        data: values.map((value) => ({
-          content: `IP 관리 데이터 추가 : ${value[0]} ${data.comment} ${data.status}`,
-          userId: session.user!.id as string,
-        })),
+        data: {
+          content: `IP 관리 데이터 추가 : ${data.user_ip.join(", ")} ${
+            data.comment || ""
+          } ${data.status || 0}`,
+          registrantId: session.user!.id as string,
+        },
       });
 
       return {
         success: true,
-        data: result.insertId,
+        data: values.length,
         error: null,
       };
     } catch (error) {

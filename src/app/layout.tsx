@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="light" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body>
         <Suspense fallback={<Loading />}>
           <ProviderWrapper>{children}</ProviderWrapper>
