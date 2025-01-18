@@ -102,7 +102,7 @@ class RealtimeService {
     if (!session || !session.user) return redirect("/login");
 
     try {
-      // 모든 데이터를 한 번에 가져오는 통합 쿼리
+      // 첫 번째 쿼리: 기본 사용자 데이터 가져오기
       const userDataQuery = `
         SELECT 
           n.code as newbie_code,
@@ -110,10 +110,6 @@ class RealtimeService {
           p.phone_number,
           p.pin,
           REPLACE(v.identifier, 'discord:', '') as discord_id,
-          m.user_id as memo_user_id,
-          m.adminName as memo_admin_name,
-          m.text as memo_text,
-          m.time as memo_time,
           c.user_id as chunobot_user_id,
           c.adminName as chunobot_admin_name,
           c.reason as chunobot_reason,
@@ -124,16 +120,29 @@ class RealtimeService {
         LEFT JOIN phone_phones p ON p.id = u.user_id
         LEFT JOIN vrp_user_ids v ON v.user_id = u.user_id 
           AND v.identifier LIKE 'discord:%'
-        LEFT JOIN dokku_usermemo m ON m.user_id = u.user_id
         LEFT JOIN dokku_chunobot c ON c.user_id = u.user_id
-        LIMIT 1
       `;
 
-      // 2. 병렬로 실행: DB 쿼리와 API 요청
       const [[userData]] = await pool.execute<RowDataPacket[]>(userDataQuery, [
         userId,
       ]);
 
+      // 두 번째 쿼리: 유저 메모 모두 가져오기
+      const userMemoQuery = `
+        SELECT 
+          m.user_id as memo_user_id,
+          m.adminName as memo_admin_name,
+          m.text as memo_text,
+          m.time as memo_time
+        FROM dokku_usermemo m
+        WHERE m.user_id = ?
+      `;
+
+      const [memos] = await pool.execute<RowDataPacket[]>(userMemoQuery, [
+        userId,
+      ]);
+
+      // 게임 데이터 가져오기
       const userDataResponse = await this.fetchWithRetry<RealtimeGameUserData>(
         "/DokkuApi/getPlayerData",
         {
@@ -142,10 +151,11 @@ class RealtimeService {
         }
       );
 
+      // 인시던트 리포트 가져오기
       const incidentReports =
         await reportService.getIncidentReportsByTargetUserId(userId);
 
-      // 3. 데이터 통합
+      // 데이터 통합
       const enrichedData = {
         ...userDataResponse,
         newbieCode: userData?.newbie_code ?? null,
@@ -156,16 +166,15 @@ class RealtimeService {
         lbPhoneNumber: userData?.phone_number ?? null,
         lbPhonePin: userData?.pin ?? null,
         discordId: userData?.discord_id ?? null,
-        memos: userData?.memo_user_id
-          ? [
-              {
-                user_id: userData.memo_user_id,
-                adminName: userData.memo_admin_name,
-                text: userData.memo_text,
-                time: userData.memo_time,
-              },
-            ]
-          : [],
+        memos:
+          memos.length > 0
+            ? memos.map((memo) => ({
+                user_id: memo.memo_user_id,
+                adminName: memo.memo_admin_name,
+                text: memo.memo_text,
+                time: memo.memo_time,
+              }))
+            : [],
         chunobot: userData?.chunobot_user_id
           ? {
               user_id: userData.chunobot_user_id,
@@ -175,6 +184,7 @@ class RealtimeService {
             }
           : null,
       };
+
       if (userDataResponse.last_nickname) {
         await logService.writeAdminLog(
           `${userDataResponse.last_nickname}(${userId}) 유저 조회`
@@ -191,7 +201,7 @@ class RealtimeService {
 
       return {
         success: true,
-        data: enrichedData as unknown as RealtimeGameUserData,
+        data: enrichedData as RealtimeGameUserData,
         error: null,
       };
     } catch (error) {
