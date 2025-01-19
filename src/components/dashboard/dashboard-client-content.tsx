@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import DashboardSkeleton from "./dashboard-skeleton";
 import { getDashboardData } from "@/actions/realtime/realtime-dashboard-action";
 import { RecentBoard } from "@/types/board";
-// import { ServerMetricsChart } from "./server-metrics-chart";
+import { ServerMetricsChart } from "./server-metrics-chart";
 
 const UserStatsCard = memo(function UserStatsCard({
   userCount,
@@ -380,7 +380,7 @@ export default function DashboardClientContent() {
           </CardContent>
         </Card>
       </div>
-      {/* <ServerMetricsChart /> */}
+      <ServerMetricsChart />
     </div>
   );
 }

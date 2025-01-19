@@ -101,6 +101,11 @@ export default function RealtimeUseridSearch({
     }
   };
 
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Prevent onBlur from firing before onClick
+    e.preventDefault();
+  };
+
   return (
     <div className="w-[350px] max-md:w-full grid gap-2">
       <h1 className="font-medium text-sm text-muted-foreground">고유번호</h1>
@@ -120,15 +125,11 @@ export default function RealtimeUseridSearch({
             onChange={(e) => setUserIdValue(Number(e.target.value))}
             onFocus={() => setShowRecent(true)}
             onKeyDown={handleKeyDown}
-            onBlur={(e) => {
-              if (!e.relatedTarget?.closest(".recent-searches")) {
-                setShowRecent(false);
-              }
-            }}
+            // Remove onBlur and handle closing differently
           />
           {showRecent && (
             <div className="recent-searches absolute top-full left-0 right-0 mt-1 rounded-md border bg-popover shadow-md z-50">
-              <div className="p-2">
+              <div className="p-2" onMouseDown={handleMouseDown}>
                 <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
                   <Clock className="w-4 h-4" />
                   <span>최근 검색</span>
@@ -142,7 +143,9 @@ export default function RealtimeUseridSearch({
                     {recentSearches.map((search) => (
                       <div
                         key={search.userId}
-                        onClick={() => handleSearchClick(search.userId)}
+                        onClick={() => {
+                          handleSearchClick(search.userId);
+                        }}
                         className="flex items-center justify-between px-2 py-2 text-sm cursor-pointer"
                       >
                         <div className="flex flex-col gap-0.5">
@@ -161,7 +164,6 @@ export default function RealtimeUseridSearch({
                           size="icon"
                           className="h-6 w-6"
                           onClick={(e) => handleRemoveSearch(e, search.userId)}
-                          onMouseDown={(e) => e.preventDefault()}
                         >
                           <X className="h-3 w-3" />
                         </Button>

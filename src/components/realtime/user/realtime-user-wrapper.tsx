@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import RealtimeUseridSearch from "./realtime-userid-search";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RealtimeUserInfo from "./realtime-user-info";
@@ -10,7 +9,7 @@ import RealtimeUserGroup from "../group/realtime-user-group";
 import Empty from "@/components/ui/empty";
 import { Session } from "next-auth";
 import { getUserDataAction } from "@/actions/realtime/realtime-action";
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { LoadingOverlay } from "@/components/global/loading";
 
 interface RealtimeUserWrapperProps {
