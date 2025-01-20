@@ -3,11 +3,14 @@ import {
   TiptapLink,
   TaskList,
   TaskItem,
+  Color,
   HorizontalRule,
   StarterKit,
   Placeholder,
   AIHighlight,
   UpdatedImage,
+  HighlightExtension,
+  TextStyle,
 } from "novel/extensions";
 import { UploadImagesPlugin } from "novel/plugins";
 import { cx } from "class-variance-authority";
@@ -109,8 +112,13 @@ export const defaultExtensions = [
   tiptapLink,
   tiptapImage,
   updatedImage,
+  Color,
   taskList,
   taskItem,
   horizontalRule,
   aiHighlight,
+  HighlightExtension.configure({
+    multicolor: true,
+  }),
+  TextStyle,
 ];

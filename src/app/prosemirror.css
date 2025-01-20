@@ -191,3 +191,8 @@
 .ProseMirror li[data-type="taskItem"] p {
   margin: 0;
 }
+
+.ProseMirror code::before,
+.ProseMirror code::after {
+  content: none !important;
+}
