@@ -31,6 +31,7 @@ import { sanitizeContent } from "@/lib/utils";
 import { EditCategoryForm, editCategorySchema } from "@/lib/validations/board";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ROLE_OPTIONS } from "@/constant/constant";
+import { JSONContent } from "novel";
 
 interface EditCategoryDialogProps {
   initialData: EditCategoryForm & { id: string };
@@ -42,6 +43,11 @@ export default function EditCategoryDialog({
   trigger,
 }: EditCategoryDialogProps) {
   const [open, setOpen] = useState(false);
+  const [template, setTemplate] = useState<JSONContent>(
+    typeof initialData.template === "string"
+      ? JSON.parse(initialData.template)
+      : initialData.template
+  );
 
   const form = useForm<EditCategoryForm>({
     resolver: zodResolver(editCategorySchema),
@@ -49,19 +55,15 @@ export default function EditCategoryDialog({
       name: initialData.name,
       isUsed: initialData.isUsed,
       roles: initialData.roles || [],
-      template:
-        typeof initialData.template === "string"
-          ? JSON.parse(initialData.template)
-          : initialData.template,
     },
   });
 
   const onSubmit = async (data: EditCategoryForm) => {
-    const template = sanitizeContent(data.template);
+    const sanitizedTemplate = sanitizeContent(template);
     const formData = {
       id: initialData.id,
       ...data,
-      template,
+      template: sanitizedTemplate,
     };
 
     const result = await updateCategoryAction(initialData.id, formData);
@@ -89,7 +91,7 @@ export default function EditCategoryDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
             <FormField
               control={form.control}
               name="name"
@@ -115,6 +117,7 @@ export default function EditCategoryDialog({
                     <Switch
                       checked={field.value}
                       onCheckedChange={field.onChange}
+                      type="button"
                     />
                   </FormControl>
                   <FormMessage />
@@ -145,42 +148,29 @@ export default function EditCategoryDialog({
                 </FormItem>
               )}
             />
-
-            <FormField
-              control={form.control}
-              name="template"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>템플릿</FormLabel>
-                  <FormDescription>
-                    게시판에서 카테고리를 선택했을 때 자동적으로 작성되는
-                    템플릿입니다.
-                  </FormDescription>
-                  <FormControl>
-                    <Editor
-                      initialValue={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-              >
-                취소
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                수정
-              </Button>
-            </DialogFooter>
           </form>
         </Form>
+        <div className="mt-4 grid gap-2">
+          <h1 className="text-lg font-medium">템플릿</h1>
+          <p className="text-sm text-muted-foreground">
+            게시판에서 카테고리를 선택했을 때 자동적으로 작성되는 템플릿입니다.
+          </p>
+          <Editor
+            initialValue={template}
+            onChange={setTemplate}
+            immediatelyRender={false}
+          />
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+          >
+            취소
+          </Button>
+          <Button onClick={form.handleSubmit(onSubmit)}>수정</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

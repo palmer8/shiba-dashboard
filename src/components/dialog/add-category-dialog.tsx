@@ -32,9 +32,11 @@ import { sanitizeContent } from "@/lib/utils";
 import { categorySchema, CategoryForm } from "@/lib/validations/board";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ROLE_OPTIONS } from "@/constant/constant";
+import { JSONContent } from "novel";
 
 export default function AddCategoryDialog() {
   const [open, setOpen] = useState(false);
+  const [template, setTemplate] = useState<JSONContent>({});
 
   const form = useForm<CategoryForm>({
     resolver: zodResolver(categorySchema),
@@ -42,15 +44,14 @@ export default function AddCategoryDialog() {
       name: "",
       isUsed: false,
       roles: [],
-      template: {},
     },
   });
 
   const onSubmit = async (data: CategoryForm) => {
-    const template = sanitizeContent(data.template);
+    const sanitizedTemplate = sanitizeContent(template);
     const formData = {
       ...data,
-      template,
+      template: sanitizedTemplate,
     };
 
     const result = await createCategoryAction(formData);
@@ -61,6 +62,7 @@ export default function AddCategoryDialog() {
       });
       setOpen(false);
       form.reset();
+      setTemplate({});
     } else {
       toast({
         title: "카테고리 등록 실패",
@@ -82,7 +84,7 @@ export default function AddCategoryDialog() {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
             <FormField
               control={form.control}
               name="name"
@@ -108,6 +110,7 @@ export default function AddCategoryDialog() {
                     <Switch
                       checked={field.value}
                       onCheckedChange={field.onChange}
+                      type="button"
                     />
                   </FormControl>
                   <FormMessage />
@@ -138,39 +141,36 @@ export default function AddCategoryDialog() {
                 </FormItem>
               )}
             />
-
-            <FormField
-              control={form.control}
-              name="template"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>템플릿</FormLabel>
-                  <FormDescription>
-                    게시판에서 카테고리를 선택했을 때 자동적으로 작성되는
-                    템플릿입니다.
-                  </FormDescription>
-                  <FormControl>
-                    <Editor {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-              >
-                취소
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                등록
-              </Button>
-            </DialogFooter>
           </form>
         </Form>
+
+        <div className="mt-4 grid gap-2">
+          <h1 className="text-lg font-medium">템플릿</h1>
+          <p className="text-sm text-muted-foreground">
+            게시판에서 카테고리를 선택했을 때 자동적으로 작성되는 템플릿입니다.
+          </p>
+          <Editor
+            initialValue={template}
+            onChange={setTemplate}
+            immediatelyRender={false}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+          >
+            취소
+          </Button>
+          <Button
+            onClick={form.handleSubmit(onSubmit)}
+            disabled={form.formState.isSubmitting}
+          >
+            등록
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

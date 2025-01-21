@@ -1,22 +1,14 @@
+// board-edit-form.tsx
+
 "use client";
 
 import { JSONContent } from "novel";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Editor from "@/components/editor/advanced-editor";
 import { toast } from "@/hooks/use-toast";
 import { getCategoriesAction, updateBoardAction } from "@/actions/board-action";
 import { useSession } from "next-auth/react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { sanitizeContent } from "@/lib/utils";
 import { CommonFormLayout } from "@/components/boards/common-form-layout";
 import { BoardCategory } from "@prisma/client";
@@ -31,6 +23,14 @@ interface BoardEditFormProps {
   };
 }
 
+interface Draft {
+  id: string;
+  title: string;
+  content: JSONContent;
+  category: string;
+  lastSaved: string;
+}
+
 export default function BoardEditForm({
   boardId,
   initialData,
@@ -42,11 +42,6 @@ export default function BoardEditForm({
   const [categoryId, setCategoryId] = useState(initialData.categoryId);
   const [categories, setCategories] = useState<BoardCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const [pendingCategory, setPendingCategory] = useState<{
-    id: string;
-    template: JSONContent;
-  } | null>(null);
   const [isNotice, setIsNotice] = useState(initialData.isNotice);
   const [editorKey, setEditorKey] = useState(0);
 
@@ -66,7 +61,15 @@ export default function BoardEditForm({
     fetchCategories();
   }, []);
 
-  const handleCategoryChange = (value: string) => {
+  // 드래프트 선택 핸들러
+  const handleDraftSelect = useCallback((draft: Draft) => {
+    setTitle(draft.title);
+    setContent(draft.content);
+    setCategoryId(draft.category);
+    setEditorKey((prev) => prev + 1);
+  }, []);
+
+  const handleCategoryChange = (isTemplate: boolean, value: string) => {
     const selectedCategory = categories.find((cat) => cat.id === value);
     const isEmptyTemplate = (template: JSONContent | null) => {
       if (!template) return true;
@@ -79,11 +82,11 @@ export default function BoardEditForm({
       selectedCategory?.template &&
       !isEmptyTemplate(selectedCategory.template as JSONContent)
     ) {
-      setPendingCategory({
-        id: value,
-        template: selectedCategory.template as JSONContent,
-      });
-      setShowTemplateDialog(true);
+      setCategoryId(value);
+      if (isTemplate) {
+        setContent(selectedCategory.template as JSONContent);
+        setEditorKey((prev) => prev + 1);
+      }
     } else {
       setCategoryId(value);
     }
@@ -131,27 +134,10 @@ export default function BoardEditForm({
     setEditorKey((prev) => prev + 1);
   };
 
-  const handleApplyTemplate = () => {
-    if (pendingCategory) {
-      setCategoryId(pendingCategory.id);
-      setContent(pendingCategory.template);
-      setEditorKey((prev) => prev + 1);
-    }
-    setShowTemplateDialog(false);
-    setPendingCategory(null);
-  };
-
-  const handleIgnoreTemplate = () => {
-    if (pendingCategory) {
-      setCategoryId(pendingCategory.id);
-    }
-    setShowTemplateDialog(false);
-    setPendingCategory(null);
-  };
-
   return (
     <>
       <CommonFormLayout
+        setContent={setContent}
         onBack={() => router.back()}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
@@ -166,6 +152,9 @@ export default function BoardEditForm({
         onNoticeChange={setIsNotice}
         showNoticeOption={session?.user?.role === "SUPERMASTER"}
         onMarkdownConvert={handleMarkdownConvert}
+        onDraftSelect={handleDraftSelect}
+        content={content}
+        // canSaveDraft는 write-form에서만 true로 설정하므로 edit-form에서는 전달하지 않음
       >
         <div className="min-h-[calc(100vh-280px)] sm:min-h-[500px]">
           <Editor
@@ -177,36 +166,7 @@ export default function BoardEditForm({
         </div>
       </CommonFormLayout>
 
-      <AlertDialog
-        open={showTemplateDialog}
-        onOpenChange={setShowTemplateDialog}
-      >
-        <AlertDialogContent className="sm:max-w-[425px]">
-          <AlertDialogHeader>
-            <AlertDialogTitle>템플릿 적용</AlertDialogTitle>
-            <AlertDialogDescription>
-              이 카테고리에는 템플릿이 있습니다. 템플릿을 적용하시겠습니까?
-              <span className="block mt-2 text-destructive">
-                ※ 주의: 템플릿을 적용하면 현재 작성 중인 내용이 삭제됩니다.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="sm:flex-row gap-2">
-            <AlertDialogCancel
-              onClick={handleIgnoreTemplate}
-              className="mt-2 sm:mt-0"
-            >
-              템플릿 무시
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleApplyTemplate}
-              className="mt-2 sm:mt-0"
-            >
-              템플릿 적용
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* 템플릿 적용 관련 AlertDialog는 CommonFormLayout으로 이동했으므로 제거 */}
     </>
   );
 }
