@@ -153,29 +153,16 @@ function calculateWorkHours(inTime: Date, outTime: Date): string {
   return `${hours.toFixed(1)}시간`;
 }
 
-// 여러 관리자의 출퇴근 데이터 일괄 등록
+// 일괄 등록 시에도 시간 제한 체크 제거
 export async function POST(req: Request) {
   try {
-    const data = await req.json();
+    const records = await req.json();
 
-    // 데이터 유효성 검사
-    if (!Array.isArray(data.records)) {
+    if (!Array.isArray(records) || records.length > 10) {
       return NextResponse.json(
         {
           success: false,
-          error: "잘못된 데이터 형식입니다",
-          data: null,
-        },
-        { status: 400 }
-      );
-    }
-
-    // 최대 10명까지만 처리
-    if (data.records.length > 10) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "처리할 수 있는 최대 관리자 수(10명)를 초과했습니다",
+          error: "잘못된 요청 형식이거나 너무 많은 기록입니다",
           data: null,
         },
         { status: 400 }
@@ -183,76 +170,34 @@ export async function POST(req: Request) {
     }
 
     const results = await Promise.all(
-      data.records.map(async (record: any) => {
-        // 필수 필드 검사
-        if (
-          !record.userId ||
-          !record.nickname ||
-          !Array.isArray(record.checkIns)
-        ) {
-          throw new Error(`유효하지 않은 레코드: ${JSON.stringify(record)}`);
-        }
-
-        // 1. Attendance 레코드 생성 또는 업데이트
+      records.map(async (record) => {
         const attendance = await prisma.attendance.upsert({
           where: { userId: record.userId },
           create: { userId: record.userId, nickname: record.nickname },
           update: { nickname: record.nickname },
         });
 
-        // 2. 체크인 처리
+        // 체크인 처리
         const processedCheckIns = await Promise.all(
-          record.checkIns.map(async (timestamp: string) => {
-            const checkInTime = new Date(timestamp);
-
-            // 같은 시간대의 체크인이 있는지 확인 (5분 이내 중복 방지)
-            const existingCheckIn = await prisma.checkIn.findFirst({
-              where: {
+          (record.checkIns || []).map(async (timestamp: string) => {
+            return prisma.checkIn.create({
+              data: {
                 attendanceId: attendance.id,
-                timestamp: {
-                  gte: new Date(checkInTime.getTime() - 5 * 60000),
-                  lte: new Date(checkInTime.getTime() + 5 * 60000),
-                },
+                timestamp: new Date(timestamp),
               },
             });
-
-            if (!existingCheckIn) {
-              return prisma.checkIn.create({
-                data: {
-                  attendanceId: attendance.id,
-                  timestamp: checkInTime,
-                },
-              });
-            }
-            return null;
           })
         );
 
-        // 3. 체크아웃 처리
+        // 체크아웃 처리
         const processedCheckOuts = await Promise.all(
           (record.checkOuts || []).map(async (timestamp: string) => {
-            const checkOutTime = new Date(timestamp);
-
-            // 같은 시간대의 체크아웃이 있는지 확인 (5분 이내 중복 방지)
-            const existingCheckOut = await prisma.checkOut.findFirst({
-              where: {
+            return prisma.checkOut.create({
+              data: {
                 attendanceId: attendance.id,
-                timestamp: {
-                  gte: new Date(checkOutTime.getTime() - 5 * 60000),
-                  lte: new Date(checkOutTime.getTime() + 5 * 60000),
-                },
+                timestamp: new Date(timestamp),
               },
             });
-
-            if (!existingCheckOut) {
-              return prisma.checkOut.create({
-                data: {
-                  attendanceId: attendance.id,
-                  timestamp: checkOutTime,
-                },
-              });
-            }
-            return null;
           })
         );
 
@@ -260,8 +205,8 @@ export async function POST(req: Request) {
           userId: attendance.userId,
           nickname: attendance.nickname,
           processed: {
-            checkIns: processedCheckIns.filter(Boolean).length,
-            checkOuts: processedCheckOuts.filter(Boolean).length,
+            checkIns: processedCheckIns.length,
+            checkOuts: processedCheckOuts.length,
           },
         };
       })

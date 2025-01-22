@@ -24,40 +24,11 @@ export async function POST(req: Request) {
       update: { nickname },
     });
 
-    const now = new Date();
-
-    // 2. 최근 체크아웃 기록 확인 (1시간 이내 중복 방지)
-    const recentCheckOut = await prisma.checkOut.findFirst({
-      where: {
-        attendanceId: attendance.id,
-        timestamp: {
-          gte: new Date(now.getTime() - 60 * 60000), // 1시간 전
-        },
-      },
-      orderBy: {
-        timestamp: "desc",
-      },
-    });
-
-    // 중복 체크아웃 방지
-    if (recentCheckOut) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "이미 최근에 퇴근 기록이 있습니다",
-          data: {
-            lastCheckOut: recentCheckOut.timestamp,
-          },
-        },
-        { status: 400 }
-      );
-    }
-
-    // 3. 새로운 체크아웃 생성
+    // 시간 제한 체크 제거하고 바로 체크아웃 생성
     const checkOut = await prisma.checkOut.create({
       data: {
         attendanceId: attendance.id,
-        timestamp: now,
+        timestamp: new Date(),
       },
     });
 
