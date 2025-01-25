@@ -52,6 +52,8 @@ class RealtimeService {
   private readonly BASE_URL = process.env.PRIVATE_API_URL;
   private readonly API_KEY = process.env.PRIVATE_API_KEY || "";
   private readonly DEFAULT_TIMEOUT = 5000;
+  private readonly DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN || "";
+  private readonly GUILD_ID = process.env.GUILD_ID || "";
 
   private async fetchWithRetry<T>(
     endpoint: string,
@@ -92,6 +94,60 @@ class RealtimeService {
       throw error;
     } finally {
       clearTimeout(timeoutId);
+    }
+  }
+
+  private async getDiscordUserData(discordId: string) {
+    try {
+      // Discord 멤버 정보 조회
+      const memberResponse = await fetch(
+        `https://discord.com/api/v10/guilds/${this.GUILD_ID}/members/${discordId}`,
+        {
+          headers: {
+            Authorization: `Bot ${this.DISCORD_BOT_TOKEN}`,
+          },
+        }
+      );
+
+      if (!memberResponse.ok) {
+        return null;
+      }
+
+      const memberData = await memberResponse.json();
+
+      // 역할 정보 조회
+      const rolesResponse = await fetch(
+        `https://discord.com/api/v10/guilds/${this.GUILD_ID}/roles`,
+        {
+          headers: {
+            Authorization: `Bot ${this.DISCORD_BOT_TOKEN}`,
+          },
+        }
+      );
+
+      const roles = await rolesResponse.json();
+
+      // 프로필 이미지 URL 생성 (수정된 부분)
+      const avatarUrl = memberData.user.avatar
+        ? `https://cdn.discordapp.com/avatars/${discordId}/${memberData.user.avatar}.webp?size=128`
+        : null;
+
+      return {
+        username: memberData.user.username,
+        globalName: memberData.user.global_name,
+        nickname: memberData.nick,
+        joinedAt: memberData.joined_at,
+        avatarUrl,
+        roles: memberData.roles
+          .map((roleId: string) => {
+            const role = roles.find((r: any) => r.id === roleId);
+            return role ? role.name : null;
+          })
+          .filter(Boolean),
+      };
+    } catch (error) {
+      console.error("Discord data fetch error:", error);
+      return null;
     }
   }
 
@@ -155,6 +211,12 @@ class RealtimeService {
       const incidentReports =
         await reportService.getIncidentReportsByTargetUserId(userId);
 
+      // Discord 데이터 추가
+      let discordData = null;
+      if (userData?.discord_id) {
+        discordData = await this.getDiscordUserData(userData.discord_id);
+      }
+
       // 데이터 통합
       const enrichedData = {
         ...userDataResponse,
@@ -166,6 +228,7 @@ class RealtimeService {
         lbPhoneNumber: userData?.phone_number ?? null,
         lbPhonePin: userData?.pin ?? null,
         discordId: userData?.discord_id ?? null,
+        discordData, // Discord API에서 가져온 추가 정보
         memos:
           memos.length > 0
             ? memos.map((memo) => ({

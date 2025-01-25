@@ -50,6 +50,14 @@ type RealtimeGameUserData = {
   memos: UserMemo[] | null;
   error?: number;
   message?: string;
+  discordData?: {
+    username: string;
+    globalName: string;
+    nickname: string;
+    joinedAt: string;
+    avatarUrl: string;
+    roles: string[];
+  };
 };
 
 type UpdateUserData = {

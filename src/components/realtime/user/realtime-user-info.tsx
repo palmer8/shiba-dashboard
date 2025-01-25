@@ -10,7 +10,7 @@ import {
   getFirstNonEmojiCharacter,
 } from "@/lib/utils";
 import { parseCustomDateString } from "@/lib/utils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import {
@@ -172,29 +172,33 @@ export default function RealtimeUserInfo({
     <>
       {/* 헤더 섹션 - 중요 정보 */}
       <div className="my-6">
-        <div className="flex items-start gap-4">
-          <Avatar className="h-20 w-20 relative z-0">
+        <div className="flex items-start gap-6">
+          <Avatar className="h-24 w-24">
             <AvatarFallback className="text-lg">
               {getFirstNonEmojiCharacter(data.last_nickname || "?")}
             </AvatarFallback>
           </Avatar>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold">{data.last_nickname}</h2>
-              {data.banned && <Badge variant="destructive">비정상</Badge>}
-              {!data.banned &&
-                (data.online ? (
-                  <Badge variant="outline" className="bg-green-500/50">
-                    온라인
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary">오프라인</Badge>
-                ))}
-            </div>
-            <div className="flex gap-2 text-sm text-muted-foreground">
-              <span>{data.job}</span>
-              <Separator orientation="vertical" className="h-4" />
-              <span>가입일: {data.first_join}</span>
+
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold">{data.last_nickname}</h2>
+                {data.banned && <Badge variant="destructive">비정상</Badge>}
+                {!data.banned &&
+                  (data.online ? (
+                    <Badge variant="outline" className="bg-green-500/50">
+                      온라인
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">오프라인</Badge>
+                  ))}
+              </div>
+
+              <div className="flex gap-2 text-sm text-muted-foreground">
+                <span>{data.job}</span>
+                <Separator orientation="vertical" className="h-4" />
+                <span>가입일: {data.first_join}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -240,22 +244,15 @@ export default function RealtimeUserInfo({
         </Card>
       </div>
 
-      {/* 상세 정보 탭 */}
+      {/* Discord 정보를 별도 탭으로 분리 */}
       <Tabs defaultValue="details" className="space-y-4">
-        <div className="flex justify-between items-center">
-          <TabsList>
-            <TabsTrigger value="details">상세 정보</TabsTrigger>
-            <TabsTrigger value="game">게임 정보</TabsTrigger>
-            {isAdmin && <TabsTrigger value="admin">관리자 정보</TabsTrigger>}
-            <TabsTrigger value="ban">제재 정보</TabsTrigger>
-          </TabsList>
-          <Button
-            disabled={canNotResolveBanStatus}
-            onClick={() => setBanDialogOpen(true)}
-          >
-            {data.banned ? "정지 해제" : "이용 정지"}
-          </Button>
-        </div>
+        <TabsList>
+          <TabsTrigger value="details">상세 정보</TabsTrigger>
+          <TabsTrigger value="game">게임 정보</TabsTrigger>
+          <TabsTrigger value="discord">디스코드</TabsTrigger>
+          {isAdmin && <TabsTrigger value="admin">관리자 정보</TabsTrigger>}
+          <TabsTrigger value="ban">제재 정보</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="details">
           <Card>
@@ -534,6 +531,76 @@ export default function RealtimeUserInfo({
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="discord">
+          {data.discordData ? (
+            <Card className="pt-6">
+              <CardHeader className="hidden" />
+              <CardContent className="space-y-6">
+                <div className="flex items-start gap-4">
+                  {data.discordData.avatarUrl && (
+                    <Avatar className="h-20 w-20 border-2 border-primary/10">
+                      <AvatarImage
+                        src={data.discordData.avatarUrl}
+                        alt={data.discordData.username}
+                      />
+                      <AvatarFallback>
+                        {getFirstNonEmojiCharacter(data.discordData.username)}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">
+                        사용자명
+                      </h3>
+                      <p className="text-lg font-medium">
+                        {data.discordData.username}
+                      </p>
+                    </div>
+                    {data.discordData.globalName && (
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground">
+                          글로벌 이름
+                        </h3>
+                        <p>{data.discordData.globalName}</p>
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">
+                        서버 가입일
+                      </h3>
+                      <p>
+                        {formatKoreanDateTime(
+                          new Date(data.discordData.joinedAt)
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                    역할
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data.discordData.roles.map((role) => (
+                      <Badge key={role} variant="secondary">
+                        {role}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-6 text-center text-muted-foreground">
+                연동된 디스코드 계정이 없습니다
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {isAdmin && (
