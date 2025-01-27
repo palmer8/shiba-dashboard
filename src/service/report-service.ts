@@ -948,13 +948,11 @@ class ReportService {
              SET banned = 1,
              bantime = "영구정지",
              banreason = ?,
-             banadmin = ?,
-             image = ?
+             banadmin = ?
              WHERE id = ?`,
             [
               matchingReport.reason,
               matchingReport.admin,
-              matchingReport.image,
               matchingReport.target_user_id,
             ]
           );
@@ -974,7 +972,7 @@ class ReportService {
         connection.release();
       }
 
-      prisma.$transaction([
+      await prisma.$transaction([
         prisma.blockTicket.updateMany({
           where: { id: { in: ticketIds } },
           data: {
@@ -983,11 +981,11 @@ class ReportService {
             approvedAt: new Date(),
           },
         }),
-        prisma.accountUsingQuerylog.createMany({
-          data: tickets.map((ticket) => ({
-            content: `사건처리 보고 승인 : ${ticket.reportId}`,
-            userId: session.user!.id as string,
-          })),
+        prisma.accountUsingQuerylog.create({
+          data: {
+            content: `사건처리 보고 승인 : ${ticketIds.join(", ")}`,
+            registrantId: session.user.id as string,
+          },
         }),
       ]);
 
@@ -1119,10 +1117,12 @@ class ReportService {
           },
         }),
         prisma.accountUsingQuerylog.createMany({
-          data: pendingTickets.map((ticket) => ({
-            content: `사건처리 보고 승인 : ${ticket.reportId}`,
-            userId: session.user!.id as string,
-          })),
+          data: {
+            content: `사건처리 보고 승인 : ${pendingTickets
+              .map((ticket) => ticket.reportId)
+              .join(", ")}`,
+            registrantId: session.user!.id as string,
+          },
         }),
       ]);
 
@@ -1174,10 +1174,10 @@ class ReportService {
           },
         }),
         prisma.accountUsingQuerylog.createMany({
-          data: ids.map((id) => ({
-            content: `사건처리 보고 거절 : ${id}`,
-            userId: session.user!.id as string,
-          })),
+          data: {
+            content: `사건처리 보고 거절 : ${ids.join(", ")}`,
+            registrantId: session.user!.id as string,
+          },
         }),
       ]);
 
@@ -1231,11 +1231,13 @@ class ReportService {
             approverId: session.user.id,
           },
         }),
-        prisma.accountUsingQuerylog.createMany({
-          data: pendingTickets.map((ticket) => ({
-            content: `사건처리 보고 거절 : ${ticket.reportId}`,
-            userId: session.user!.id as string,
-          })),
+        prisma.accountUsingQuerylog.create({
+          data: {
+            content: `사건처리 보고 거절 : ${pendingTickets
+              .map((ticket) => ticket.reportId)
+              .join(", ")}`,
+            registrantId: session.user!.id as string,
+          },
         }),
       ]);
 

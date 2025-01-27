@@ -23,7 +23,11 @@ import {
 } from "lucide-react";
 import IncidentReportTable from "@/components/report/incident-report-table";
 import { Session } from "next-auth";
-import { returnPlayerSkinAction } from "@/actions/realtime/realtime-action";
+import {
+  returnPlayerSkinAction,
+  deleteMemoAction,
+  deleteChunobotAction,
+} from "@/actions/realtime/realtime-action";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, Fragment } from "react";
 import BanPlayerDialog from "@/components/dialog/ban-player-dialog";
@@ -35,11 +39,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import AddUserMemoDialog from "@/components/dialog/add-usermemo-dialog";
 import UpdateUserMemoDialog from "@/components/dialog/update-usermemo-dialog";
-import { deleteMemoAction } from "@/actions/realtime/realtime-action";
-import { UserMemo } from "@/types/realtime";
 import AddChunobotDialog from "@/components/dialog/add-chunobot-dialog";
 import UpdateChunobotDialog from "@/components/dialog/update-chunobot-dialog";
-import { deleteChunobotAction } from "@/actions/realtime/realtime-action";
+import { UserMemo } from "@/types/realtime";
 import { Chunobot } from "@/types/user";
 
 interface RealtimeUserInfoProps {
@@ -72,7 +74,7 @@ export default function RealtimeUserInfo({
 
   useEffect(() => {
     setCanNotResolveBanStatus(!isAdmin && Boolean(data.banned));
-  }, [data]);
+  }, [data, isAdmin]);
 
   const handleRevokeSkin = async () => {
     if (!userId) return;
@@ -148,17 +150,25 @@ export default function RealtimeUserInfo({
   };
 
   const handleDeleteChunobot = async (userId: number) => {
-    const result = await deleteChunobotAction(userId);
-    if (result.success) {
-      toast({
-        title: "추노 알림 삭제 완료",
-        description: "추노 알림이 성공적으로 삭제되었습니다.",
-      });
-      mutate();
-    } else {
+    try {
+      const result = await deleteChunobotAction(userId);
+      if (result.success) {
+        toast({
+          title: "추노 알림 삭제 완료",
+          description: "추노 알림이 성공적으로 삭제되었습니다.",
+        });
+        await mutate();
+      } else {
+        toast({
+          title: "추노 알림 삭제 실패",
+          description: result.error || "추노 알림 삭제 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
       toast({
         title: "추노 알림 삭제 실패",
-        description: result.error,
+        description: "추노 알림 삭제 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }
@@ -253,6 +263,17 @@ export default function RealtimeUserInfo({
           {isAdmin && <TabsTrigger value="admin">관리자 정보</TabsTrigger>}
           <TabsTrigger value="ban">제재 정보</TabsTrigger>
         </TabsList>
+
+        {/* 상단의 이용 정지 버튼 */}
+        <div className="flex justify-between items-center mt-4">
+          <div></div> {/* 빈 공간으로 버튼을 오른쪽에 배치 */}
+          <Button
+            disabled={canNotResolveBanStatus}
+            onClick={() => setBanDialogOpen(true)}
+          >
+            {data.banned ? "정지 해제" : "이용 정지"}
+          </Button>
+        </div>
 
         <TabsContent value="details">
           <Card>
@@ -653,7 +674,7 @@ export default function RealtimeUserInfo({
                     남은 구금 시간
                   </h3>
                   <div className="flex items-center gap-2">
-                    {/* <p>{data.warningCount || "-"}</p> */}
+                    {/* 남은 구금 시간을 표시할 API 연동 필요 */}
                     <p>API 연동 필요</p>
                   </div>
                 </div>
@@ -706,6 +727,7 @@ export default function RealtimeUserInfo({
         </TabsContent>
       </Tabs>
 
+      {/* 다이얼로그 컴포넌트 */}
       {data.last_nickname && (
         <BanPlayerDialog
           session={session}
