@@ -22,3 +22,8 @@ export const deleteGameLogsAction = async (ids: number[]) => {
 export const writeAdminLogAction = async (content: string) => {
   await logService.writeAdminLog(content);
 };
+
+export const getRecipeLogsAction = async (ids: number[]) => {
+  const result = await logService.getRecipeLogsByIds(ids);
+  return result;
+};

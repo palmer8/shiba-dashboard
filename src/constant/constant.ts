@@ -58,6 +58,11 @@ const ROLE_LINKS = {
         href: "/log/staff",
         role: ["INGAME_ADMIN", "MASTER", "SUPERMASTER", "STAFF"],
       },
+      {
+        name: "레시피 로그 조회",
+        href: "/log/recipe",
+        role: ["INGAME_ADMIN", "MASTER", "SUPERMASTER", "STAFF"],
+      },
     ],
   },
   game: {
@@ -139,12 +144,12 @@ const ROLE_LINKS = {
 export const ADMIN_LINKS = {
   audit: {
     name: "감사 로그",
-    role: ["MASTER", "SUPERMASTER"],
+    role: ["MASTER", "SUPERMASTER", "INGAME_ADMIN"],
     routes: [
       {
         name: "어드민 관리",
         href: "/admin",
-        role: ["MASTER", "SUPERMASTER"],
+        role: ["MASTER", "SUPERMASTER", "INGAME_ADMIN"],
       },
       {
         name: "운영툴 조회 로그",

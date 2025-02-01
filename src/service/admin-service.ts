@@ -15,6 +15,7 @@ import {
 import { format } from "date-fns";
 import { eachDayOfInterval, isWeekend } from "date-fns";
 import { logService } from "./log-service";
+import bcrypt from "bcrypt";
 
 class AdminService {
   async getDashboardUsers(params: AdminFilter): Promise<ApiResponse<AdminDto>> {
@@ -642,6 +643,71 @@ class AdminService {
     }
 
     return `${hours.toFixed(1)}시간`;
+  }
+
+  async resetUserPassword(
+    targetUserId: number,
+    newPassword: string
+  ): Promise<ApiResponse<boolean>> {
+    const session = await auth();
+
+    if (!session?.user || !session?.user.id) {
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+        data: null,
+      };
+    }
+
+    // 요청자가 userId가 1인 SUPERMASTER인지 확인
+    const registrant = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, userId: true },
+    });
+
+    if (
+      !registrant ||
+      registrant.userId !== 1 ||
+      registrant.role !== "SUPERMASTER"
+    ) {
+      return {
+        success: false,
+        error: "권한이 없습니다.",
+        data: null,
+      };
+    }
+
+    try {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { userId: targetUserId },
+          data: { hashedPassword },
+        });
+
+        await tx.accountUsingQuerylog.create({
+          data: {
+            content: `${targetUserId}의 비밀번호 재설정`,
+            registrantId: session.user!.id as string,
+          },
+        });
+      });
+
+      return {
+        success: true,
+        data: true,
+        error: null,
+      };
+    } catch (error) {
+      console.error("비밀번호 재설정 중 오류:", error);
+      return {
+        success: false,
+        error: "비밀번호 재설정에 실패했습니다.",
+        data: null,
+      };
+    }
   }
 }
 

@@ -70,3 +70,28 @@ export interface StaffLogResponse {
   totalPages: number;
   pageSize: number;
 }
+
+export interface RecipeLog {
+  id: number;
+  user_id: number;
+  recipe_id: string;
+  reward_item: string;
+  create_time: Date;
+}
+
+export interface RecipeLogResponse {
+  records: RecipeLog[];
+  total: number;
+  page: number;
+  totalPages: number;
+  pageSize: number;
+}
+
+export interface RecipeLogFilter {
+  page?: number;
+  userId?: string;
+  recipeId?: string;
+  rewardItem?: string;
+  startDate?: string;
+  endDate?: string;
+}

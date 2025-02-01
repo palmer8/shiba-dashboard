@@ -6,6 +6,9 @@ import {
   AdminLogListResponse,
   GameLogFilters,
   GameLogResponse,
+  RecipeLog,
+  RecipeLogFilter,
+  RecipeLogResponse,
   StaffLog,
   StaffLogFilter,
   StaffLogResponse,
@@ -649,6 +652,148 @@ export class LogService {
       });
     } catch (error) {
       console.error("로그를 작성하는 중 에러가 발생하였습니다.", error);
+    }
+  }
+
+  async getRecipeLogs(
+    filters: RecipeLogFilter
+  ): Promise<ApiResponse<RecipeLogResponse>> {
+    try {
+      const pageSize = 50;
+      const page = filters.page || 1;
+      const offset = (page - 1) * pageSize;
+
+      let params: any[] = [];
+      let dateFilter = "";
+
+      if (filters.startDate && filters.endDate) {
+        const startDate = new Date(filters.startDate);
+        const endDate = new Date(filters.endDate);
+
+        startDate.setHours(9, 0, 0, 0);
+        endDate.setDate(endDate.getDate() + 1);
+        endDate.setHours(8, 59, 59, 999);
+
+        dateFilter = " AND create_time >= ? AND create_time <= ?";
+        params = [
+          startDate.toISOString().slice(0, 19).replace("T", " "),
+          endDate.toISOString().slice(0, 19).replace("T", " "),
+        ];
+      }
+
+      const query = `
+        SELECT 
+          id,
+          user_id,
+          recipe_id,
+          reward_item,
+          create_time,
+          COUNT(*) OVER() as total
+        FROM dokku_recipe_log
+        WHERE 1=1
+        ${filters.userId ? " AND user_id = ?" : ""}
+        ${filters.recipeId ? " AND recipe_id LIKE ?" : ""}
+        ${filters.rewardItem ? " AND reward_item LIKE ?" : ""}
+        ${dateFilter}
+        ORDER BY create_time DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      const queryParams = [
+        ...(filters.userId ? [filters.userId] : []),
+        ...(filters.recipeId ? [`%${filters.recipeId}%`] : []),
+        ...(filters.rewardItem ? [`%${filters.rewardItem}%`] : []),
+        ...params,
+        pageSize,
+        offset,
+      ];
+
+      const [rows] = await pool.execute<RowDataPacket[]>(query, queryParams);
+      const total = rows[0]?.total || 0;
+
+      if (
+        filters.userId ||
+        filters.recipeId ||
+        filters.rewardItem ||
+        (params[0] && params[1])
+      ) {
+        const filterDescription = [];
+
+        if (filters.userId) {
+          filterDescription.push(`유저: ${filters.userId}`);
+        }
+        if (filters.recipeId) {
+          filterDescription.push(`레시피: ${filters.recipeId}`);
+        }
+        if (filters.rewardItem) {
+          filterDescription.push(`보상: ${filters.rewardItem}`);
+        }
+        if (params[0] && params[1]) {
+          filterDescription.push(
+            `범위: ${params[0].slice(0, 10)} ~ ${params[1].slice(0, 10)}`
+          );
+        }
+
+        await this.writeAdminLog(
+          `레시피 로그 조회 (${filterDescription.join(", ")})`
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          records: rows.map(({ total, ...row }) => row) as RecipeLog[],
+          total,
+          page,
+          totalPages: Math.ceil(total / pageSize),
+          pageSize,
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("레시피 로그 조회 에러:", error);
+      return {
+        success: false,
+        data: {
+          records: [],
+          total: 0,
+          page: 1,
+          totalPages: 1,
+          pageSize: 50,
+        },
+        error: "레시피 로그 조회에 실패했습니다.",
+      };
+    }
+  }
+
+  async getRecipeLogsByIds(ids: number[]) {
+    const query = `
+        SELECT 
+          id,
+          user_id,
+          recipe_id,
+          reward_item,
+          create_time,
+          COUNT(*) OVER() as total
+        FROM dokku_recipe_log
+        WHERE id IN (?)
+        ORDER BY create_time DESC
+      `;
+    try {
+      const [rows] = await pool.execute<RowDataPacket[]>(query, [ids]);
+      await this.writeAdminLog(`${rows.length}개 레시피 로그 CSV 다운로드`);
+      return {
+        success: true,
+        data: rows,
+        error: null,
+      };
+    } catch (error) {
+      console.error("레시피 로그 조회 에러:", error);
+      return {
+        success: false,
+        data: [],
+        error: "레시피 로그 조회 에러",
+      };
     }
   }
 }

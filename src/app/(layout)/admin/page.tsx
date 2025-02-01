@@ -16,7 +16,8 @@ export default async function AdminPage({
   const session = await auth();
   if (!session || !session.user) return redirect("/login");
   if (session.user && !session.user.isPermissive) return redirect("/pending");
-  if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/404");
+  if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN))
+    return redirect("/404");
 
   const params = await searchParams;
 
@@ -39,7 +40,6 @@ export default async function AdminPage({
         title="어드민 관리"
         description="대시보드 사용자들을 관리할 수 있습니다."
       />
-      {/* <AdminManagementFilter filter={params} /> */}
       <AdminManagementTable data={data} session={session} />
     </main>
   );

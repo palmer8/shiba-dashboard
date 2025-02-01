@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import {
   removeDashboardUserAction,
+  resetUserPasswordAction,
   toggleDashboardUserPermissionAction,
   updateDashboardUserRoleAction,
 } from "@/actions/admin-action";
@@ -56,6 +57,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { AdminDto } from "@/types/user";
+import { toast } from "sonner";
 
 interface AdminManagementTableProps {
   data: AdminDto;
@@ -87,6 +89,11 @@ export function AdminManagementTable({
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortDirection, setSortDirection] = useState("desc");
   const [inputPage, setInputPage] = useState(data.page.toString());
+  const [selectedAdmin, setSelectedAdmin] = useState<
+    AdminDto["items"][number] | null
+  >(null);
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     setInputPage(data.page.toString());
@@ -137,6 +144,16 @@ export function AdminManagementTable({
     if (sortDirection !== "desc") params.set("sortDirection", sortDirection);
 
     router.push(`?${params.toString()}`);
+  };
+
+  const canManagePermissions = (
+    sessionRole: UserRole,
+    targetRole: UserRole
+  ) => {
+    if (sessionRole === "INGAME_ADMIN") {
+      return targetRole === "STAFF"; // 인게임 관리자는 스태프만 관리 가능
+    }
+    return !isSameOrHigherRole(sessionRole, targetRole); // 기존 로직 유지
   };
 
   return (
@@ -223,7 +240,14 @@ export function AdminManagementTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-[200px]">
-                          {isSameOrHigherRole(session.user.role, admin.role) ? (
+                          {session.user.role === "INGAME_ADMIN" ? (
+                            <div className="px-3 py-2 text-sm">
+                              {formatRole(admin.role)}
+                            </div>
+                          ) : isSameOrHigherRole(
+                              session.user.role,
+                              admin.role
+                            ) ? (
                             <div className="px-3 py-2 text-sm">
                               {formatRole(admin.role)}
                             </div>
@@ -269,8 +293,10 @@ export function AdminManagementTable({
                               );
                             }}
                             disabled={
-                              session.user.userId !== 1 &&
-                              isSameOrHigherRole(session.user.role, admin.role)
+                              !canManagePermissions(
+                                session.user.role,
+                                admin.role
+                              )
                             }
                           >
                             {admin.isPermissive ? (
@@ -285,6 +311,18 @@ export function AdminManagementTable({
                               </>
                             )}
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {session.user.userId === 1 &&
+                            session.user.role === "SUPERMASTER" && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedAdmin(admin);
+                                  setShowResetPasswordDialog(true);
+                                }}
+                              >
+                                비밀번호 재설정
+                              </DropdownMenuItem>
+                            )}
                           <DropdownMenuSeparator />
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -446,6 +484,64 @@ export function AdminManagementTable({
           다음
         </Button>
       </div>
+
+      <AlertDialog
+        open={showResetPasswordDialog}
+        onOpenChange={setShowResetPasswordDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>비밀번호 재설정</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedAdmin?.nickname} ({selectedAdmin?.userId})의 새로운
+              비밀번호를 입력해주세요.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid gap-4 py-4">
+            <Input
+              type="password"
+              placeholder="새 비밀번호"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setNewPassword("");
+                setSelectedAdmin(null);
+                setShowResetPasswordDialog(false);
+              }}
+            >
+              취소
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!selectedAdmin) return;
+
+                const result = await resetUserPasswordAction(
+                  selectedAdmin.userId,
+                  newPassword
+                );
+
+                if (result.success) {
+                  toast.success("비밀번호가 재설정되었습니다.");
+                } else {
+                  toast.error(
+                    result.error || "비밀번호 재설정에 실패했습니다."
+                  );
+                }
+
+                setNewPassword("");
+                setSelectedAdmin(null);
+                setShowResetPasswordDialog(false);
+              }}
+            >
+              확인
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

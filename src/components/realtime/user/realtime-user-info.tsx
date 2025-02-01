@@ -581,12 +581,20 @@ export default function RealtimeUserInfo({
                       </p>
                     </div>
                     {data.discordData.globalName && (
-                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground">
-                          글로벌 이름
-                        </h3>
-                        <p>{data.discordData.globalName}</p>
-                      </div>
+                      <>
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">
+                            글로벌 이름
+                          </h3>
+                          <p>{data.discordData.globalName}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">
+                            닉네임
+                          </h3>
+                          <p>{data.discordData.nickname}</p>
+                        </div>
+                      </>
                     )}
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground">

@@ -33,3 +33,12 @@ export async function updateGroupAction(groupId: string, minRole: UserRole) {
   revalidatePath("/admin/group");
   return result;
 }
+
+export async function resetUserPasswordAction(
+  userId: number,
+  password: string
+) {
+  const result = await adminService.resetUserPassword(userId, password);
+  revalidatePath("/admin");
+  return result;
+}
