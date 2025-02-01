@@ -54,8 +54,14 @@ export function RecipeLogFilters({ filters }: RecipeLogFiltersProps) {
       searchParams.set("rewardItem", localFilter.rewardItem);
     }
     if (dateRange?.from && dateRange?.to) {
-      searchParams.set("startDate", dateRange.from.toISOString().split("T")[0]);
-      searchParams.set("endDate", dateRange.to.toISOString().split("T")[0]);
+      searchParams.set(
+        "startDate",
+        dateRange.from.toLocaleDateString("sv").split(" ")[0]
+      );
+      searchParams.set(
+        "endDate",
+        dateRange.to.toLocaleDateString("sv").split(" ")[0]
+      );
     }
 
     router.push(`?${searchParams.toString()}`);

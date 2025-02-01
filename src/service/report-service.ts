@@ -880,7 +880,7 @@ class ReportService {
       return redirect("/login");
     }
 
-    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+    if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
       return {
         success: false,
         data: null,
@@ -1014,7 +1014,7 @@ class ReportService {
       return redirect("/login");
     }
 
-    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+    if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
       return {
         success: false,
         data: null,
@@ -1154,7 +1154,7 @@ class ReportService {
         return redirect("/login");
       }
 
-      if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
         return {
           success: false,
           data: null,
@@ -1207,7 +1207,7 @@ class ReportService {
         return redirect("/login");
       }
 
-      if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
         return {
           success: false,
           data: null,
