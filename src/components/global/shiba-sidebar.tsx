@@ -41,14 +41,16 @@ export function ShibaSidebar({
   return (
     <Sidebar collapsible="icon" {...props}>
       <div className="flex justify-center items-center py-4">
-        <Image
-          priority
-          src="/logo.webp"
-          alt="logo"
-          width={130}
-          height={130}
-          className="w-[130px] h-[130px]"
-        />
+        <Link href="/">
+          <Image
+            priority
+            src="/logo.webp"
+            alt="logo"
+            width={130}
+            height={130}
+            className="w-[130px] h-[130px]"
+          />
+        </Link>
       </div>
       <SidebarContent className="no-scrollbar">
         <NavLinks session={session} />

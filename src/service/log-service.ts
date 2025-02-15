@@ -796,6 +796,113 @@ export class LogService {
       };
     }
   }
+
+  async getUserRelatedLogs(
+    userId: number,
+    page: number = 1,
+    filters: {
+      type?: string;
+      level?: string;
+      message?: string;
+    } = {}
+  ): Promise<ApiResponse<GameLogResponse>> {
+    try {
+      const pageSize = 50;
+      const offset = (page - 1) * pageSize;
+
+      // 기본 조건: 유저 ID 관련 조건
+      let whereConditions = [
+        `(
+          metadata->>'user_id' = $1
+          OR metadata->>'target_id' = $1
+          OR metadata->'user_id' = $2
+          OR metadata->'target_id' = $2
+        )`,
+      ];
+
+      // 파라미터 배열 초기화
+      let params = [userId.toString(), userId, pageSize, offset];
+      let paramCounter = 5; // 이미 4개의 파라미터가 있으므로 5부터 시작
+
+      // filters 객체에서 각 필터 적용
+      if (filters.type) {
+        whereConditions.push(`type = $${paramCounter}`);
+        params.push(filters.type);
+        paramCounter++;
+      }
+
+      if (filters.level) {
+        whereConditions.push(`level = $${paramCounter}`);
+        params.push(filters.level);
+        paramCounter++;
+      }
+
+      if (filters.message) {
+        whereConditions.push(`message ILIKE $${paramCounter}`);
+        params.push(`%${filters.message}%`); // 부분 일치 검색
+        paramCounter++;
+      }
+
+      // 모든 조건을 AND로 결합
+      const whereClause = whereConditions.join(" AND ");
+
+      const query = `
+        WITH filtered_logs AS (
+          SELECT 
+            id,
+            timestamp,
+            level,
+            type,
+            message,
+            metadata,
+            COUNT(*) OVER() as total_count
+          FROM game_logs
+          WHERE ${whereClause}
+          ORDER BY timestamp DESC
+          LIMIT $3 OFFSET $4
+        )
+        SELECT * FROM filtered_logs
+      `;
+
+      const result = await db.sql.unsafe(query, params);
+
+      const totalCount = result.length > 0 ? result[0].total_count : 0;
+
+      await this.writeAdminLog(
+        `유저 ID ${userId}의 관련 로그 조회 (${page}페이지)`
+      );
+
+      return {
+        success: true,
+        data: {
+          records: result.map(({ total_count, ...log }) => ({
+            id: log.id,
+            timestamp: log.timestamp,
+            level: log.level,
+            type: log.type,
+            message: log.message,
+            metadata: log.metadata,
+          })),
+          total: totalCount,
+          page,
+          totalPages: Math.ceil(totalCount / pageSize),
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("유저 관련 로그 조회 에러:", error);
+      return {
+        success: false,
+        data: {
+          records: [],
+          total: 0,
+          page: 1,
+          totalPages: 1,
+        },
+        error: "로그 조회 중 오류가 발생했습니다.",
+      };
+    }
+  }
 }
 
 export const logService = new LogService();

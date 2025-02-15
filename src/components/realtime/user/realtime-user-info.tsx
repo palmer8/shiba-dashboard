@@ -27,6 +27,7 @@ import {
   returnPlayerSkinAction,
   deleteMemoAction,
   deleteChunobotAction,
+  updateJailAction,
 } from "@/actions/realtime/realtime-action";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, Fragment } from "react";
@@ -43,6 +44,7 @@ import AddChunobotDialog from "@/components/dialog/add-chunobot-dialog";
 import UpdateChunobotDialog from "@/components/dialog/update-chunobot-dialog";
 import { UserMemo } from "@/types/realtime";
 import { Chunobot } from "@/types/user";
+import { JailDialog } from "./jail-dialog";
 
 interface RealtimeUserInfoProps {
   data: RealtimeGameUserData;
@@ -71,6 +73,8 @@ export default function RealtimeUserInfo({
   const [selectedChunobot, setSelectedChunobot] = useState<Chunobot | null>(
     null
   );
+  const [jailDialogOpen, setJailDialogOpen] = useState(false);
+  const [isJailRelease, setIsJailRelease] = useState(false);
 
   useEffect(() => {
     setCanNotResolveBanStatus(!isAdmin && Boolean(data.banned));
@@ -169,6 +173,36 @@ export default function RealtimeUserInfo({
       toast({
         title: "추노 알림 삭제 실패",
         description: "추노 알림 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleJailAction = async (time: number, reason: string) => {
+    if (!session?.user?.nickname) {
+      toast({
+        title: "오류가 발생했습니다.",
+        description: "구금 처리 실패",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const result = await updateJailAction(userId, time, reason, isAdmin);
+
+    if (result.success) {
+      toast({
+        title: "구금 처리 성공",
+        description:
+          time === 0
+            ? "구금이 해제되었습니다."
+            : `${time}분 구금 처리되었습니다.`,
+      });
+      mutate();
+    } else {
+      toast({
+        title: "구금 처리 실패",
+        description: result.error || "구금 처리 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }
@@ -682,8 +716,26 @@ export default function RealtimeUserInfo({
                     남은 구금 시간
                   </h3>
                   <div className="flex items-center gap-2">
-                    {/* 남은 구금 시간을 표시할 API 연동 필요 */}
-                    <p>API 연동 필요</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsJailRelease(true);
+                        setJailDialogOpen(true);
+                      }}
+                    >
+                      구금 해제
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsJailRelease(false);
+                        setJailDialogOpen(true);
+                      }}
+                    >
+                      구금
+                    </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -790,6 +842,13 @@ export default function RealtimeUserInfo({
           }}
         />
       )}
+
+      <JailDialog
+        open={jailDialogOpen}
+        onOpenChange={setJailDialogOpen}
+        onConfirm={handleJailAction}
+        isRelease={isJailRelease}
+      />
     </>
   );
 }

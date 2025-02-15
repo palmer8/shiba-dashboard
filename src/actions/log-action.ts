@@ -27,3 +27,16 @@ export const getRecipeLogsAction = async (ids: number[]) => {
   const result = await logService.getRecipeLogsByIds(ids);
   return result;
 };
+
+export const getUserRelatedLogsAction = async (
+  userId: number,
+  page: number = 1,
+  filters: {
+    type: string;
+    level: string;
+    message: string;
+  }
+) => {
+  const result = await logService.getUserRelatedLogs(userId, page, filters);
+  return result;
+};

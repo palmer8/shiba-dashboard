@@ -77,3 +77,18 @@ export async function deleteChunobotAction(userId: number) {
   const result = await realtimeService.deleteChunobot(userId);
   return result;
 }
+
+export async function updateJailAction(
+  userId: number,
+  time: number,
+  reason: string,
+  isAdmin: boolean
+) {
+  const result = await realtimeService.updateJail(
+    userId,
+    time,
+    reason,
+    isAdmin
+  );
+  return result;
+}

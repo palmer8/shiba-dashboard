@@ -11,6 +11,7 @@ import { Session } from "next-auth";
 import { getUserDataAction } from "@/actions/realtime/realtime-action";
 import { useState } from "react";
 import { LoadingOverlay } from "@/components/global/loading";
+import RealtimeUserLogs from "./realtime-user-logs";
 
 interface RealtimeUserWrapperProps {
   session: Session;
@@ -72,6 +73,7 @@ export default function RealtimeUserWrapper({
           <TabsTrigger value="info">유저 정보</TabsTrigger>
           <TabsTrigger value="item">보유 아이템</TabsTrigger>
           <TabsTrigger value="group">그룹 정보</TabsTrigger>
+          <TabsTrigger value="log">로그 정보</TabsTrigger>
         </TabsList>
         <TabsContent value="info">
           <RealtimeUserInfo
@@ -102,6 +104,9 @@ export default function RealtimeUserWrapper({
             session={session}
             mutate={mutate}
           />
+        </TabsContent>
+        <TabsContent value="log">
+          <RealtimeUserLogs userId={userId!} session={session} />
         </TabsContent>
       </Tabs>
     );

@@ -1679,6 +1679,62 @@ class RealtimeService {
       };
     }
   }
+
+  async updateJail(
+    userId: number,
+    time: number,
+    reason: string,
+    isAdmin: boolean
+  ): Promise<ApiResponse<boolean>> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+        data: null,
+      };
+    }
+
+    try {
+      const response = await fetch(`${this.BASE_URL}/DokkuApi/updateJail`, {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: userId,
+          isAdmin,
+          time,
+          reason,
+          adminName: session.user.nickname,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          key: this.API_KEY,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await logService.writeAdminLog(
+          `${userId} 플레이어 ${
+            time === 0 ? "구금 해제" : `${time}분 구금`
+          } (${reason})`
+        );
+      }
+
+      return {
+        success: data.success,
+        data: data.success,
+        error: data.success ? null : "구금 처리 중 오류가 발생했습니다.",
+      };
+    } catch (error) {
+      console.error("구금 처리 에러:", error);
+      return {
+        success: false,
+        data: null,
+        error: "구금 처리 중 오류가 발생했습니다.",
+      };
+    }
+  }
 }
 
 export const realtimeService = new RealtimeService();
