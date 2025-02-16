@@ -58,6 +58,8 @@ type RealtimeGameUserData = {
     avatarUrl: string;
     roles: string[];
   };
+  isJailAdmin?: boolean;
+  jailtime?: number;
 };
 
 type UpdateUserData = {

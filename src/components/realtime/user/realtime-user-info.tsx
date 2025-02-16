@@ -28,6 +28,7 @@ import {
   deleteMemoAction,
   deleteChunobotAction,
   updateJailAction,
+  createMemoAction,
 } from "@/actions/realtime/realtime-action";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, Fragment } from "react";
@@ -178,25 +179,40 @@ export default function RealtimeUserInfo({
     }
   };
 
-  const handleJailAction = async (time: number, reason: string) => {
+  const handleJailAction = async (
+    time: number,
+    reason: string,
+    isAdminJail: boolean
+  ) => {
     if (!session?.user?.nickname) {
       toast({
-        title: "오류가 발생했습니다.",
-        description: "구금 처리 실패",
+        title: "오류",
+        description: "관리자 정보를 찾을 수 없습니다.",
         variant: "destructive",
       });
       return;
     }
 
-    const result = await updateJailAction(userId, time, reason, isAdmin);
+    const result = await updateJailAction(userId, time, reason, isAdminJail);
 
     if (result.success) {
+      // 유저 메모 추가
+      await createMemoAction(
+        userId,
+        session.user.nickname,
+        `${time === 0 ? "구금 해제" : `${time}분 구금`} - ${reason} ${
+          isAdminJail ? "(관리자 구금)" : ""
+        }`
+      );
+
       toast({
         title: "구금 처리 성공",
         description:
           time === 0
             ? "구금이 해제되었습니다."
-            : `${time}분 구금 처리되었습니다.`,
+            : `${time}분 구금 처리되었습니다.${
+                isAdminJail ? " (관리자 구금)" : ""
+              }`,
       });
       mutate();
     } else {
@@ -713,30 +729,48 @@ export default function RealtimeUserInfo({
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-muted-foreground">
-                    남은 구금 시간
+                    구금 상태
                   </h3>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setIsJailRelease(true);
-                        setJailDialogOpen(true);
-                      }}
-                    >
-                      구금 해제
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setIsJailRelease(false);
-                        setJailDialogOpen(true);
-                      }}
-                    >
-                      구금
-                    </Button>
-                  </div>
+                  {data.jailtime ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="destructive">
+                          {data.isJailAdmin ? "관리자 구금" : "일반 구금"}
+                        </Badge>
+                        <span className="text-sm font-medium">
+                          {data.jailtime}분
+                        </span>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="w-fit"
+                        onClick={() => {
+                          setIsJailRelease(true);
+                          setJailDialogOpen(true);
+                        }}
+                      >
+                        구금 해제
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <Badge variant="outline" className="w-fit">
+                        정상
+                      </Badge>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-fit"
+                        onClick={() => {
+                          setIsJailRelease(false);
+                          setJailDialogOpen(true);
+                        }}
+                      >
+                        구금하기
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-muted-foreground">
@@ -848,6 +882,11 @@ export default function RealtimeUserInfo({
         onOpenChange={setJailDialogOpen}
         onConfirm={handleJailAction}
         isRelease={isJailRelease}
+        currentJailStatus={
+          data.isJailAdmin
+            ? { isJailAdmin: true, jailtime: data.jailtime }
+            : undefined
+        }
       />
     </>
   );
