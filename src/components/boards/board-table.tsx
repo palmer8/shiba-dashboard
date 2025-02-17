@@ -30,6 +30,22 @@ import {
   getBoardListsByIdsOriginAction,
 } from "@/actions/board-action";
 import { toast } from "@/hooks/use-toast";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { cn } from "@/lib/utils";
+import Empty from "@/components/ui/empty";
 
 interface BoardTableProps {
   data: BoardData[];
@@ -97,95 +113,128 @@ export function BoardTable({
     }
   };
 
-  const renderBoardCard = (
-    board: BoardData,
-    index: number,
-    isNotice: boolean = false
-  ) => (
-    <Card
-      key={board.id}
-      className="hover:bg-muted/50 transition-colors cursor-pointer"
-      onClick={() => router.push(`/board/${board.id}`)}
-    >
-      <div className="p-3">
-        <div className="flex items-start gap-3">
-          {session?.user?.role === UserRole.SUPERMASTER && (
-            <Checkbox
-              checked={selectedRows.includes(board.id)}
-              onCheckedChange={() => handleSelect(board.id)}
-              onClick={(e) => e.stopPropagation()}
-              className="mt-0.5"
-            />
-          )}
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
-              {isNotice && <Badge variant="secondary">공지</Badge>}
-              <Badge variant="outline">{board.category.name}</Badge>
-            </div>
-
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-medium line-clamp-1">{board.title}</h3>
-
-                <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={board.registrant.image || ""} />
-                      <AvatarFallback>
-                        {board.registrant.nickname[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span>{board.registrant.nickname}</span>
-                  </div>
-                  <span>{formatKoreanDateTime(new Date(board.createdAt))}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 text-sm text-muted-foreground shrink-0">
-                <div className="flex items-center gap-1">
-                  <Eye className="h-4 w-4" />
-                  <span>{board.views}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <MessageSquare className="h-4 w-4" />
-                  <span>{board._count.comments}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Heart className="h-4 w-4" />
-                  <span>{board._count.likes}</span>
-                </div>
-
-                {(session?.user?.id === board.registrant.id ||
-                  session?.user?.role === UserRole.SUPERMASTER) && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => router.push(`/board/${board.id}/edit`)}
-                      >
-                        수정
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(board.id)}
-                        className="text-destructive"
-                      >
-                        삭제
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-            </div>
-          </div>
+  const columns: ColumnDef<BoardData>[] = [
+    {
+      id: "select",
+      header: ({ table }) =>
+        session?.user?.role === UserRole.SUPERMASTER && (
+          <Checkbox
+            checked={selectedRows.length === data.length}
+            onCheckedChange={handleSelectAll}
+            aria-label="Select all"
+          />
+        ),
+      cell: ({ row }) =>
+        session?.user?.role === UserRole.SUPERMASTER && (
+          <Checkbox
+            checked={selectedRows.includes(row.original.id)}
+            onCheckedChange={() => handleSelect(row.original.id)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+    },
+    {
+      accessorKey: "category",
+      header: "카테고리",
+      cell: ({ row }) => (
+        <div className="flex gap-2">
+          {row.original.isNotice && <Badge variant="secondary">공지</Badge>}
+          <Badge variant="outline">{row.original.category.name}</Badge>
         </div>
-      </div>
-    </Card>
-  );
+      ),
+    },
+    {
+      accessorKey: "title",
+      header: "제목",
+      cell: ({ row }) => (
+        <div className="font-medium">{row.original.title}</div>
+      ),
+    },
+    {
+      accessorKey: "registrant",
+      header: "작성자",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Avatar className="h-5 w-5">
+            <AvatarImage src={row.original.registrant.image || ""} />
+            <AvatarFallback>
+              {row.original.registrant.nickname[0]}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm">{row.original.registrant.nickname}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "createdAt",
+      header: "작성일",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {formatKoreanDateTime(new Date(row.original.createdAt))}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "views",
+      header: () => <div className="text-center">조회</div>,
+      cell: ({ row }) => (
+        <div className="text-center text-sm text-muted-foreground">
+          {row.original.views}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "comments",
+      header: () => <div className="text-center">댓글</div>,
+      cell: ({ row }) => (
+        <div className="text-center text-sm text-muted-foreground">
+          {row.original._count.comments}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "likes",
+      header: () => <div className="text-center">좋아요</div>,
+      cell: ({ row }) => (
+        <div className="text-center text-sm text-muted-foreground">
+          {row.original._count.likes}
+        </div>
+      ),
+    },
+    {
+      id: "actions",
+      cell: ({ row }) =>
+        (session?.user?.id === row.original.registrant.id ||
+          session?.user?.role === UserRole.SUPERMASTER) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => router.push(`/board/${row.original.id}/edit`)}
+              >
+                수정
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleDelete(row.original.id)}
+                className="text-destructive"
+              >
+                삭제
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+    },
+  ];
+
+  const table = useReactTable({
+    data: [...notices, ...data],
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   return (
     <div className="space-y-4">
@@ -212,16 +261,57 @@ export function BoardTable({
         </Button>
       </div>
 
-      <div className="min-h-[50vh] space-y-4">
-        {notices.length > 0 && (
-          <div className="space-y-2">
-            {notices.map((notice, i) => renderBoardCard(notice, i, true))}
-          </div>
-        )}
-
-        <div className="space-y-2">
-          {data.map((board, i) => renderBoardCard(board, i))}
-        </div>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {table
+                .getHeaderGroups()
+                .map((headerGroup) =>
+                  headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                    </TableHead>
+                  ))
+                )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  className={cn(
+                    "cursor-pointer hover:bg-muted/50",
+                    row.original.isNotice && "bg-muted/30"
+                  )}
+                  onClick={() => router.push(`/board/${row.original.id}`)}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  <Empty description="게시글이 없습니다." />
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       {data.length > 0 && (

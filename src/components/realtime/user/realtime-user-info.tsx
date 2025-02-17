@@ -306,17 +306,28 @@ export default function RealtimeUserInfo({
 
       {/* Discord 정보를 별도 탭으로 분리 */}
       <Tabs defaultValue="details" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="details">상세 정보</TabsTrigger>
-          <TabsTrigger value="game">게임 정보</TabsTrigger>
-          <TabsTrigger value="discord">디스코드</TabsTrigger>
-          {isAdmin && <TabsTrigger value="admin">관리자 정보</TabsTrigger>}
-          <TabsTrigger value="ban">제재 정보</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="details">상세 정보</TabsTrigger>
+            <TabsTrigger value="game">게임 정보</TabsTrigger>
+            <TabsTrigger value="discord">디스코드</TabsTrigger>
+            {isAdmin && <TabsTrigger value="admin">관리자 정보</TabsTrigger>}
+            <TabsTrigger value="ban">제재 정보</TabsTrigger>
+          </TabsList>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => mutate()}
+            className="h-9"
+          >
+            <Undo2 className="h-4 w-4 mr-2" />
+            새로고침
+          </Button>
+        </div>
 
         {/* 상단의 이용 정지 버튼 */}
         <div className="flex justify-between items-center mt-4">
-          <div></div> {/* 빈 공간으로 버튼을 오른쪽에 배치 */}
+          <div></div>
           <Button
             disabled={canNotResolveBanStatus}
             onClick={() => setBanDialogOpen(true)}

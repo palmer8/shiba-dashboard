@@ -353,19 +353,21 @@ export function UserDataTable({
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleShowDeleteDialog}
-            disabled={
-              table.getSelectedRowModel().rows.length === 0 || isDeleting
-            }
-          >
-            <Trash className="h-4 w-4 mr-2" />
-            삭제
-          </Button>
-        </div>
+        {session?.user?.role === UserRole.SUPERMASTER && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleShowDeleteDialog}
+              disabled={
+                table.getSelectedRowModel().rows.length === 0 || isDeleting
+              }
+            >
+              <Trash className="h-4 w-4 mr-2" />
+              삭제
+            </Button>
+          </div>
+        )}
         <Button
           variant="outline"
           size="sm"
