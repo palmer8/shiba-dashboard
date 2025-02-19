@@ -148,12 +148,14 @@ class BoardService {
         };
       }
 
-      if (board.registrantId !== session.user.id) {
-        return {
-          success: false,
-          error: "수정 권한이 없습니다.",
-          data: null,
-        };
+      if (session.user.role !== UserRole.SUPERMASTER) {
+        if (board.registrantId !== session.user.id) {
+          return {
+            success: false,
+            error: "수정 권한이 없습니다.",
+            data: null,
+          };
+        }
       }
 
       const updatedBoard = await prisma.board.update({
