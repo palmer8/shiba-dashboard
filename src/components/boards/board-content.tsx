@@ -37,7 +37,6 @@ export async function BoardContent({
         }
       }
       page={page}
-      session={session}
     />
   );
 }

@@ -64,7 +64,6 @@ export default async function BoardsPage({ searchParams }: PageProps) {
             }
           }
           page={page}
-          session={session}
         />
       </div>
     </main>
