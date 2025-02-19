@@ -25,8 +25,8 @@ export type AdminLogListResponse = {
 export interface GameLogFilters {
   type?: string;
   level?: string;
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: string;
+  endDate?: string;
   page?: number;
   limit?: number;
   message?: string;

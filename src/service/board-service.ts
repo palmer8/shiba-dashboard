@@ -545,8 +545,15 @@ class BoardService {
         ...(filters.startDate &&
           filters.endDate && {
             createdAt: {
-              gte: new Date(filters.startDate),
-              lte: new Date(filters.endDate),
+              gte: this.getDateWithoutTime(filters.startDate),
+              lte: new Date(
+                this.getDateWithoutTime(filters.endDate).setHours(
+                  23,
+                  59,
+                  59,
+                  999
+                )
+              ),
             },
           }),
         ...(filters.title && {
@@ -1302,6 +1309,12 @@ class BoardService {
       return `${text.substring(0, 4)}...`;
     }
     return text;
+  }
+
+  // 날짜 처리 유틸리티 함수 추가
+  private getDateWithoutTime(dateStr: string): Date {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0);
   }
 }
 

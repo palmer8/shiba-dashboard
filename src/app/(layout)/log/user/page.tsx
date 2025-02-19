@@ -28,8 +28,8 @@ export default async function LogUserPage({ searchParams }: PageProps) {
     page: Number(params.page) || 1,
     type: params.type,
     level: params.level,
-    startDate: params.startDate ? new Date(params.startDate) : undefined,
-    endDate: params.endDate ? new Date(params.endDate) : undefined,
+    startDate: params.startDate,
+    endDate: params.endDate,
     limit: 50,
     message: params.message || undefined,
   };

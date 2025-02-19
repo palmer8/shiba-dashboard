@@ -18,6 +18,7 @@ import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { ApiResponse } from "@/types/global.dto";
 import { RowDataPacket } from "mysql2";
+import { sql } from "drizzle-orm";
 
 interface GameLog {
   type: string;
@@ -41,6 +42,11 @@ interface LogQueryResult {
   total: number;
   page: number;
   totalPages: number;
+}
+
+interface DateRange {
+  start: string;
+  end: string;
 }
 
 export class LogMemoryStore {
@@ -157,6 +163,31 @@ export class LogMemoryStore {
 export const logMemoryStore = LogMemoryStore.getInstance();
 
 export class LogService {
+  private getDateRange(dateStr: string): DateRange {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+
+    return {
+      start: new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        0,
+        0,
+        0
+      ).toISOString(),
+      end: new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        23,
+        59,
+        59,
+        999
+      ).toISOString(),
+    };
+  }
+
   async getAdminLogs(
     filters: AdminLogFilters
   ): Promise<ApiResponse<AdminLogListResponse>> {
@@ -238,42 +269,93 @@ export class LogService {
       const limit = filters.limit || 50;
       const offset = ((filters.page || 1) - 1) * limit;
 
-      const result = await db.queryLogs({
-        ...filters,
-        limit,
-        offset,
-      });
+      let conditions = ["1=1"]; // 기본 조건
+      let params: any[] = [];
+      let paramIndex = 1;
 
-      const filterDescription = [];
-      if (filters.type) filterDescription.push(`타입: ${filters.type}`);
-      if (filters.level) filterDescription.push(`레벨: ${filters.level}`);
-      if (filters.startDate)
-        filterDescription.push(`시작일: ${filters.startDate}`);
-      if (filters.endDate) filterDescription.push(`종료일: ${filters.endDate}`);
-      if (filters.page) filterDescription.push(`페이지: ${filters.page}`);
+      if (filters.startDate) {
+        const startRange = this.getDateRange(filters.startDate);
+        conditions.push(`timestamp >= $${paramIndex}`);
+        params.push(startRange.start);
+        paramIndex++;
+      }
+
+      if (filters.endDate) {
+        const endRange = this.getDateRange(filters.endDate);
+        conditions.push(`timestamp <= $${paramIndex}`);
+        params.push(endRange.end);
+        paramIndex++;
+      }
+
+      if (filters.type) {
+        conditions.push(`type = $${paramIndex}`);
+        params.push(filters.type);
+        paramIndex++;
+      }
+
+      if (filters.level) {
+        conditions.push(`level = $${paramIndex}`);
+        params.push(filters.level);
+        paramIndex++;
+      }
+
+      if (filters.message) {
+        conditions.push(`message ILIKE $${paramIndex}`);
+        params.push(`%${filters.message}%`);
+        paramIndex++;
+      }
+
+      const query = `
+        WITH filtered_logs AS (
+          SELECT 
+            id,
+            timestamp,
+            level,
+            type,
+            message,
+            metadata,
+            COUNT(*) OVER() as total_count
+          FROM game_logs
+          WHERE ${conditions.join(" AND ")}
+          ORDER BY timestamp DESC
+          LIMIT $${paramIndex} 
+          OFFSET $${paramIndex + 1}
+        )
+        SELECT * FROM filtered_logs
+      `;
+
+      // 마지막에 limit과 offset 추가
+      params.push(limit, offset);
+
+      const result = await db.sql.unsafe(query, params);
+      const totalCount = result.length > 0 ? result[0].total_count : 0;
 
       await this.writeAdminLog(
-        `유저 로그 조회 (${
-          filterDescription.length ? filterDescription.join(", ") : "전체"
-        })`
+        `유저 로그 조회 (${[
+          filters.type,
+          filters.level,
+          filters.startDate,
+          filters.endDate,
+          filters.message,
+        ]
+          .filter(Boolean)
+          .join(", ")})`
       );
-
-      const totalCount = result[0]?.total_count || 0;
 
       return {
         success: true,
         data: {
-          records: result.map(({ total_count, ...row }) => ({
-            id: row.id,
-            timestamp: row.timestamp,
-            level: row.level,
-            type: row.type,
-            message: row.message,
-            metadata: row.metadata,
+          records: result.map(({ total_count, ...log }) => ({
+            id: log.id,
+            timestamp: log.timestamp,
+            level: log.level,
+            type: log.type,
+            message: log.message,
+            metadata: log.metadata,
           })),
           total: totalCount,
           page: filters.page || 1,
-          totalPages: Math.ceil(totalCount / limit),
+          totalPages: Math.ceil(totalCount / (filters.limit || 50)),
         },
         error: null,
       };

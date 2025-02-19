@@ -590,3 +590,9 @@ export function parseSearchParams(
   });
   return params;
 }
+
+export function getDateOnly(date: Date | string | null): Date | null {
+  if (!date) return null;
+  const d = new Date(date);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}

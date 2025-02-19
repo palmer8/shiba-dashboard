@@ -63,10 +63,16 @@ export function BoardFilters({ filters }: BoardFiltersProps) {
     params.set("page", "1");
 
     if (dateRange?.from) {
-      params.set("startDate", dateRange.from.toISOString());
+      const fromDate = `${dateRange.from.getFullYear()}-${String(
+        dateRange.from.getMonth() + 1
+      ).padStart(2, "0")}-${String(dateRange.from.getDate()).padStart(2, "0")}`;
+      params.set("startDate", fromDate);
     }
     if (dateRange?.to) {
-      params.set("endDate", dateRange.to.toISOString());
+      const toDate = `${dateRange.to.getFullYear()}-${String(
+        dateRange.to.getMonth() + 1
+      ).padStart(2, "0")}-${String(dateRange.to.getDate()).padStart(2, "0")}`;
+      params.set("endDate", toDate);
     }
 
     if (localFilter.title && localFilter.title.trim()) {
@@ -75,10 +81,6 @@ export function BoardFilters({ filters }: BoardFiltersProps) {
 
     if (localFilter.categoryId && localFilter.categoryId !== "ALL") {
       params.set("categoryId", localFilter.categoryId);
-    }
-
-    if (localFilter.registrantId && localFilter.registrantId.trim()) {
-      params.set("registrantId", localFilter.registrantId.trim());
     }
 
     router.push(`/boards?${params.toString()}`);
@@ -130,30 +132,14 @@ export function BoardFilters({ filters }: BoardFiltersProps) {
             onChange={(e) => handleFilterChange("title", e.target.value)}
           />
         </div>
-
-        <div className="space-y-2">
-          <Label>작성자 고유번호</Label>
-          <Input
-            placeholder="작성자 고유번호 입력"
-            value={localFilter.registrantId || ""}
-            onChange={(e) => handleFilterChange("registrantId", e.target.value)}
-          />
-        </div>
       </div>
 
       <div className="flex items-center justify-end gap-2 mt-6">
-        <Button
-          variant="outline"
-          onClick={handleReset}
-          className="gap-2"
-          size="sm"
-        >
+        <Button variant="outline" onClick={handleReset} className="gap-2">
           <RotateCcw className="h-4 w-4" />
           초기화
         </Button>
-        <Button size="sm" onClick={handleSearch}>
-          조회
-        </Button>
+        <Button onClick={handleSearch}>조회</Button>
       </div>
     </>
   );

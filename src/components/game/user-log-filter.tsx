@@ -57,8 +57,14 @@ export default function UserLogFilter({ filter }: UserLogFilterProps) {
       searchParams.set("type", localFilter.type);
     }
     if (dateRange?.from && dateRange?.to) {
-      searchParams.set("fromDate", dateRange.from.toISOString());
-      searchParams.set("toDate", dateRange.to.toISOString());
+      const formatDate = (date: Date) => {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+          2,
+          "0"
+        )}-${String(date.getDate()).padStart(2, "0")}`;
+      };
+      searchParams.set("startDate", formatDate(dateRange.from));
+      searchParams.set("endDate", formatDate(dateRange.to));
     }
 
     router.replace(`?${searchParams.toString()}`);

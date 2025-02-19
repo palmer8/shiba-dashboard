@@ -9,6 +9,7 @@ import BoardTableSkeleton from "@/components/boards/board-table-skeleton";
 import { BoardContent } from "@/components/boards/board-content";
 import { boardService } from "@/service/board-service";
 import Empty from "@/components/ui/empty";
+import { BoardTable } from "@/components/boards/board-table";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
@@ -26,12 +27,12 @@ interface PageProps {
 
 export default async function BoardsPage({ searchParams }: PageProps) {
   const session = await auth();
-  const params = await searchParams;
-
   if (!session || !session.user) return redirect("/login");
   if (session.user && !session.user.isPermissive) return redirect("/pending");
 
-  const page = parseInt(params.page || "1");
+  const params = await searchParams;
+  const page = Number(params.page) || 0; // 0-based pagination으로 변경
+
   const filters: BoardFilter = {
     page,
     startDate: params.startDate,
@@ -41,7 +42,7 @@ export default async function BoardsPage({ searchParams }: PageProps) {
     title: params.title,
   };
 
-  const boards = await boardService.getBoardList(filters);
+  const result = await boardService.getBoardList(filters);
 
   return (
     <main>
@@ -52,18 +53,19 @@ export default async function BoardsPage({ searchParams }: PageProps) {
       />
       <div className="space-y-4">
         <BoardFilters filters={filters} />
-        <Suspense fallback={<BoardTableSkeleton />}>
-          {boards.error || !boards.data ? (
-            <Empty description="게시글 목록을 불러오는데 실패했습니다." />
-          ) : (
-            <BoardContent
-              session={session}
-              filters={filters}
-              page={page}
-              boards={boards.data}
-            />
-          )}
-        </Suspense>
+        <BoardTable
+          data={result.data?.boards || []}
+          notices={result.data?.notices || []}
+          metadata={
+            result.data?.metadata || {
+              currentPage: 0,
+              totalPages: 0,
+              totalCount: 0,
+            }
+          }
+          page={page}
+          session={session}
+        />
       </div>
     </main>
   );
