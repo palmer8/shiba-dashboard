@@ -226,7 +226,7 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-x-auto w-full">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (

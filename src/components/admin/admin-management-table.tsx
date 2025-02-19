@@ -157,16 +157,16 @@ export function AdminManagementTable({
   };
 
   return (
-    <div className="container mx-auto max-w-7xl space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="relative w-[180px]">
+    <div className="container mx-auto max-w-7xl space-y-4 px-4 sm:px-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="relative w-full sm:w-[180px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="검색"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
+              className="pl-9 w-full"
             />
           </div>
           <Select
@@ -174,7 +174,7 @@ export function AdminManagementTable({
             onValueChange={setRoleFilter}
             defaultValue="ALL"
           >
-            <SelectTrigger className="w-[100px]">
+            <SelectTrigger className="w-full sm:w-[100px]">
               <SelectValue placeholder="권한" />
             </SelectTrigger>
             <SelectContent>
@@ -186,7 +186,7 @@ export function AdminManagementTable({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-end sm:self-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-[100px]">
@@ -227,7 +227,7 @@ export function AdminManagementTable({
 
       <div className="min-h-[50vh]">
         {filteredItems.length > 0 ? (
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {filteredItems.map((admin: AdminDto["items"][number]) => (
               <Card key={admin.id} className="relative">
                 <CardContent className="p-3">
@@ -442,16 +442,17 @@ export function AdminManagementTable({
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-2 pt-4">
+      <div className="flex items-center justify-center gap-2 pt-4 flex-wrap">
         <Button
           variant="outline"
           size="sm"
           onClick={() => handlePageChange(Number(data.page) - 1)}
           disabled={Number(data.page) <= 1}
+          className="order-1"
         >
           이전
         </Button>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 order-2">
           <input
             type="number"
             value={inputPage}
@@ -471,7 +472,7 @@ export function AdminManagementTable({
             min={1}
             max={data.totalPages}
           />
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
             / {data.totalPages}
           </span>
         </div>
@@ -480,6 +481,7 @@ export function AdminManagementTable({
           size="sm"
           onClick={() => handlePageChange(Number(data.page) + 1)}
           disabled={Number(data.page) >= Number(data.totalPages)}
+          className="order-3"
         >
           다음
         </Button>

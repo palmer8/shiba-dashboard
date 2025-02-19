@@ -15,7 +15,7 @@ export default async function RealtimeUserPage() {
   const isAdmin = hasAccess(session.user.role, UserRole.INGAME_ADMIN);
 
   return (
-    <main>
+    <main className="max-w-full w-full overflow-x-auto">
       <PageBreadcrumb />
       <GlobalTitle
         title="유저 정보"

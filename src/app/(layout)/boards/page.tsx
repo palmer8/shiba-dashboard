@@ -60,18 +60,20 @@ export default async function BoardsPage({ searchParams }: PageProps) {
             <Link href="/board/write">글쓰기</Link>
           </Button>
         </div>
-        <BoardTable
-          data={result.data?.boards || []}
-          notices={result.data?.notices || []}
-          metadata={
-            result.data?.metadata || {
-              currentPage: 0,
-              totalPages: 0,
-              totalCount: 0,
+        <div className="w-full overflow-x-auto">
+          <BoardTable
+            data={result.data?.boards || []}
+            notices={result.data?.notices || []}
+            metadata={
+              result.data?.metadata || {
+                currentPage: 0,
+                totalPages: 0,
+                totalCount: 0,
+              }
             }
-          }
-          page={page}
-        />
+            page={page}
+          />
+        </div>
       </div>
     </main>
   );

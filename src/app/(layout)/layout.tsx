@@ -13,7 +13,9 @@ export default function RootLayout({
       <ShibaSidebar />
       <MobileSheet />
       <Suspense fallback={<LoadingOverlay />}>
-        <div className="flex-1">{children}</div>
+        <div className="w-screen h-screen max-w-full overflow-x-hidden">
+          {children}
+        </div>
       </Suspense>
     </>
   );
