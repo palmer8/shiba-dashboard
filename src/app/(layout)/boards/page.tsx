@@ -10,6 +10,8 @@ import { BoardContent } from "@/components/boards/board-content";
 import { boardService } from "@/service/board-service";
 import Empty from "@/components/ui/empty";
 import { BoardTable } from "@/components/boards/board-table";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
@@ -53,6 +55,11 @@ export default async function BoardsPage({ searchParams }: PageProps) {
       />
       <div className="space-y-4">
         <BoardFilters filters={filters} />
+        <div className="flex justify-end">
+          <Button>
+            <Link href="/board/write">글쓰기</Link>
+          </Button>
+        </div>
         <BoardTable
           data={result.data?.boards || []}
           notices={result.data?.notices || []}

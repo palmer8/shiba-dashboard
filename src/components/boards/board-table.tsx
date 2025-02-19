@@ -44,13 +44,23 @@ interface BoardTableProps {
 export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [inputPage, setInputPage] = useState(page.toString());
   const { data: session } = useSession();
 
   const memorizedData = useMemo(() => [...notices, ...data], [notices, data]);
 
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("page", newPage.toString());
+      router.push(`/boards?${params.toString()}`);
+    },
+    [router, searchParams]
+  );
+
+  const [inputPage, setInputPage] = useState((page + 1).toString());
+
   useEffect(() => {
-    setInputPage(page.toString());
+    setInputPage((page + 1).toString());
   }, [page]);
 
   const columns: ColumnDef<BoardData>[] = useMemo(
@@ -181,15 +191,6 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  const handlePageChange = useCallback(
-    (newPage: number) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("page", newPage.toString());
-      router.push(`/boards?${params.toString()}`);
-    },
-    [router, searchParams]
-  );
-
   const handleDelete = useCallback(async (id: string) => {
     if (confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
       const result = await deleteBoardAction(id);
@@ -268,15 +269,15 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
       {memorizedData.length > 0 && (
         <div className="flex items-center justify-between py-2">
           <div className="text-sm text-muted-foreground">
-            총 {metadata.totalCount.toLocaleString()}개 중 {(page - 1) * 50 + 1}
-            -{Math.min(page * 50, metadata.totalCount)}개 표시
+            총 {metadata.totalCount.toLocaleString()}개 중 {page * 50 + 1}-
+            {Math.min((page + 1) * 50, metadata.totalCount)}개 표시
           </div>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => handlePageChange(page - 1)}
-              disabled={page === 1}
+              disabled={page === 0}
             >
               이전
             </Button>
@@ -284,11 +285,17 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
               <input
                 type="number"
                 value={inputPage}
-                onChange={(e) => {
-                  const newPage = parseInt(e.target.value);
-                  if (newPage >= 1 && newPage <= metadata.totalPages) {
-                    handlePageChange(newPage);
+                onChange={(e) => setInputPage(e.target.value)}
+                onBlur={(e) => {
+                  let newPage = parseInt(e.target.value) - 1;
+                  if (isNaN(newPage) || newPage < 0) {
+                    newPage = 0;
+                    setInputPage("1");
+                  } else if (newPage >= metadata.totalPages) {
+                    newPage = metadata.totalPages - 1;
+                    setInputPage(metadata.totalPages.toString());
                   }
+                  handlePageChange(newPage);
                 }}
                 className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 min={1}
@@ -302,7 +309,7 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
               variant="outline"
               size="sm"
               onClick={() => handlePageChange(page + 1)}
-              disabled={page >= metadata.totalPages}
+              disabled={page >= metadata.totalPages - 1}
             >
               다음
             </Button>
