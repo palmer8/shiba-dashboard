@@ -2,7 +2,6 @@ import pool from "@/db/mysql";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 import {
   AddIncidentReportData,
-  EditIncidentReportData,
   ReportFilters,
   WhitelistFilters,
   WhitelistIP,
@@ -22,6 +21,8 @@ import { redirect } from "next/navigation";
 import { BlockTicket, Status, UserRole } from "@prisma/client";
 import { ApiResponse } from "@/types/global.dto";
 import { logService } from "./log-service";
+import { EditIncidentReportFormData } from "@/lib/validations/report";
+import { realtimeService } from "./realtime-service";
 
 class ReportService {
   async getIncidentReports(filters: ReportFilters): Promise<ApiResponse<any>> {
@@ -150,7 +151,8 @@ class ReportService {
     }
 
     try {
-      if (session.user.role === "STAFF" && data.banDurationHours === -1) {
+      // 스태프의 이용 정지 요청 처리
+      if (session.user.role === "STAFF" && data.isBlockRequest) {
         const [result] = await pool.execute<ResultSetHeader>(
           `INSERT INTO dokku_incident_report (
             reason, incident_description, incident_time, 
@@ -167,10 +169,10 @@ class ReportService {
             data.targetUserNickname,
             data.reportingUserId,
             data.reportingUserNickname,
-            "게임정지",
+            data.penaltyType,
             data.warningCount,
             data.detentionTimeMinutes,
-            72,
+            72, // 강제로 72시간 설정
             session.user.nickname,
             data.image,
           ]
@@ -183,6 +185,61 @@ class ReportService {
               reportId: result.insertId,
             },
           });
+
+          await logService.writeAdminLog(
+            `사건 처리 보고서 작성 및 이용 정지 요청 : ${result.insertId}`
+          );
+
+          return {
+            success: true,
+            data: result.insertId,
+            error: null,
+          };
+        }
+      }
+      // 관리자의 영구 정지 처리
+      else if (
+        hasAccess(session.user.role, UserRole.INGAME_ADMIN) &&
+        data.isPermanentBlock
+      ) {
+        const [result] = await pool.execute<ResultSetHeader>(
+          `INSERT INTO dokku_incident_report (
+            reason, incident_description, incident_time, 
+            target_user_id, target_user_nickname,
+            reporting_user_id, reporting_user_nickname,
+            penalty_type, warning_count, detention_time_minutes,
+            ban_duration_hours, admin, image
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            data.reason,
+            data.incidentDescription,
+            data.incidentTime,
+            data.targetUserId,
+            data.targetUserNickname,
+            data.reportingUserId,
+            data.reportingUserNickname,
+            data.penaltyType,
+            data.warningCount,
+            data.detentionTimeMinutes,
+            -1, // 영구 정지로 설정
+            session.user.nickname,
+            data.image,
+          ]
+        );
+
+        if (result.affectedRows > 0) {
+          // 실시간 영구 정지 처리
+          await realtimeService.playerBan(
+            data.targetUserId,
+            data.reason,
+            "-1",
+            "ban"
+          );
+
+          await logService.writeAdminLog(
+            `사건 처리 보고서 작성 및 영구 정지 처리 : ${result.insertId}`
+          );
+
           return {
             success: true,
             data: result.insertId,
@@ -191,16 +248,7 @@ class ReportService {
         }
       }
 
-      const processedData = {
-        ...data,
-        reportingUserId: data.reportingUserId || null,
-        reportingUserNickname: data.reportingUserNickname || null,
-        warningCount: data.warningCount || null,
-        detentionTimeMinutes: data.detentionTimeMinutes || null,
-        banDurationHours: data.banDurationHours || null,
-        image: data.image || null,
-      };
-
+      // 일반 처리
       const [result] = await pool.execute<ResultSetHeader>(
         `INSERT INTO dokku_incident_report (
           reason, incident_description, incident_time, 
@@ -210,19 +258,19 @@ class ReportService {
           ban_duration_hours, admin, image
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          processedData.reason,
-          processedData.incidentDescription,
-          processedData.incidentTime,
-          processedData.targetUserId,
-          processedData.targetUserNickname,
-          processedData.reportingUserId,
-          processedData.reportingUserNickname,
-          processedData.penaltyType,
-          processedData.warningCount,
-          processedData.detentionTimeMinutes,
-          processedData.banDurationHours,
+          data.reason,
+          data.incidentDescription,
+          data.incidentTime,
+          data.targetUserId,
+          data.targetUserNickname,
+          data.reportingUserId,
+          data.reportingUserNickname,
+          data.penaltyType,
+          data.warningCount,
+          data.detentionTimeMinutes,
+          data.banDurationHours,
           session.user.nickname,
-          processedData.image,
+          data.image,
         ]
       );
 
@@ -243,7 +291,7 @@ class ReportService {
         error:
           error instanceof Error
             ? error.message
-            : "알 수 없는 에러가 발생하였습니다.",
+            : "알 수 없는 오류가 발생했습니다",
       };
     }
   }
@@ -291,7 +339,7 @@ class ReportService {
   }
 
   async updateIncidentReport(
-    data: EditIncidentReportData
+    data: EditIncidentReportFormData
   ): Promise<ReportActionResponse> {
     const session = await auth();
 
@@ -299,103 +347,153 @@ class ReportService {
       return redirect("/login");
     }
 
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
     try {
-      if (session.user.role === "STAFF" && data.banDurationHours === -1) {
-        const [result] = await pool.execute<ResultSetHeader>(
-          `UPDATE dokku_incident_report 
-           SET reason = ?, 
-               incident_description = ?,
-               incident_time = ?,
-               image = ?,
-               penalty_type = ?,
-               warning_count = ?,
-               ban_duration_hours = ?,
-               target_user_id = ?,
-               target_user_nickname = ?,
-               reporting_user_id = ?,
-               reporting_user_nickname = ?,
-               detention_time_minutes = ?,
-           WHERE report_id = ?`,
+      // 기존 보고서 조회
+      const [existingReport] = await connection.query<RowDataPacket[]>(
+        `SELECT * FROM dokku_incident_report WHERE report_id = ?`,
+        [data.reportId]
+      );
+
+      if (!existingReport[0]) {
+        throw new Error("보고서를 찾을 수 없습니다.");
+      }
+
+      // 스태프의 이용 정지 요청 처리
+      if (session.user.role === "STAFF" && data.isBlockRequest) {
+        // 보고서 업데이트 (72시간으로 설정)
+        await connection.execute(
+          `UPDATE dokku_incident_report SET
+            reason = ?, incident_description = ?, incident_time = ?,
+            target_user_id = ?, target_user_nickname = ?,
+            reporting_user_id = ?, reporting_user_nickname = ?,
+            penalty_type = ?, warning_count = ?,
+            detention_time_minutes = ?, ban_duration_hours = ?,
+            admin = ?, image = ?
+          WHERE report_id = ?`,
           [
             data.reason,
             data.incidentDescription,
             data.incidentTime,
-            data.image,
-            data.penaltyType,
-            data.warningCount || null,
-            72,
             data.targetUserId,
             data.targetUserNickname,
             data.reportingUserId || null,
             data.reportingUserNickname || null,
+            data.penaltyType,
+            data.warningCount || null,
             data.detentionTimeMinutes || null,
+            72, // 강제로 72시간 설정
+            session.user.nickname,
+            data.image || null,
             data.reportId,
           ]
         );
 
-        if (result.affectedRows > 0) {
-          await prisma.blockTicket.create({
-            data: {
-              registrantId: session.user.id,
-              reportId: data.reportId,
-            },
-          });
+        // BlockTicket 생성
+        await prisma.blockTicket.create({
+          data: {
+            registrantId: session.user.id,
+            reportId: data.reportId,
+          },
+        });
+
+        await logService.writeAdminLog(
+          `사건 처리 보고서 수정 및 이용 정지 요청 : ${data.reportId}`
+        );
+      }
+      // 관리자의 영구 정지 처리
+      else if (
+        hasAccess(session.user.role, UserRole.INGAME_ADMIN) &&
+        data.isPermanentBlock
+      ) {
+        // 보고서 업데이트
+        await connection.execute(
+          `UPDATE dokku_incident_report SET
+            reason = ?, incident_description = ?, incident_time = ?,
+            target_user_id = ?, target_user_nickname = ?,
+            reporting_user_id = ?, reporting_user_nickname = ?,
+            penalty_type = ?, warning_count = ?,
+            detention_time_minutes = ?, ban_duration_hours = ?,
+            admin = ?, image = ?
+          WHERE report_id = ?`,
+          [
+            data.reason,
+            data.incidentDescription,
+            data.incidentTime,
+            data.targetUserId,
+            data.targetUserNickname,
+            data.reportingUserId || null,
+            data.reportingUserNickname || null,
+            data.penaltyType,
+            data.warningCount || null,
+            data.detentionTimeMinutes || null,
+            -1, // 영구 정지로 설정
+            session.user.nickname,
+            data.image || null,
+            data.reportId,
+          ]
+        );
+
+        const result = await realtimeService.playerBan(
+          data.targetUserId,
+          data.reason,
+          "-1", // 영구정지
+          "ban"
+        );
+
+        console.log(result);
+
+        if (!result.success) {
+          throw new Error("banned API failed");
         }
+
+        await logService.writeAdminLog(
+          `사건 처리 보고서 수정 및 영구 정지 처리 : ${data.reportId}`
+        );
+      } else {
+        // 일반 수정 처리
+        await connection.execute(
+          `UPDATE dokku_incident_report SET
+            reason = ?, incident_description = ?, incident_time = ?,
+            target_user_id = ?, target_user_nickname = ?,
+            reporting_user_id = ?, reporting_user_nickname = ?,
+            penalty_type = ?, warning_count = ?,
+            detention_time_minutes = ?, ban_duration_hours = ?,
+            admin = ?, image = ?
+          WHERE report_id = ?`,
+          [
+            data.reason,
+            data.incidentDescription,
+            data.incidentTime,
+            data.targetUserId,
+            data.targetUserNickname,
+            data.reportingUserId || null,
+            data.reportingUserNickname || null,
+            data.penaltyType,
+            data.warningCount || null,
+            data.detentionTimeMinutes || null,
+            data.banDurationHours || null,
+            session.user.nickname,
+            data.image || null,
+            data.reportId,
+          ]
+        );
+
+        await logService.writeAdminLog(
+          `사건 처리 보고서 수정 : ${data.reportId}`
+        );
       }
 
-      const processedData = {
-        ...data,
-        reportingUserId: data.reportingUserId || null,
-        reportingUserNickname: data.reportingUserNickname || null,
-        warningCount: data.warningCount || null,
-        detentionTimeMinutes: data.detentionTimeMinutes || null,
-        banDurationHours: data.banDurationHours || null,
-        image: data.image || null,
-      };
-
-      const [result] = await pool.execute<ResultSetHeader>(
-        `UPDATE dokku_incident_report 
-         SET reason = ?, 
-             incident_description = ?,
-             incident_time = ?,
-             image = ?,
-             penalty_type = ?,
-             warning_count = ?,
-             ban_duration_hours = ?,
-             target_user_id = ?,
-             target_user_nickname = ?,
-             reporting_user_id = ?,
-             reporting_user_nickname = ?,
-             detention_time_minutes = ?
-         WHERE report_id = ?`,
-        [
-          processedData.reason,
-          processedData.incidentDescription,
-          processedData.incidentTime,
-          processedData.image,
-          processedData.penaltyType,
-          processedData.warningCount,
-          processedData.banDurationHours,
-          processedData.targetUserId,
-          processedData.targetUserNickname,
-          processedData.reportingUserId,
-          processedData.reportingUserNickname,
-          processedData.detentionTimeMinutes,
-          processedData.reportId,
-        ]
-      );
-
-      await logService.writeAdminLog(
-        `사건 처리 보고서 수정 : ${data.reportId}`
-      );
-
+      await connection.commit();
       return {
-        success: result.affectedRows > 0,
-        data: result.affectedRows > 0 ? data.reportId : null,
-        error:
-          result.affectedRows > 0 ? null : "해당 보고서를 찾을 수 없습니다",
+        success: true,
+        data: data.reportId,
+        error: null,
       };
     } catch (error) {
+      await connection.rollback();
       console.error("Update incident report error:", error);
       return {
         success: false,
@@ -403,8 +501,10 @@ class ReportService {
         error:
           error instanceof Error
             ? error.message
-            : "알 수 없는 에러가 발생하였습니다",
+            : "알 수 없는 오류가 발생했습니다",
       };
+    } finally {
+      connection.release();
     }
   }
 
@@ -1344,6 +1444,40 @@ class ReportService {
           error instanceof Error
             ? error.message
             : "알 수 없는 에러가 발생했습니다.",
+      };
+    }
+  }
+
+  async getBlockTicketByReportId(
+    reportId: number
+  ): Promise<ApiResponse<BlockTicket | null>> {
+    const session = await auth();
+
+    if (!session?.user) {
+      return redirect("/login");
+    }
+
+    try {
+      const blockTicket = await prisma.blockTicket.findFirst({
+        where: {
+          reportId: reportId,
+        },
+      });
+
+      return {
+        success: true,
+        data: blockTicket,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get block ticket by report ID error:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
       };
     }
   }

@@ -45,6 +45,7 @@ import { ImageUpload } from "@/components/ui/image-upload";
 import Image from "next/image";
 import { useDebounce } from "@/hooks/use-debounce";
 import { DateTimePicker24h } from "@/components/ui/datetime-picker";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AddIncidentReportDialogProps {
   session: Session;
@@ -54,7 +55,8 @@ export default function AddIncidentReportDialog({
   session,
 }: AddIncidentReportDialogProps) {
   const [open, setOpen] = useState(false);
-  const [isPermanentBan, setIsPermanentBan] = useState(false);
+  const [isBlockRequest, setIsBlockRequest] = useState(false);
+  const [isPermanentBlock, setIsPermanentBlock] = useState(false);
   const isStaff = session?.user?.role === "STAFF";
 
   const form = useForm<IncidentReportFormData>({
@@ -76,6 +78,7 @@ export default function AddIncidentReportDialog({
   });
 
   const watchPenaltyType = form.watch("penaltyType");
+  const showBlockControls = watchPenaltyType === "게임정지";
 
   const onSubmit = async (data: IncidentReportFormData) => {
     try {
@@ -86,6 +89,16 @@ export default function AddIncidentReportDialog({
         case "게임정지":
           processedData.warningCount = 0;
           processedData.detentionTimeMinutes = 0;
+
+          // 스태프가 이용 정지 요청을 했을 경우
+          if (isStaff && isBlockRequest) {
+            processedData.banDurationHours = 72;
+            processedData.isBlockRequest = true;
+          }
+          // 관리자가 영구 정지를 선택했을 경우
+          else if (!isStaff && isPermanentBlock) {
+            processedData.isPermanentBlock = true;
+          }
           break;
         case "경고":
           processedData.banDurationHours = 0;
@@ -104,16 +117,12 @@ export default function AddIncidentReportDialog({
       const result = await createIncidentReportAction(processedData);
 
       if (result.success) {
-        if (isStaff && isPermanentBan) {
-          toast({
-            title: "영구정지 요청 등록 완료",
-            description: "관리자 승인 후 처리됩니다.",
-          });
-        } else {
-          toast({
-            title: "사건 처리 보고서 등록 완료",
-          });
-        }
+        toast({
+          title:
+            isStaff && isBlockRequest
+              ? "이용 정지 요청이 등록되었습니다"
+              : "사건 처리 보고서가 등록되었습니다",
+        });
         setOpen(false);
         form.reset();
       } else {
@@ -135,7 +144,8 @@ export default function AddIncidentReportDialog({
   useEffect(() => {
     if (!open) {
       form.reset();
-      setIsPermanentBan(false);
+      setIsBlockRequest(false);
+      setIsPermanentBlock(false);
     }
   }, [open, form]);
 
@@ -435,31 +445,46 @@ export default function AddIncidentReportDialog({
             )}
 
             {watchPenaltyType === "게임정지" && (
-              <div className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="banDurationHours"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>정지 시간 (시간)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          {...field}
-                          value={field.value ?? ""}
-                          onChange={(e) =>
-                            handleNumberInput(e, field.onChange, true)
-                          }
-                          disabled={isPermanentBan}
-                          min={-1}
-                          max={72}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="banDurationHours"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>정지 시간 (시간)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        value={field.value ?? ""}
+                        min={1}
+                        max={72}
+                        disabled={isStaff ? isBlockRequest : isPermanentBlock}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {showBlockControls && (
+              <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={isStaff ? isBlockRequest : isPermanentBlock}
+                    onCheckedChange={(checked) => {
+                      if (isStaff) {
+                        setIsBlockRequest(checked === true);
+                      } else {
+                        setIsPermanentBlock(checked === true);
+                      }
+                    }}
+                  />
+                </FormControl>
+                <FormLabel>
+                  {isStaff ? "이용 정지 요청" : "영구 정지"}
+                </FormLabel>
+              </FormItem>
             )}
 
             <FormField
@@ -467,7 +492,7 @@ export default function AddIncidentReportDialog({
               name="image"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>첨거 사진</FormLabel>
+                  <FormLabel>첨부 사진</FormLabel>
                   <FormControl>
                     <div className="grid gap-2">
                       {field.value && (

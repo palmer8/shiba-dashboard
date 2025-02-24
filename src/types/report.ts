@@ -46,6 +46,8 @@ export type IncidentReportData = {
   detentionTimeMinutes: number | null;
   banDurationHours: number | null;
   image: string | null;
+  isBlockRequest?: boolean; // 스태프의 이용 정지 요청 여부
+  isPermanentBlock?: boolean; // 관리자의 영구 정지 여부
 };
 
 // 생성 시 사용

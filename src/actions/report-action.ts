@@ -25,9 +25,23 @@ export async function createIncidentReportAction(
 export async function updateIncidentReportAction(
   data: EditIncidentReportData
 ): Promise<ReportActionResponse> {
-  const result = await reportService.updateIncidentReport(data);
-  if (result.success) revalidatePath("/block/report");
-  return result;
+  try {
+    const result = await reportService.updateIncidentReport(data);
+    if (result.success) {
+      revalidatePath("/block/report");
+      revalidatePath("/admin/report"); // BlockTicket 관련 페이지도 리밸리데이션
+    }
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error:
+        error instanceof Error
+          ? error.message
+          : "알 수 없는 오류가 발생했습니다.",
+    };
+  }
 }
 
 export async function deleteIncidentReportAction(

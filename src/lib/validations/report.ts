@@ -55,6 +55,8 @@ export const incidentReportBaseSchema = z.object({
   detentionTimeMinutes: z.coerce.number().nullable(),
   banDurationHours: z.coerce.number().nullable(),
   image: z.string().nullable(),
+  isBlockRequest: z.boolean().optional(),
+  isPermanentBlock: z.boolean().optional(),
 });
 
 export const addIncidentReportSchema = incidentReportBaseSchema;
