@@ -45,12 +45,22 @@ interface MetricsData {
 
 type TimeRange = "day" | "week" | "month";
 
-function formatBytes(bytes: number | string | null | undefined) {
+function formatBytes(
+  bytes: number | string | null | undefined,
+  toMbps = false
+) {
   if (bytes === null || bytes === undefined || isNaN(Number(bytes))) {
     return "0 B";
   }
 
   const numBytes = Number(bytes);
+
+  if (toMbps) {
+    // bytes/s를 Mbps로 변환 (bytes -> bits (* 8) -> Mb (/ 1024 / 1024))
+    const mbps = (numBytes * 8) / (1024 * 1024);
+    return `${mbps.toFixed(2)} Mbps`;
+  }
+
   const units = ["B", "KB", "MB", "GB"];
   let value = numBytes;
   let unitIndex = 0;
@@ -208,23 +218,26 @@ export function ServerMetricsChart() {
                   <CartesianGrid
                     strokeDasharray="3 3"
                     className="stroke-border"
+                    stroke="var(--border)"
                   />
                   <XAxis
                     dataKey="time"
                     tickFormatter={(time) => formatTime(time, timeRange)}
-                    tick={{ fill: "var(--foreground)" }}
+                    tick={{ fill: "currentColor" }}
+                    stroke="currentColor"
                   />
                   <YAxis
                     label={{
                       value:
                         selectedMetric === "network"
-                          ? "트래픽 (bytes/s)"
+                          ? "트래픽 (Mbps)"
                           : "사용률 (%)",
                       angle: -90,
                       position: "insideLeft",
-                      className: "fill-foreground",
+                      fill: "currentColor",
                     }}
-                    tick={{ fill: "var(--foreground)" }}
+                    tick={{ fill: "currentColor" }}
+                    stroke="currentColor"
                     domain={
                       selectedMetric === "network" ? ["auto", "auto"] : [0, 100]
                     }
@@ -232,7 +245,7 @@ export function ServerMetricsChart() {
                   <Tooltip
                     formatter={(value: number) =>
                       selectedMetric === "network"
-                        ? [formatBytes(value), "네트워크 트래픽"]
+                        ? [formatBytes(value, true), "네트워크 트래픽"]
                         : [
                             `${value.toFixed(2)}%`,
                             `${
@@ -246,7 +259,7 @@ export function ServerMetricsChart() {
                     contentStyle={{
                       backgroundColor: "var(--background)",
                       border: "1px solid var(--border)",
-                      color: "var(--foreground)",
+                      color: "currentColor",
                     }}
                   />
                   <Line
@@ -301,13 +314,13 @@ export function ServerMetricsChart() {
               <div className="text-2xl font-bold text-red-700 dark:text-red-300">
                 {formatBytes(
                   metrics.current.network.bytesReceived +
-                    metrics.current.network.bytesSent
+                    metrics.current.network.bytesSent,
+                  true
                 )}
-                /s
               </div>
               <div className="text-xs text-red-600 dark:text-red-400">
-                ↑ {formatBytes(metrics.current.network.bytesSent)}/s | ↓{" "}
-                {formatBytes(metrics.current.network.bytesReceived)}/s
+                ↑ {formatBytes(metrics.current.network.bytesSent, true)} | ↓{" "}
+                {formatBytes(metrics.current.network.bytesReceived, true)}
               </div>
             </div>
           </div>
