@@ -17,6 +17,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/api/metrics",
+        destination: "http://95.214.178.186:3001/metrics",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -15,7 +15,7 @@ import {
 import { Loader2 } from "lucide-react";
 
 // API URL 설정
-const METRICS_API_URL = process.env.NEXT_PUBLIC_METRICS_API_URL || "";
+const METRICS_API_URL = "/api/metrics";
 
 interface MetricsData {
   current: {
