@@ -14,18 +14,21 @@ import {
 } from "recharts";
 import { Loader2 } from "lucide-react";
 
+// API URL 설정
+const METRICS_API_URL = process.env.NEXT_PUBLIC_METRICS_API_URL || "";
+
 interface MetricsData {
   current: {
     cpu: {
-      usage: string;
+      usage: number;
       cores: number;
       platform: string;
-      loadAverage: string;
+      loadAverage: number;
     };
     memory: {
-      total: string;
-      used: string;
-      usagePercent: string;
+      total: number;
+      used: number;
+      usagePercent: number;
     };
     network: {
       bytesReceived: number;
@@ -36,8 +39,11 @@ interface MetricsData {
     cpu: number[];
     memory: number[];
     network: number[];
+    timestamp: number[];
   };
 }
+
+type TimeRange = "day" | "week" | "month";
 
 function formatBytes(bytes: number | string | null | undefined) {
   if (bytes === null || bytes === undefined || isNaN(Number(bytes))) {
@@ -57,41 +63,34 @@ function formatBytes(bytes: number | string | null | undefined) {
   return `${value.toFixed(2)} ${units[unitIndex]}`;
 }
 
+function formatTime(date: Date, timeRange: TimeRange) {
+  const options: Intl.DateTimeFormatOptions = {
+    day: { hour: "2-digit" as const, minute: "2-digit" as const },
+    week: { weekday: "short" as const, hour: "2-digit" as const },
+    month: { month: "short" as const, day: "numeric" as const },
+  }[timeRange];
+
+  return new Intl.DateTimeFormat("ko-KR", options).format(date);
+}
+
+function prepareChartData(
+  history: MetricsData["history"],
+  selectedMetric: "cpu" | "memory" | "network"
+) {
+  return history.timestamp.map((time, index) => ({
+    time: new Date(time),
+    value: history[selectedMetric][index],
+  }));
+}
+
 export function ServerMetricsChart() {
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const processMetricsData = (rawData: any): MetricsData => {
-    return {
-      current: {
-        cpu: {
-          usage: String(rawData.current.cpu.usage || 0),
-          cores: Number(rawData.current.cpu.cores || 1),
-          platform: String(rawData.current.cpu.platform || "unknown"),
-          loadAverage: String(rawData.current.cpu.loadAverage || 0),
-        },
-        memory: {
-          total: String(rawData.current.memory.total || 0),
-          used: String(rawData.current.memory.used || 0),
-          usagePercent: String(rawData.current.memory.usagePercent || 0),
-        },
-        network: {
-          bytesReceived: Number(rawData.current.network.bytesReceived || 0),
-          bytesSent: Number(rawData.current.network.bytesSent || 0),
-        },
-      },
-      history: {
-        cpu: Array.isArray(rawData.history.cpu) ? rawData.history.cpu : [],
-        memory: Array.isArray(rawData.history.memory)
-          ? rawData.history.memory
-          : [],
-        network: Array.isArray(rawData.history.network)
-          ? rawData.history.network
-          : [],
-      },
-    };
-  };
+  const [timeRange, setTimeRange] = useState<TimeRange>("day");
+  const [selectedMetric, setSelectedMetric] = useState<
+    "cpu" | "memory" | "network"
+  >("cpu");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -99,21 +98,22 @@ export function ServerMetricsChart() {
 
     const fetchMetrics = async () => {
       try {
-        const response = await fetch("/api/resource", {
-          signal: controller.signal,
-          headers: {
-            Accept: "application/json",
-          },
-          cache: "no-store",
-        });
+        const response = await fetch(
+          `${METRICS_API_URL}?timeRange=${timeRange}`,
+          {
+            signal: controller.signal,
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        );
 
         if (!response.ok) throw new Error("서버 응답 오류");
 
         const result = await response.json();
 
         if (result.success && isMounted) {
-          const processedData = processMetricsData(result.data);
-          setMetrics(processedData);
+          setMetrics(result.data);
           setError(null);
         } else {
           throw new Error(result.error || "데이터 형식 오류");
@@ -133,31 +133,14 @@ export function ServerMetricsChart() {
     };
 
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 3000);
+    const interval = setInterval(fetchMetrics, 5000);
 
     return () => {
       isMounted = false;
       controller.abort();
       clearInterval(interval);
     };
-  }, []);
-
-  const formatChartData = (historyData: number[], label: string) => {
-    const now = new Date();
-
-    return historyData.map((value, index) => {
-      const time = new Date(
-        now.getTime() - (historyData.length - 1 - index) * 5 * 60 * 1000
-      );
-      const hours = time.getHours().toString().padStart(2, "0");
-      const minutes = time.getMinutes().toString().padStart(2, "0");
-
-      return {
-        time: `${hours}:${minutes}`,
-        [label]: value,
-      };
-    });
-  };
+  }, [timeRange]);
 
   if (loading) {
     return (
@@ -181,214 +164,153 @@ export function ServerMetricsChart() {
 
   if (!metrics) return null;
 
+  const chartData = metrics.history
+    ? prepareChartData(metrics.history, selectedMetric)
+    : [];
+
   return (
     <Card className="col-span-full">
       <CardHeader>
         <CardTitle>서버 리소스 모니터링</CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="cpu" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="cpu">CPU</TabsTrigger>
-            <TabsTrigger value="memory">메모리</TabsTrigger>
-            {/* <TabsTrigger value="network">네트워크</TabsTrigger> */}
-          </TabsList>
+        <div className="space-y-6">
+          <Tabs
+            defaultValue="day"
+            className="space-y-4"
+            value={timeRange}
+            onValueChange={(value) => setTimeRange(value as TimeRange)}
+          >
+            <TabsList>
+              <TabsTrigger value="day">일간</TabsTrigger>
+              <TabsTrigger value="week">주간</TabsTrigger>
+              <TabsTrigger value="month">월간</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-          <TabsContent value="cpu" className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={formatChartData(metrics.history.cpu, "usage")}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  className="stroke-border"
-                />
-                <XAxis
-                  dataKey="time"
-                  label={{
-                    value: "",
-                    position: "insideBottom",
-                    offset: -10,
-                    className: "fill-foreground",
-                  }}
-                  tick={{ fill: "var(--foreground)" }}
-                />
-                <YAxis
-                  label={{
-                    value: "CPU 사용률 (%)",
-                    angle: -90,
-                    position: "insideLeft",
-                    className: "fill-foreground",
-                  }}
-                  tick={{ fill: "var(--foreground)" }}
-                  domain={[0, 100]}
-                />
-                <Tooltip
-                  formatter={(value: number) => [
-                    `${value.toFixed(2)}%`,
-                    "CPU 사용률",
-                  ]}
-                  labelFormatter={(label) => `${label}`}
-                  contentStyle={{
-                    backgroundColor: "var(--background)",
-                    border: "1px solid var(--border)",
-                    color: "var(--foreground)",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="usage"
-                  stroke="#2563eb"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </TabsContent>
+          <Tabs
+            defaultValue="cpu"
+            className="space-y-4"
+            value={selectedMetric}
+            onValueChange={(value) =>
+              setSelectedMetric(value as "cpu" | "memory" | "network")
+            }
+          >
+            <TabsList>
+              <TabsTrigger value="cpu">CPU</TabsTrigger>
+              <TabsTrigger value="memory">메모리</TabsTrigger>
+              <TabsTrigger value="network">네트워크</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="memory" className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={formatChartData(metrics.history.memory, "usage")}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  className="stroke-border"
-                />
-                <XAxis
-                  dataKey="time"
-                  label={{
-                    value: "",
-                    position: "insideBottom",
-                    offset: -10,
-                    className: "fill-foreground",
-                  }}
-                  tick={{ fill: "var(--foreground)" }}
-                />
-                <YAxis
-                  label={{
-                    value: "메모리 사용률 (%)",
-                    angle: -90,
-                    position: "insideLeft",
-                    className: "fill-foreground",
-                  }}
-                  tick={{ fill: "var(--foreground)" }}
-                  domain={[0, 100]}
-                />
-                <Tooltip
-                  formatter={(value: number) => [
-                    `${value.toFixed(2)}%`,
-                    "메모리 사용률",
-                  ]}
-                  labelFormatter={(label) => `${label}`}
-                  contentStyle={{
-                    backgroundColor: "var(--background)",
-                    border: "1px solid var(--border)",
-                    color: "var(--foreground)",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="usage"
-                  stroke="#16a34a"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </TabsContent>
-
-          {/* <TabsContent value="network" className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={formatChartData(metrics.history.network, "traffic")}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  className="stroke-border"
-                />
-                <XAxis
-                  dataKey="time"
-                  label={{
-                    value: "시간",
-                    position: "insideBottom",
-                    offset: -10,
-                    className: "fill-foreground",
-                  }}
-                  tick={{ fill: "var(--foreground)" }}
-                />
-                <YAxis
-                  label={{
-                    value: "네트워크 트래픽",
-                    angle: -90,
-                    position: "insideLeft",
-                    className: "fill-foreground",
-                  }}
-                  tick={{ fill: "var(--foreground)" }}
-                />
-                <Tooltip
-                  formatter={(value: number) => [
-                    formatBytes(value),
-                    "네트워크 트래픽",
-                  ]}
-                  labelFormatter={(label) => `${label}`}
-                  contentStyle={{
-                    backgroundColor: "var(--muted-background)",
-                    border: "1px solid var(--border)",
-                    color: "var(--foreground)",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="traffic"
-                  stroke="#dc2626"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </TabsContent> */}
-        </Tabs>
-
-        {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4"> */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950">
-            <div className="text-sm text-blue-600 dark:text-blue-400">CPU</div>
-            <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-              {metrics.current.cpu.usage}%
+            <div className="h-[400px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                  />
+                  <XAxis
+                    dataKey="time"
+                    tickFormatter={(time) => formatTime(time, timeRange)}
+                    tick={{ fill: "var(--foreground)" }}
+                  />
+                  <YAxis
+                    label={{
+                      value:
+                        selectedMetric === "network"
+                          ? "트래픽 (bytes/s)"
+                          : "사용률 (%)",
+                      angle: -90,
+                      position: "insideLeft",
+                      className: "fill-foreground",
+                    }}
+                    tick={{ fill: "var(--foreground)" }}
+                    domain={
+                      selectedMetric === "network" ? ["auto", "auto"] : [0, 100]
+                    }
+                  />
+                  <Tooltip
+                    formatter={(value: number) =>
+                      selectedMetric === "network"
+                        ? [formatBytes(value), "네트워크 트래픽"]
+                        : [
+                            `${value.toFixed(2)}%`,
+                            `${
+                              selectedMetric === "cpu" ? "CPU" : "메모리"
+                            } 사용률`,
+                          ]
+                    }
+                    labelFormatter={(label: Date) =>
+                      formatTime(label, timeRange)
+                    }
+                    contentStyle={{
+                      backgroundColor: "var(--background)",
+                      border: "1px solid var(--border)",
+                      color: "var(--foreground)",
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke={
+                      selectedMetric === "cpu"
+                        ? "#2563eb"
+                        : selectedMetric === "memory"
+                        ? "#16a34a"
+                        : "#dc2626"
+                    }
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
-            <div className="text-xs text-blue-600 dark:text-blue-400">
-              {metrics.current.cpu.cores} Cores | Load:{" "}
-              {metrics.current.cpu.loadAverage}
+          </Tabs>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950">
+              <div className="text-sm text-blue-600 dark:text-blue-400">
+                CPU
+              </div>
+              <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                {metrics.current.cpu.usage.toFixed(1)}%
+              </div>
+              <div className="text-xs text-blue-600 dark:text-blue-400">
+                {metrics.current.cpu.cores} Cores | Load:{" "}
+                {metrics.current.cpu.loadAverage.toFixed(2)}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950">
+              <div className="text-sm text-green-600 dark:text-green-400">
+                메모리
+              </div>
+              <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                {metrics.current.memory.usagePercent.toFixed(1)}%
+              </div>
+              <div className="text-xs text-green-600 dark:text-green-400">
+                {formatBytes(metrics.current.memory.used)} /{" "}
+                {formatBytes(metrics.current.memory.total)}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-red-50 dark:bg-red-950">
+              <div className="text-sm text-red-600 dark:text-red-400">
+                네트워크
+              </div>
+              <div className="text-2xl font-bold text-red-700 dark:text-red-300">
+                {formatBytes(
+                  metrics.current.network.bytesReceived +
+                    metrics.current.network.bytesSent
+                )}
+                /s
+              </div>
+              <div className="text-xs text-red-600 dark:text-red-400">
+                ↑ {formatBytes(metrics.current.network.bytesSent)}/s | ↓{" "}
+                {formatBytes(metrics.current.network.bytesReceived)}/s
+              </div>
             </div>
           </div>
-
-          <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950">
-            <div className="text-sm text-green-600 dark:text-green-400">
-              메모리
-            </div>
-            <div className="text-2xl font-bold text-green-700 dark:text-green-300">
-              {metrics.current.memory.usagePercent}%
-            </div>
-            <div className="text-xs text-green-600 dark:text-green-400">
-              {metrics.current.memory.used} / {metrics.current.memory.total}
-            </div>
-          </div>
-
-          {/* <div className="p-4 rounded-lg bg-red-50 dark:bg-red-950">
-            <div className="text-sm text-red-600 dark:text-red-400">
-              네트워크
-            </div>
-            <div className="text-2xl font-bold text-red-700 dark:text-red-300">
-              {formatBytes(
-                metrics.current.network.bytesReceived +
-                  metrics.current.network.bytesSent
-              )}
-              /s
-            </div>
-            <div className="text-xs text-red-600 dark:text-red-400">
-              ↑ {formatBytes(metrics.current.network.bytesSent)}/s | ↓{" "}
-              {formatBytes(metrics.current.network.bytesReceived)}/s
-            </div>
-          </div> */}
         </div>
       </CardContent>
     </Card>
