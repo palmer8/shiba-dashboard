@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -55,19 +55,49 @@ export default function EditCouponDialog({
   const form = useForm<EditCouponGroupValues>({
     resolver: zodResolver(editCouponGroupSchema),
     defaultValues: {
-      groupName: couponGroup.groupName,
-      groupReason: couponGroup.groupReason,
-      groupType: couponGroup.groupType,
-      code: couponGroup.code || "",
-      startDate: new Date(couponGroup.startDate),
-      endDate: new Date(couponGroup.endDate),
-      usageLimit: couponGroup.usageLimit || 0,
-      quantity: couponGroup.quantity,
-      rewards: Array.isArray(couponGroup.rewards)
+      groupName: couponGroup?.groupName || "",
+      groupReason: couponGroup?.groupReason || "",
+      groupType: couponGroup?.groupType || "COMMON",
+      code: couponGroup?.code || "",
+      startDate: couponGroup?.startDate
+        ? new Date(couponGroup.startDate)
+        : new Date(),
+      endDate: couponGroup?.endDate
+        ? new Date(couponGroup.endDate)
+        : new Date(),
+      usageLimit: couponGroup?.usageLimit || 0,
+      quantity: couponGroup?.quantity || 0,
+      rewards: Array.isArray(couponGroup?.rewards)
         ? couponGroup.rewards
-        : JSON.parse(couponGroup.rewards as string),
+        : couponGroup?.rewards
+        ? JSON.parse(couponGroup.rewards as string)
+        : [],
     },
   });
+
+  useEffect(() => {
+    if (couponGroup) {
+      form.reset({
+        groupName: couponGroup.groupName || "",
+        groupReason: couponGroup.groupReason || "",
+        groupType: couponGroup.groupType || "COMMON",
+        code: couponGroup.code || "",
+        startDate: couponGroup.startDate
+          ? new Date(couponGroup.startDate)
+          : new Date(),
+        endDate: couponGroup.endDate
+          ? new Date(couponGroup.endDate)
+          : new Date(),
+        usageLimit: couponGroup.usageLimit || 0,
+        quantity: couponGroup.quantity || 0,
+        rewards: Array.isArray(couponGroup.rewards)
+          ? couponGroup.rewards
+          : couponGroup.rewards
+          ? JSON.parse(couponGroup.rewards as string)
+          : [],
+      });
+    }
+  }, [couponGroup, form]);
 
   const handleRewardUpdate = (
     index: number,

@@ -75,9 +75,21 @@ function formatBytes(
 
 function formatTime(date: Date, timeRange: TimeRange) {
   const options: Intl.DateTimeFormatOptions = {
-    day: { hour: "2-digit" as const, minute: "2-digit" as const },
-    week: { weekday: "short" as const, hour: "2-digit" as const },
-    month: { month: "short" as const, day: "numeric" as const },
+    day: {
+      hour: "2-digit" as const,
+      minute: "2-digit" as const,
+      hour12: false as const,
+    },
+    week: {
+      weekday: "short" as const,
+      hour: "2-digit" as const,
+      hour12: false as const,
+    },
+    month: {
+      month: "short" as const,
+      day: "numeric" as const,
+      hour12: false as const,
+    },
   }[timeRange];
 
   return new Intl.DateTimeFormat("ko-KR", options).format(date);

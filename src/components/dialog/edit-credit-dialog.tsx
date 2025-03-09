@@ -72,13 +72,29 @@ export default function EditCreditDialog({
 
   const form = useForm<CreditValues>({
     defaultValues: {
-      userId: credit.userId.toString(),
-      creditType: credit.creditType,
-      type: credit.type,
-      amount: credit.amount.toString(),
-      reason: credit.reason,
+      userId: credit?.userId?.toString() || "",
+      creditType: credit?.creditType || "MONEY",
+      type: credit?.type || "ADD",
+      amount: credit?.amount?.toString() || "0",
+      reason: credit?.reason || "",
     },
   });
+
+  // credit prop이 변경될 때마다 폼 값을 업데이트
+  useEffect(() => {
+    if (credit) {
+      form.reset({
+        userId: credit.userId?.toString() || "",
+        creditType: credit.creditType || "MONEY",
+        type: credit.type || "ADD",
+        amount: credit.amount?.toString() || "0",
+        reason: credit.reason || "",
+      });
+
+      // 닉네임도 함께 업데이트
+      fetchNickname(credit.userId?.toString() || "");
+    }
+  }, [credit, form]);
 
   const formattedAmount = useMemo(() => {
     const amount = Number(form.watch("amount"));

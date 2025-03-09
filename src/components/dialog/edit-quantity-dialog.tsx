@@ -62,15 +62,33 @@ export default function EditItemQuantityDialog({
   const form = useForm<ItemQuantityValues>({
     resolver: zodResolver(ItemQuantitySchema),
     defaultValues: {
-      userId: itemQuantity.userId.toString() || "",
+      userId: itemQuantity?.userId?.toString() || "",
       nickname: nickname || "",
-      itemId: itemQuantity.itemId || "",
-      itemName: itemQuantity.itemName || "",
-      amount: itemQuantity.amount.toString() || "",
-      type: itemQuantity.type || "",
-      reason: itemQuantity.reason || "",
+      itemId: itemQuantity?.itemId || "",
+      itemName: itemQuantity?.itemName || "",
+      amount: itemQuantity?.amount?.toString() || "",
+      type: itemQuantity?.type || "",
+      reason: itemQuantity?.reason || "",
     },
   });
+
+  // itemQuantity prop이 변경될 때마다 폼 값을 업데이트
+  useEffect(() => {
+    if (itemQuantity) {
+      form.reset({
+        userId: itemQuantity.userId?.toString() || "",
+        nickname: nickname || "",
+        itemId: itemQuantity.itemId || "",
+        itemName: itemQuantity.itemName || "",
+        amount: itemQuantity.amount?.toString() || "",
+        type: itemQuantity.type || "",
+        reason: itemQuantity.reason || "",
+      });
+
+      // 닉네임도 함께 업데이트
+      fetchNickname(itemQuantity.userId?.toString() || "");
+    }
+  }, [itemQuantity, form]);
 
   const debouncedUserId = useDebounce(form.watch("userId"), 500);
 

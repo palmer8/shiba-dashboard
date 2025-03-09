@@ -60,38 +60,75 @@ export default function EditPersonalMailDialog({
   const form = useForm<EditPersonalMailValues>({
     resolver: zodResolver(EditPersonalMailSchema),
     defaultValues: {
-      userId: personalMail.userId.toString(),
-      reason: personalMail.reason,
-      content: personalMail.content,
+      userId: personalMail?.userId?.toString() || "",
+      reason: personalMail?.reason || "",
+      content: personalMail?.content || "",
       nickname: "",
-      rewards: personalMail.rewards.map((reward: any) => ({
-        type: reward.type as "ITEM" | "MONEY" | "BANK",
-        itemId: reward.itemId || "",
-        itemName: reward.itemName || "",
-        amount: reward.amount,
-      })),
-      needItems: personalMail.needItems?.map((item: any) => ({
-        type: item.type as "MONEY" | "BANK" | "ITEM",
-        itemId: item.itemId || "",
-        itemName: item.itemName || "",
-        amount: item.amount,
-      })),
+      rewards:
+        personalMail?.rewards?.map((reward: any) => ({
+          type: reward.type as "ITEM" | "MONEY" | "BANK",
+          itemId: reward.itemId || "",
+          itemName: reward.itemName || "",
+          amount: reward.amount,
+        })) || [],
+      needItems:
+        personalMail?.needItems?.map((item: any) => ({
+          type: item.type as "MONEY" | "BANK" | "ITEM",
+          itemId: item.itemId || "",
+          itemName: item.itemName || "",
+          amount: item.amount,
+        })) || [],
     },
   });
 
   const debouncedUserId = useDebounce(form.watch("userId"), 500);
 
+  // personalMail prop이 변경될 때마다 폼 값을 업데이트
+  useEffect(() => {
+    if (personalMail) {
+      form.reset({
+        userId: personalMail.userId?.toString() || "",
+        reason: personalMail.reason || "",
+        content: personalMail.content || "",
+        nickname: nickname || "",
+        rewards:
+          personalMail.rewards?.map((reward: any) => ({
+            type: reward.type as "ITEM" | "MONEY" | "BANK",
+            itemId: reward.itemId || "",
+            itemName: reward.itemName || "",
+            amount: reward.amount,
+          })) || [],
+        needItems:
+          personalMail.needItems?.map((item: any) => ({
+            type: item.type as "MONEY" | "BANK" | "ITEM",
+            itemId: item.itemId || "",
+            itemName: item.itemName || "",
+            amount: item.amount,
+          })) || [],
+      });
+
+      // 닉네임도 함께 업데이트
+      fetchNickname(personalMail.userId?.toString() || "");
+    }
+  }, [personalMail, form]);
+
   // 초기 로딩 시 닉네임 가져오기
   useEffect(() => {
-    fetchNickname(personalMail.userId.toString());
-  }, [personalMail.userId]);
+    if (personalMail?.userId) {
+      fetchNickname(personalMail.userId.toString());
+    }
+  }, []);
 
   // userId가 변경될 때마다 닉네임 조회
   useEffect(() => {
-    if (debouncedUserId !== personalMail.userId.toString()) {
+    if (
+      debouncedUserId &&
+      personalMail?.userId &&
+      debouncedUserId !== personalMail.userId.toString()
+    ) {
       fetchNickname(debouncedUserId);
     }
-  }, [debouncedUserId]);
+  }, [debouncedUserId, personalMail?.userId]);
 
   // 닉네임 가져오기
   const fetchNickname = async (userId: string) => {
