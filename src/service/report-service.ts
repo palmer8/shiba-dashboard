@@ -887,6 +887,13 @@ class ReportService {
                 userId: true,
               },
             },
+            approver: {
+              select: {
+                id: true,
+                nickname: true,
+                userId: true,
+              },
+            },
           },
         }),
         prisma.blockTicket.count({
@@ -944,6 +951,7 @@ class ReportService {
         ...ticket,
         report: reportsMap[ticket.reportId] || null,
         registrant: ticket.registrant as any,
+        approver: ticket.approver as any,
       }));
 
       return {

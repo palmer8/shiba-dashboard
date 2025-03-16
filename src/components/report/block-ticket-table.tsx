@@ -43,6 +43,7 @@ interface BlockTicketTableProps {
   data: {
     records: (BlockTicket & {
       registrant: { id: string; nickname: string; userId: number };
+      approver?: { id: string; nickname: string; userId: number } | null;
     })[];
     metadata: {
       total: number;
@@ -96,7 +97,14 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
       {
         header: "사유",
         accessorKey: "reason",
-        cell: ({ row }) => <span>{row.original.report?.reason}</span>,
+        cell: ({ row }) => (
+          <div
+            className="max-w-[200px] truncate"
+            title={row.original.report?.reason}
+          >
+            {row.original.report?.reason}
+          </div>
+        ),
       },
       {
         header: "대상자",
@@ -126,6 +134,19 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
           <span>
             {row.original.registrant?.nickname} (
             {row.original.registrant?.userId})
+          </span>
+        ),
+      },
+      {
+        header: "승인자",
+        accessorKey: "approverId",
+        cell: ({ row }) => (
+          <span>
+            {row.original.approver ? (
+              `${row.original.approver.nickname} (${row.original.approver.userId})`
+            ) : (
+              <span className="text-muted-foreground">정보없음</span>
+            )}
           </span>
         ),
       },

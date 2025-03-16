@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { RealtimeGameUserData } from "@/types/user";
 import { MemoResponse, UserMemo } from "@/types/realtime";
 import { logService } from "./log-service";
+import { boardService } from "@/service/board-service";
 
 type ComparisonOperator = "gt" | "gte" | "lt" | "lte" | "eq";
 type PaginationParams = { page: number };
@@ -1732,6 +1733,52 @@ class RealtimeService {
         success: false,
         data: null,
         error: "구금 처리 중 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  async getRecentBoards() {
+    try {
+      const result = await boardService.getRecentBoards();
+      return result;
+    } catch (error) {
+      console.error("Recent boards fetch error:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  async getOnlinePlayers(): Promise<
+    ApiResponse<{ users: Array<{ user_id: number; name: string }> }>
+  > {
+    try {
+      const response = await this.fetchWithRetry<{
+        users: Array<{ user_id: number; name: string }>;
+      }>("/DokkuApi/getOnlinePlayers", { method: "POST" });
+
+      // user_id 기준으로 오름차순 정렬
+      const sortedUsers = response.users.sort((a, b) => a.user_id - b.user_id);
+
+      return {
+        success: true,
+        data: { users: sortedUsers },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Online players fetch error:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "온라인 플레이어 목록을 가져오는데 실패했습니다.",
       };
     }
   }

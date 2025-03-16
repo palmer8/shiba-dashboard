@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useLayoutEffect, useMemo } from "react";
+import { memo, useState, useLayoutEffect, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Users,
@@ -20,9 +20,12 @@ import DashboardSkeleton from "./dashboard-skeleton";
 import { getDashboardData } from "@/actions/realtime/realtime-dashboard-action";
 import { RecentBoard } from "@/types/board";
 import { ServerMetricsChart } from "./server-metrics-chart";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { getOnlinePlayersAction } from "@/actions/realtime/realtime-players-action";
 
 const UserStatsCard = memo(function UserStatsCard({
-  userCount,
+  userCount: _userCount,
 }: {
   userCount: number;
 }) {
@@ -33,7 +36,7 @@ const UserStatsCard = memo(function UserStatsCard({
         <Users className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{userCount}명</div>
+        <div className="text-2xl font-bold">{_userCount}명</div>
       </CardContent>
     </Card>
   );
@@ -245,6 +248,76 @@ const BoardCard = memo(function BoardCard({ board }: { board: RecentBoard }) {
   );
 });
 
+const OnlinePlayersCard = memo(function OnlinePlayersCard({
+  players: initialPlayers,
+}: {
+  players: Array<{ user_id: number; name: string }>;
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredPlayers = useMemo(() => {
+    return initialPlayers.filter((player) =>
+      player.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [initialPlayers, searchTerm]);
+
+  return (
+    <Card className="h-[500px] flex flex-col">
+      <CardHeader className="flex-none border-b">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-lg font-medium">
+              온라인 플레이어
+            </CardTitle>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {initialPlayers.length}명 접속 중
+          </div>
+        </div>
+        <div className="mt-2">
+          <Input
+            placeholder="닉네임으로 검색..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1 overflow-hidden p-0">
+        <ScrollArea className="h-full">
+          <div className="p-4 space-y-2">
+            {filteredPlayers.length > 0 ? (
+              filteredPlayers.map((player) => (
+                <div
+                  key={player.user_id}
+                  className="p-3 border rounded-lg hover:bg-muted/50 transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback>{player.name[0]}</AvatarFallback>
+                    </Avatar>
+                    <span>{player.name}</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    #{player.user_id}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                {searchTerm
+                  ? "검색 결과가 없습니다."
+                  : "접속 중인 플레이어가 없습니다."}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
+  );
+});
+
 export default function DashboardClientContent() {
   const [mounted, setMounted] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
@@ -379,6 +452,9 @@ export default function DashboardClientContent() {
             )}
           </CardContent>
         </Card>
+
+        {/* 온라인 플레이어 목록 */}
+        <OnlinePlayersCard players={data.onlinePlayers} />
       </div>
       <ServerMetricsChart />
     </div>

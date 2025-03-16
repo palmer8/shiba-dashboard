@@ -113,7 +113,11 @@ export default function IncidentReportTable({
       {
         header: "사유",
         accessorKey: "reason",
-        cell: ({ row }) => row.original.reason,
+        cell: ({ row }) => (
+          <div className="max-w-[200px] truncate" title={row.original.reason}>
+            {row.original.reason}
+          </div>
+        ),
       },
       {
         header: "대상자",

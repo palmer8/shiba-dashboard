@@ -28,6 +28,7 @@ export function useDashboard() {
         adminData: { count: 0, users: [] },
         weeklyStats: [],
         recentBoards: { recentBoards: [], recentNotices: [] },
+        onlinePlayers: [],
       },
       onError: (error) => {
         console.error("Dashboard fetch error:", error);

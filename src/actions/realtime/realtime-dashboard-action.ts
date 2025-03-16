@@ -20,47 +20,37 @@ const getCachedWeeklyStats = cache(async () => {
 
 export async function getDashboardData(): Promise<ApiResponse<DashboardData>> {
   try {
-    const [userCountRes, adminDataRes, weeklyStatsRes, recentBoardsRes] =
+    const [userCount, adminData, weeklyStats, onlinePlayers, recentBoards] =
       await Promise.all([
-        getCachedUserCount(),
-        getCachedAdminData(),
-        getCachedWeeklyStats(),
-        boardService.getRecentBoards(),
+        realtimeService.getRealtimeUser(),
+        realtimeService.getAdminData(),
+        realtimeService.getWeeklyNewUsersStats(),
+        realtimeService.getOnlinePlayers(),
+        realtimeService.getRecentBoards(),
       ]);
-
-    if (
-      !userCountRes.success ||
-      !adminDataRes.success ||
-      !weeklyStatsRes.success ||
-      !recentBoardsRes.success
-    ) {
-      throw new Error("일부 데이터를 가져오는데 실패했습니다.");
-    }
-
-    const dashboardData: DashboardData = {
-      userCount: userCountRes.data ?? 0,
-      adminData: adminDataRes.data ?? { count: 0, users: [] },
-      weeklyStats: weeklyStatsRes.data ?? [],
-      recentBoards: recentBoardsRes.data ?? {
-        recentBoards: [],
-        recentNotices: [],
-      },
-    };
 
     return {
       success: true,
-      data: dashboardData,
+      data: {
+        userCount: userCount.data || 0,
+        adminData: adminData.data || null,
+        weeklyStats: weeklyStats.data || null,
+        recentBoards: recentBoards.success
+          ? recentBoards.data
+          : {
+              recentNotices: [],
+              recentBoards: [],
+            },
+        onlinePlayers: onlinePlayers.data?.users || [],
+      },
       error: null,
     };
   } catch (error) {
-    console.error("Dashboard data error:", error);
+    console.error("Dashboard data fetch error:", error);
     return {
       success: false,
       data: null,
-      error:
-        error instanceof Error
-          ? error.message
-          : "알 수 없는 오류가 발생했습니다.",
+      error: "대시보드 데이터를 가져오는데 실패했습니다.",
     };
   }
 }

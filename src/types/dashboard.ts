@@ -2,9 +2,26 @@ import { RecentBoards } from "./board";
 
 export interface DashboardData {
   userCount: number;
-  adminData: AdminData;
-  weeklyStats: WeeklyStat[];
-  recentBoards: RecentBoards;
+  adminData: {
+    count: number;
+    users: Array<{
+      user_id: number;
+      name: string;
+    }>;
+  } | null;
+  weeklyStats: Array<{
+    date: string;
+    count: number;
+    changePercentage: number;
+  }> | null;
+  recentBoards: {
+    recentNotices: any[];
+    recentBoards: any[];
+  } | null;
+  onlinePlayers: Array<{
+    user_id: number;
+    name: string;
+  }>;
 }
 
 export interface AdminData {
