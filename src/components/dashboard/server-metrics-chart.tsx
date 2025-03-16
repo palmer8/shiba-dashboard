@@ -106,7 +106,31 @@ function prepareChartData(
 }
 
 export function ServerMetricsChart() {
-  const [metrics, setMetrics] = useState<MetricsData | null>(null);
+  const [metrics, setMetrics] = useState<MetricsData>({
+    current: {
+      cpu: {
+        usage: 0,
+        cores: 0,
+        platform: "",
+        loadAverage: 0,
+      },
+      memory: {
+        total: 0,
+        used: 0,
+        usagePercent: 0,
+      },
+      network: {
+        bytesReceived: 0,
+        bytesSent: 0,
+      },
+    },
+    history: {
+      cpu: [],
+      memory: [],
+      network: [],
+      timestamp: [],
+    },
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>("day");
@@ -183,8 +207,6 @@ export function ServerMetricsChart() {
       </Card>
     );
   }
-
-  if (!metrics) return null;
 
   const chartData = metrics.history
     ? prepareChartData(metrics.history, selectedMetric)
