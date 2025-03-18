@@ -77,6 +77,7 @@ interface UserDataTableProps {
   metadata: LogMetadata;
   page: number;
   session: Session;
+  onPageChange: (page: number) => void;
 }
 
 export function RealtimeUserDataTable({
@@ -84,6 +85,7 @@ export function RealtimeUserDataTable({
   metadata,
   page,
   session,
+  onPageChange,
 }: UserDataTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -312,9 +314,8 @@ export function RealtimeUserDataTable({
   }, [table]);
 
   const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", newPage.toString());
-    router.push(`/realtime/user?${params.toString()}`);
+    if (newPage < 1 || newPage > metadata.totalPages) return;
+    onPageChange(newPage);
   };
 
   const handleExport = async () => {
@@ -436,19 +437,16 @@ export function RealtimeUserDataTable({
                 }}
                 onBlur={(e) => {
                   let newPage = parseInt(e.target.value);
-
                   if (isNaN(newPage) || newPage < 1) {
                     newPage = 1;
-                    setInputPage("1");
                   } else if (newPage > metadata.totalPages) {
                     newPage = metadata.totalPages;
-                    setInputPage(metadata.totalPages.toString());
                   }
+                  setInputPage(newPage.toString());
                   handlePageChange(newPage);
                 }}
                 className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 max={metadata.totalPages}
-                maxLength={metadata.totalPages}
               />
               <span className="text-sm text-muted-foreground">
                 / {metadata.totalPages}

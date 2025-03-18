@@ -27,9 +27,15 @@ import {
   addEmojiToUserAction,
   removeEmojiFromUserAction,
 } from "@/actions/emoji-action";
-import { Plus, X, Search } from "lucide-react";
+import { Plus, X, Search, MoreHorizontal, UserPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useDebounce } from "@/hooks/use-debounce";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface EmojiTableProps {
   data: EmojiTableData;
@@ -46,6 +52,9 @@ export function EmojiTable({ data, session }: EmojiTableProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [filterUserIdInput, setFilterUserIdInput] = useState("");
   const [filterEmojiInput, setFilterEmojiInput] = useState("");
+  const [selectedEmojiForAdd, setSelectedEmojiForAdd] = useState<string>("");
+  const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
+  const [newUserId, setNewUserId] = useState("");
 
   // 디바운스된 필터 값들
   const filterUserId = useDebounce(filterUserIdInput, 300);
@@ -161,10 +170,52 @@ export function EmojiTable({ data, session }: EmojiTableProps) {
     setFilterEmojiInput("");
   }, []);
 
+  const handleAddUser = async () => {
+    if (!newUserId || !selectedEmojiForAdd) {
+      toast({
+        title: "필수 정보 누락",
+        description: "고유번호를 입력해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await addEmojiToUserAction({
+        userId: parseInt(newUserId),
+        emoji: selectedEmojiForAdd,
+      });
+
+      if (result.success) {
+        toast({
+          title: "고유번호 추가 완료",
+          description: `사용자 ${newUserId}에게 이모지를 추가했습니다.`,
+        });
+        setAddUserDialogOpen(false);
+        setNewUserId("");
+        setSelectedEmojiForAdd("");
+      } else {
+        toast({
+          title: "고유번호 추가 실패",
+          description: result.error || "고유번호 추가 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "고유번호 추가 실패",
+        description: "고유번호 추가 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">이모지 관리</h2>
+      <div className="flex justify-end items-center">
         {hasManageAccess && (
           <Button onClick={() => setIsAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -222,6 +273,7 @@ export function EmojiTable({ data, session }: EmojiTableProps) {
               <TableHead className="w-20">No.</TableHead>
               <TableHead>이모지</TableHead>
               <TableHead>사용자 ID</TableHead>
+              {hasManageAccess && <TableHead className="w-16"></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -256,11 +308,39 @@ export function EmojiTable({ data, session }: EmojiTableProps) {
                         ))}
                     </div>
                   </TableCell>
+                  {hasManageAccess && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-8 w-8 p-0 hover:bg-muted"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedEmojiForAdd(item.emoji);
+                              setAddUserDialogOpen(true);
+                            }}
+                          >
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            <span>고유번호 추가</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={3} className="h-24 text-center">
+                <TableCell
+                  colSpan={hasManageAccess ? 4 : 3}
+                  className="h-24 text-center"
+                >
                   <Empty
                     description={
                       filterUserId || filterEmoji
@@ -313,7 +393,41 @@ export function EmojiTable({ data, session }: EmojiTableProps) {
         </DialogContent>
       </Dialog>
 
-      {/* 이모지 제거 다이얼로그 - 필요없어지므로 제거 */}
+      {/* 고유번호 추가 다이얼로그 */}
+      <Dialog open={addUserDialogOpen} onOpenChange={setAddUserDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>고유번호 추가</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">이모지:</span>
+              <span className="text-2xl">{selectedEmojiForAdd}</span>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="userId">고유번호</Label>
+              <Input
+                id="userId"
+                value={newUserId}
+                onChange={(e) => setNewUserId(e.target.value)}
+                placeholder="고유번호를 입력하세요"
+                type="number"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setAddUserDialogOpen(false)}
+            >
+              취소
+            </Button>
+            <Button onClick={handleAddUser} disabled={isLoading}>
+              추가
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

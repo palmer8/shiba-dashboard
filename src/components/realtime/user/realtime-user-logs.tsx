@@ -12,6 +12,7 @@ import Empty from "@/components/ui/empty";
 import { Session } from "next-auth";
 import { UserRole } from "@prisma/client";
 import { RealtimeUserDataTable } from "./realtime-user-data-log-table";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface RealtimeUserLogsProps {
   userId: number;
@@ -26,7 +27,10 @@ export default function RealtimeUserLogs({
     return <Empty description="접근 권한이 없습니다." />;
   }
 
-  const [page, setPage] = useState(1);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentPage = Number(searchParams.get("page")) || 1;
+
   const [filters, setFilters] = useState({
     type: "",
     level: "",
@@ -34,8 +38,8 @@ export default function RealtimeUserLogs({
     dateRange: undefined as DateRange | undefined,
   });
 
-  const { data, error, isLoading } = useSWR(
-    [`user-logs-${userId}`, page, filters],
+  const { data, error, isLoading, mutate } = useSWR(
+    [`user-logs-${userId}`, currentPage, filters],
     async ([_, page, filters]) => {
       const response = await getUserRelatedLogsAction(userId, page, filters);
       if (!response.success) {
@@ -47,7 +51,15 @@ export default function RealtimeUserLogs({
 
   const handleFilterChange = (key: string, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
-    setPage(1);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    router.push(`/realtime/user?${params.toString()}`);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", newPage.toString());
+    router.push(`/realtime/user?${params.toString()}`);
   };
 
   return (
@@ -92,12 +104,13 @@ export default function RealtimeUserLogs({
         <RealtimeUserDataTable
           data={data?.records || []}
           metadata={{
-            currentPage: data?.page || 1,
+            currentPage: currentPage,
             totalPages: data?.totalPages || 1,
             totalCount: data?.total || 0,
           }}
-          page={page}
+          page={currentPage}
           session={session}
+          onPageChange={handlePageChange}
         />
       )}
     </div>
