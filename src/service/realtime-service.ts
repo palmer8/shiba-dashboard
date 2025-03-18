@@ -170,7 +170,8 @@ class RealtimeService {
           c.user_id as chunobot_user_id,
           c.adminName as chunobot_admin_name,
           c.reason as chunobot_reason,
-          c.time as chunobot_time
+          c.time as chunobot_time,
+          e.emoji as emoji
         FROM (SELECT ? as user_id) as u
         LEFT JOIN dokku_newbie n ON n.user_id = u.user_id
         LEFT JOIN dokku_warning w ON w.user_id = u.user_id
@@ -178,6 +179,7 @@ class RealtimeService {
         LEFT JOIN vrp_user_ids v ON v.user_id = u.user_id 
           AND v.identifier LIKE 'discord:%'
         LEFT JOIN dokku_chunobot c ON c.user_id = u.user_id
+        LEFT JOIN dokku_coupleemojis e ON e.user_id = u.user_id
       `;
 
       const [[userData]] = await pool.execute<RowDataPacket[]>(userDataQuery, [
@@ -247,6 +249,7 @@ class RealtimeService {
               time: userData.chunobot_time,
             }
           : null,
+        emoji: userData?.emoji ?? null,
       };
 
       if (userDataResponse.last_nickname) {
@@ -1779,6 +1782,34 @@ class RealtimeService {
           error instanceof Error
             ? error.message
             : "온라인 플레이어 목록을 가져오는데 실패했습니다.",
+      };
+    }
+  }
+
+  async reloadPlayerData(userId: number) {
+    try {
+      const response = await this.fetchWithRetry<{
+        success: boolean;
+        message: string;
+        error: number;
+      }>("/DokkuApi/reloadPlayerData", {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId }),
+      });
+      if (response.success) {
+        await logService.writeAdminLog(`${userId} 플레이어 데이터 리로드`);
+      }
+      return {
+        success: response.success,
+        data: response.message,
+        error: null,
+      };
+    } catch (error) {
+      console.error("플레이어 데이터 재로드 에러:", error);
+      return {
+        success: false,
+        data: null,
+        error: "플레이어 데이터 재로드 에러",
       };
     }
   }

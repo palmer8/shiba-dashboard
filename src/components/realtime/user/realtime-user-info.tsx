@@ -509,6 +509,22 @@ export default function RealtimeUserInfo({
                     </p>
                   )}
                 </div>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    이모지
+                  </h3>
+                  <div className="flex flex-wrap gap-1">
+                    {data.emoji ? (
+                      <span className="flex items-center gap-1 px-2 py-1 text-lg">
+                        {data.emoji}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        등록된 이모지가 없습니다
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
               <Fragment>
                 <Card>

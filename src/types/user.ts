@@ -60,6 +60,7 @@ type RealtimeGameUserData = {
   };
   isJailAdmin?: boolean;
   jailtime?: number;
+  emoji: string | null;
 };
 
 type UpdateUserData = {

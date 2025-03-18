@@ -70,6 +70,11 @@ const ROLE_LINKS = {
     role: ["INGAME_ADMIN", "MASTER", "STAFF", "SUPERMASTER"],
     routes: [
       {
+        name: "이모지 관리",
+        href: "/game/emoji",
+        role: ["INGAME_ADMIN", "MASTER", "SUPERMASTER", "STAFF"],
+      },
+      {
         name: "재화 지급/회수",
         href: "/game/credit",
         role: ["STAFF", "INGAME_ADMIN", "MASTER", "SUPERMASTER"],

@@ -11,6 +11,7 @@ import { DateRange } from "react-day-picker";
 import Empty from "@/components/ui/empty";
 import { Session } from "next-auth";
 import { UserRole } from "@prisma/client";
+import { RealtimeUserDataTable } from "./realtime-user-data-log-table";
 
 interface RealtimeUserLogsProps {
   userId: number;
@@ -88,7 +89,7 @@ export default function RealtimeUserLogs({
       {error ? (
         <Empty description={error.message} />
       ) : (
-        <UserDataTable
+        <RealtimeUserDataTable
           data={data?.records || []}
           metadata={{
             currentPage: data?.page || 1,

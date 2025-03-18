@@ -52,6 +52,35 @@ const commonBoardSelect = {
   },
 } as const;
 
+// 서버 측에서 최근 조회 기록을 저장할 객체
+// key: `${userId}-${boardId}`, value: timestamp
+const viewRecords: Record<string, number> = {};
+
+// 조회수 관련 유틸리티 함수
+function canIncrementView(userId: string, boardId: string): boolean {
+  const key = `${userId}-${boardId}`;
+  const now = Date.now();
+  const lastViewTime = viewRecords[key] || 0;
+
+  // 5분(300,000ms) 이내에 같은 사용자가 같은 게시글을 조회한 경우
+  if (now - lastViewTime < 5 * 60 * 1000) {
+    return false;
+  }
+
+  // 조회 시간 업데이트
+  viewRecords[key] = now;
+
+  // 메모리 관리를 위해 1시간 이상 된 기록은 삭제
+  const oneHourAgo = now - 60 * 60 * 1000;
+  Object.keys(viewRecords).forEach((k) => {
+    if (viewRecords[k] < oneHourAgo) {
+      delete viewRecords[k];
+    }
+  });
+
+  return true;
+}
+
 class BoardService {
   // 게시글 생성
   async createBoard(data: {
@@ -523,6 +552,19 @@ class BoardService {
 
   // 조회수만 증가시키는 함수
   async incrementViewCount(id: string): Promise<void> {
+    const session = await auth();
+    if (!session?.user) return;
+
+    const userId = session.user.id;
+    // userId가 undefined인 경우 처리
+    if (!userId) return;
+
+    // 조회수 증가 여부 확인
+    if (!canIncrementView(userId, id)) {
+      return; // 5분 이내에 다시 조회했다면 조회수 증가하지 않음
+    }
+
+    // 조회수 증가 로직
     await prisma.board.update({
       where: { id },
       data: { views: { increment: 1 } },

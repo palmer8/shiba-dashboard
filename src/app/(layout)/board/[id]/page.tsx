@@ -21,6 +21,7 @@ export default async function BoardPage({ params }: BoardPageProps) {
     return redirect("/pending");
   }
 
+  // 조회수 증가 로직 위임
   await boardService.incrementViewCount(awaitParams.id);
 
   const result = await boardService.getBoardDetail(awaitParams.id);
