@@ -1801,15 +1801,19 @@ class RealtimeService {
       }
       return {
         success: response.success,
-        data: response.message,
-        error: null,
+        data: response.success
+          ? `플레이어 ${userId}의 데이터가 성공적으로 리로드되었습니다.`
+          : response.message,
+        error: response.success
+          ? null
+          : response.message || "플레이어 데이터 리로드 실패",
       };
     } catch (error) {
       console.error("플레이어 데이터 재로드 에러:", error);
       return {
         success: false,
         data: null,
-        error: "플레이어 데이터 재로드 에러",
+        error: "플레이어 데이터 재로드 중 오류가 발생했습니다.",
       };
     }
   }

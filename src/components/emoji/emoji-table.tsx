@@ -95,7 +95,7 @@ export function EmojiTable({ data, session }: EmojiTableProps) {
       if (result.success) {
         toast({
           title: "이모지 추가 완료",
-          description: `사용자 ${userId}에게 이모지를 추가했습니다.`,
+          description: `사용자 ${userId}에게 이모지를 추가했습니다. 데이터가 업데이트되었습니다.`,
         });
         setIsAddDialogOpen(false);
         setNewEmoji("");
@@ -130,7 +130,7 @@ export function EmojiTable({ data, session }: EmojiTableProps) {
       if (result.success) {
         toast({
           title: "이모지 제거 완료",
-          description: `사용자 ${userId}의 이모지를 제거했습니다.`,
+          description: `사용자 ${userId}의 이모지를 제거했습니다. 데이터가 업데이트되었습니다.`,
         });
       } else {
         toast({
@@ -190,7 +190,7 @@ export function EmojiTable({ data, session }: EmojiTableProps) {
       if (result.success) {
         toast({
           title: "고유번호 추가 완료",
-          description: `사용자 ${newUserId}에게 이모지를 추가했습니다.`,
+          description: `사용자 ${newUserId}에게 이모지를 추가했습니다. 데이터가 업데이트되었습니다.`,
         });
         setAddUserDialogOpen(false);
         setNewUserId("");

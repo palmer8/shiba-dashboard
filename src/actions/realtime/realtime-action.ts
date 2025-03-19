@@ -92,3 +92,8 @@ export async function updateJailAction(
   );
   return result;
 }
+
+export async function reloadPlayerDataAction(userId: number) {
+  const result = await realtimeService.reloadPlayerData(userId);
+  return result;
+}

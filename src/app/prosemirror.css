@@ -196,3 +196,7 @@
 .ProseMirror code::after {
   content: none !important;
 }
+
+.ProseMirror strong {
+  color: inherit;
+}

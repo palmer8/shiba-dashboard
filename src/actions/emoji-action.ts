@@ -4,6 +4,7 @@ import { emojiService } from "@/service/emoji-service";
 import { AddEmojiData, RemoveEmojiData } from "@/types/emoji";
 import { ApiResponse } from "@/types/global.dto";
 import { revalidatePath } from "next/cache";
+import { realtimeService } from "@/service/realtime-service";
 
 export async function addEmojiToUserAction(
   data: AddEmojiData
@@ -12,7 +13,14 @@ export async function addEmojiToUserAction(
     const result = await emojiService.addEmojiToUser(data.userId, data.emoji);
 
     if (result.success) {
+      const reloadResult = await realtimeService.reloadPlayerData(data.userId);
       revalidatePath("/game/emoji");
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error,
+      };
     }
 
     return result;
@@ -39,7 +47,14 @@ export async function removeEmojiFromUserAction(
     );
 
     if (result.success) {
+      const reloadResult = await realtimeService.reloadPlayerData(data.userId);
       revalidatePath("/game/emoji");
+
+      return {
+        success: result.success,
+        data: result.data,
+        error: result.error,
+      };
     }
 
     return result;
