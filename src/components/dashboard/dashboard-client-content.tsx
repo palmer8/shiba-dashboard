@@ -256,8 +256,9 @@ const OnlinePlayersCard = memo(function OnlinePlayersCard({
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredPlayers = useMemo(() => {
+    if (!initialPlayers) return [];
     return initialPlayers.filter((player) =>
-      player.name.toLowerCase().includes(searchTerm.toLowerCase())
+      player?.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [initialPlayers, searchTerm]);
 
