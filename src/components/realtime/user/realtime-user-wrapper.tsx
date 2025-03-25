@@ -90,6 +90,7 @@ export default function RealtimeUserWrapper({
               weapons: data.weapons || {},
               inventory: data.inventory || {},
               vehicles: data.vehicles || {},
+              weaponAmmo: data.weaponAmmo || {},
             }}
             mutate={mutate}
             userId={userId!}

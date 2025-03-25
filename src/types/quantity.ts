@@ -32,6 +32,7 @@ export interface CreateItemQuantityData {
   amount: string;
   type: ActionType;
   reason: string;
+  nickname?: string;
 }
 
 // 게임 업데이트 요청 데이터 타입

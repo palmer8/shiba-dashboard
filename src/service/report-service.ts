@@ -443,8 +443,6 @@ class ReportService {
           "ban"
         );
 
-        console.log(result);
-
         if (!result.success) {
           throw new Error("banned API failed");
         }

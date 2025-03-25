@@ -532,10 +532,15 @@ class ItemQuantityService {
     if (!session?.user) return redirect("/login");
 
     try {
+      const nicknameResult = await userService.getGameNicknameByUserId(
+        Number(data.userId)
+      );
+
       const result = await prisma.$transaction(async (prisma) => {
         const createResult = await prisma.itemQuantity.create({
           data: {
             userId: Number(data.userId),
+            nickname: nicknameResult.data || "",
             itemId: data.itemId,
             itemName: data.itemName,
             amount: data.amount,

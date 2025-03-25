@@ -131,7 +131,10 @@ export default function EditCreditDialog({
 
   const handleSubmit = form.handleSubmit(async (data) => {
     try {
-      const result = await updateCreditAction(credit.id, data);
+      const result = await updateCreditAction(credit.id, {
+        ...data,
+        nickname: nickname,
+      });
       if (result.success) {
         toast({ title: "재화 지급/회수 티켓 수정 완료" });
         setOpen(false);

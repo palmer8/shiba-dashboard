@@ -238,6 +238,7 @@ model CouponLog {
 model ItemQuantity {
   id           String     @id @default(uuid())
   userId       Int        @map("user_id")
+  nickname String @default("")
   itemId       String     @map("item_id")
   itemName     String     @map("item_name")
   reason       String     @map("reason")
@@ -266,6 +267,7 @@ model RewardRevoke {
   id           String                 @id @default(uuid())
   userId       Int                    @map("user_id")
   reason       String                 @map("reason")
+  nickname String @default("")
   amount       String
   status       Status                 @default(PENDING)
   type         ActionType

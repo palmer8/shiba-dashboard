@@ -95,7 +95,10 @@ export default function AddItemQuantityDialog({
 
   const handleSubmit = form.handleSubmit(async (data) => {
     try {
-      const result = await createItemQuantityAction(data);
+      const result = await createItemQuantityAction({
+        ...data,
+        nickname: nickname,
+      });
       if (result.success) {
         toast({ title: "아이템 지급/회수 티켓 생성 완료" });
         setOpen(false);

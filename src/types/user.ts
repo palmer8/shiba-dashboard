@@ -61,6 +61,7 @@ type RealtimeGameUserData = {
   isJailAdmin?: boolean;
   jailtime?: number;
   emoji: string | null;
+  weaponAmmo?: Record<string, number>;
 };
 
 type UpdateUserData = {

@@ -14,6 +14,7 @@ export interface RewardRevoke {
   approverId: string | null;
   registrant?: { nickname: string };
   approver?: { nickname: string };
+  nickname: string;
 }
 
 export interface CreditTableData {
@@ -31,6 +32,7 @@ export interface CreateRewardRevokeData {
   type: ActionType;
   amount: string;
   reason: string;
+  nickname?: string;
 }
 
 export interface UpdateRewardRevokeData extends CreateRewardRevokeData {}

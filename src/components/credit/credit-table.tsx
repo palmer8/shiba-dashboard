@@ -113,6 +113,19 @@ export function CreditTable({ data, session }: CreditTableProps) {
       {
         accessorKey: "userId",
         header: "고유번호",
+        cell: ({ row }) => {
+          const record = row.original;
+          return (
+            <TableCell>
+              {record.userId}
+              {record.nickname && (
+                <span className="ml-2 text-muted-foreground">
+                  ({record.nickname})
+                </span>
+              )}
+            </TableCell>
+          );
+        },
       },
       {
         accessorKey: "type",

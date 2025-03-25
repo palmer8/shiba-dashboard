@@ -12,6 +12,7 @@ export async function createCreditAction(data: {
   type: ActionType;
   amount: string;
   reason: string;
+  nickname: string;
 }) {
   const result = await creditService.createRewardRevoke(data);
   if (result.success) revalidateCredit();
@@ -48,6 +49,7 @@ export async function updateCreditAction(
     userId: string;
     creditType: RewardRevokeCreditType;
     type: ActionType;
+    nickname: string;
     amount: string;
     reason: string;
   }

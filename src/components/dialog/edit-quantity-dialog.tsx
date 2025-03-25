@@ -121,7 +121,10 @@ export default function EditItemQuantityDialog({
 
   const handleSubmit = form.handleSubmit(async (data) => {
     try {
-      const result = await updateItemQuantityAction(itemQuantity.id, data);
+      const result = await updateItemQuantityAction(itemQuantity.id, {
+        ...data,
+        nickname: nickname,
+      });
       if (result.success) {
         toast({ title: "아이템 지급/회수 티켓 수정 완료" });
         setOpen(false);

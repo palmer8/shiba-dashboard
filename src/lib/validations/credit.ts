@@ -22,6 +22,9 @@ export const createCreditSchema = z.object({
     .string()
     .min(1, "사유를 입력해주세요")
     .max(50, "사유는 50자를 초과할 수 없습니다"),
+  nickname: z.string({
+    message: "존재하지 않는 유저입니다.",
+  }),
 });
 
 // 재화 지급/회수 수정 스키마

@@ -86,11 +86,14 @@ export default function AddCreditDialog({
       const result = await getGameNicknameByUserIdAction(Number(userId));
       if (result.success && result.data) {
         setNickname(result.data);
+        form.setValue("nickname", result.data);
       } else {
         setNickname("사용자를 찾을 수 없습니다");
+        form.setValue("nickname", "");
       }
     } catch (error) {
       setNickname("사용자 조회 중 오류가 발생했습니다");
+      form.setValue("nickname", "");
     }
     setIsLoadingNickname(false);
   };
@@ -105,6 +108,7 @@ export default function AddCreditDialog({
       const result = await createCreditAction({
         ...data,
         creditType: data.creditType as RewardRevokeCreditType,
+        nickname: nickname,
       });
       if (result.success) {
         toast({ title: "재화 지급/회수 티켓 추가 완료" });

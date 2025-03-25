@@ -13,7 +13,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Trash2 } from "lucide-react";
+import { Search, Trash2, Copy } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   removeUserVehicleAction,
@@ -37,12 +37,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Session } from "next-auth";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface RealtimeUserItemProps {
   data: {
     weapons: Record<string, string>;
     inventory: Record<string, { name: string; amount: number }>;
     vehicles: Record<string, string>;
+    weaponAmmo: Record<string, number>;
   };
   userId: number;
   isAdmin: boolean;
@@ -245,6 +252,57 @@ export default function RealtimeUserItem({
     </div>
   );
 
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "복사 완료",
+        description: "ID가 클립보드에 복사되었습니다.",
+      });
+    } catch (err) {
+      toast({
+        title: "복사 실패",
+        description: "ID 복사에 실패했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const ItemNameCell = ({
+    name,
+    id,
+    ammo,
+  }: {
+    name: string;
+    id: string;
+    ammo?: number;
+  }) => {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className="flex items-center gap-2 cursor-pointer hover:text-primary"
+              onClick={() => copyToClipboard(id)}
+            >
+              <span className="truncate max-w-[200px]">{name}</span>
+              {typeof ammo === "number" && id.startsWith("WEAPON_") && (
+                <span className="text-xs text-muted-foreground">
+                  ({formatKoreanNumber(ammo)}발)
+                </span>
+              )}
+              <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p className="font-mono text-xs">{id}</p>
+            <p className="text-xs text-muted-foreground">클릭하여 ID 복사</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -260,19 +318,15 @@ export default function RealtimeUserItem({
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableHead>아이템 ID</TableHead>
-                  <TableHead>아이템명</TableHead>
+                  <TableHead>아이템</TableHead>
                   <TableHead className="text-right">수량</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.inventory.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium text-muted-foreground">
-                      {item.id}
-                    </TableCell>
-                    <TableCell className="truncate max-w-[200px]">
-                      {item.name}
+                  <TableRow key={item.id} className="group">
+                    <TableCell>
+                      <ItemNameCell name={item.name} id={item.id} />
                     </TableCell>
                     <TableCell className="text-right">
                       {isAdmin ? (
@@ -326,19 +380,23 @@ export default function RealtimeUserItem({
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableHead>무기 ID</TableHead>
-                  <TableHead>무기명</TableHead>
+                  <TableHead>무기</TableHead>
                   {isAdmin && <TableHead className="w-[60px]"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.weapons.map((weapon) => (
-                  <TableRow key={weapon.id}>
-                    <TableCell className="font-medium text-muted-foreground">
-                      {weapon.id}
-                    </TableCell>
-                    <TableCell className="truncate max-w-[200px]">
-                      {weapon.name}
+                  <TableRow key={weapon.id} className="group">
+                    <TableCell>
+                      {data?.weaponAmmo && weapon.id in data.weaponAmmo ? (
+                        <ItemNameCell
+                          name={weapon.name}
+                          id={weapon.id}
+                          ammo={data.weaponAmmo[weapon.id]}
+                        />
+                      ) : (
+                        <ItemNameCell name={weapon.name} id={weapon.id} />
+                      )}
                     </TableCell>
                     {isAdmin && (
                       <TableCell>
@@ -376,19 +434,15 @@ export default function RealtimeUserItem({
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableHead>차량 ID</TableHead>
-                  <TableHead>차량명</TableHead>
+                  <TableHead>차량</TableHead>
                   {isAdmin && <TableHead className="w-[60px]"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.vehicles.map((vehicle) => (
-                  <TableRow key={vehicle.id}>
-                    <TableCell className="font-medium text-muted-foreground">
-                      {vehicle.id}
-                    </TableCell>
-                    <TableCell className="truncate max-w-[200px]">
-                      {vehicle.name}
+                  <TableRow key={vehicle.id} className="group">
+                    <TableCell>
+                      <ItemNameCell name={vehicle.name} id={vehicle.id} />
                     </TableCell>
                     {isAdmin && (
                       <TableCell>

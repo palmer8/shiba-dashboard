@@ -12,7 +12,6 @@ import { redirect } from "next/navigation";
 import { ApiResponse } from "@/types/global.dto";
 import { unstable_cache } from "next/cache";
 import { revalidateTag } from "next/cache";
-import { realtimeService } from "./realtime-service";
 import { userService } from "./user-service";
 import { logService } from "./log-service";
 
@@ -77,6 +76,7 @@ class CreditService {
                 status: true,
                 registrantId: true,
                 approverId: true,
+                nickname: true,
                 registrant: {
                   select: {
                     id: true,
@@ -365,6 +365,7 @@ class CreditService {
           status: true,
           registrantId: true,
           approverId: true,
+          nickname: true,
           registrant: {
             select: {
               id: true,
@@ -518,9 +519,14 @@ class CreditService {
     if (!session?.user) return redirect("/login");
 
     try {
+      const nicknameResult = await userService.getGameNicknameByUserId(
+        Number(data.userId)
+      );
+
       await prisma.rewardRevoke.create({
         data: {
           userId: Number(data.userId),
+          nickname: nicknameResult.data || "",
           type: data.type,
           creditType: data.creditType,
           amount: data.amount,
