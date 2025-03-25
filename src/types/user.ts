@@ -42,7 +42,7 @@ type RealtimeGameUserData = {
   tier_reward: string | null;
   vehicles: Record<string, string> | null;
   wallet: string | null;
-  weapons: Record<string, string> | null;
+  weapons: Record<string, { name: string; ammo: number }> | null;
   skinName?: string;
   lbPhoneNumber?: string;
   lbPhonePin?: string;
