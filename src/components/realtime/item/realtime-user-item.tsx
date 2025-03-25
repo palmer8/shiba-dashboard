@@ -46,10 +46,9 @@ import {
 
 interface RealtimeUserItemProps {
   data: {
-    weapons: Record<string, string>;
+    weapons: Record<string, { name: string; ammo: number }>;
     inventory: Record<string, { name: string; amount: number }>;
     vehicles: Record<string, string>;
-    weaponAmmo: Record<string, number>;
   };
   userId: number;
   isAdmin: boolean;
@@ -64,6 +63,7 @@ export default function RealtimeUserItem({
   session,
   mutate,
 }: RealtimeUserItemProps) {
+  console.log(data);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{
@@ -209,9 +209,10 @@ export default function RealtimeUserItem({
         )
         .sort((a, b) => a.name.localeCompare(b.name)),
       weapons: Object.entries(data.weapons || {})
-        .map(([id, name]) => ({
+        .map(([id, weapon]) => ({
           id,
-          name,
+          name: weapon.name,
+          ammo: weapon.ammo,
         }))
         .filter(
           (weapon) =>
@@ -388,15 +389,11 @@ export default function RealtimeUserItem({
                 {items.weapons.map((weapon) => (
                   <TableRow key={weapon.id} className="group">
                     <TableCell>
-                      {data?.weaponAmmo && weapon.id in data.weaponAmmo ? (
-                        <ItemNameCell
-                          name={weapon.name}
-                          id={weapon.id}
-                          ammo={data.weaponAmmo[weapon.id]}
-                        />
-                      ) : (
-                        <ItemNameCell name={weapon.name} id={weapon.id} />
-                      )}
+                      <ItemNameCell
+                        name={weapon.name}
+                        id={weapon.id}
+                        ammo={weapon.ammo}
+                      />
                     </TableCell>
                     {isAdmin && (
                       <TableCell>

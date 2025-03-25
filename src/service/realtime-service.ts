@@ -202,38 +202,6 @@ class RealtimeService {
         userId,
       ]);
 
-      // 무기 총알 정보를 가져오는 쿼리 수정
-      const weaponAmmoQuery = `
-        SELECT 
-          weapons
-        FROM vrp_user_data 
-        WHERE user_id = ?
-      `;
-
-      const [weaponAmmoRows] = await pool.execute<RowDataPacket[]>(
-        weaponAmmoQuery,
-        [userId]
-      );
-
-      // 무기 총알 데이터 파싱
-      let weaponAmmoData = {};
-      if (weaponAmmoRows[0]?.weapons) {
-        try {
-          const weaponsJson = JSON.parse(weaponAmmoRows[0].weapons);
-          weaponAmmoData = Object.entries(weaponsJson).reduce(
-            (acc: { [key: string]: number }, [key, value]: [string, any]) => {
-              if (value && typeof value === "object" && "ammo" in value) {
-                acc[key] = value.ammo;
-              }
-              return acc;
-            },
-            {} as { [key: string]: number }
-          );
-        } catch (error) {
-          console.error("무기 데이터 파싱 에러:", error);
-        }
-      }
-
       // 게임 데이터 가져오기
       const userDataResponse = await this.fetchWithRetry<RealtimeGameUserData>(
         "/DokkuApi/getPlayerData",
@@ -264,7 +232,7 @@ class RealtimeService {
         lbPhoneNumber: userData?.phone_number ?? null,
         lbPhonePin: userData?.pin ?? null,
         discordId: userData?.discord_id ?? null,
-        discordData, // Discord API에서 가져온 추가 정보
+        discordData,
         memos:
           memos.length > 0
             ? memos.map((memo) => ({
@@ -283,7 +251,6 @@ class RealtimeService {
             }
           : null,
         emoji: userData?.emoji ?? null,
-        weaponAmmo: weaponAmmoData, // 총알 정보 추가
       };
 
       if (userDataResponse.last_nickname) {
