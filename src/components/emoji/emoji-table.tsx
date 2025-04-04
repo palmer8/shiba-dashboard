@@ -26,8 +26,16 @@ import Empty from "@/components/ui/empty";
 import {
   addEmojiToUserAction,
   removeEmojiFromUserAction,
+  getEmojiJsonDataAction,
 } from "@/actions/emoji-action";
-import { Plus, X, Search, MoreHorizontal, UserPlus } from "lucide-react";
+import {
+  Plus,
+  X,
+  Search,
+  MoreHorizontal,
+  UserPlus,
+  Download,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
@@ -50,6 +58,7 @@ export function EmojiTable({ data, session }: EmojiTableProps) {
   const [selectedEmoji, setSelectedEmoji] = useState<string>("");
   const [selectedUser, setSelectedUser] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [filterUserIdInput, setFilterUserIdInput] = useState("");
   const [filterEmojiInput, setFilterEmojiInput] = useState("");
   const [selectedEmojiForAdd, setSelectedEmojiForAdd] = useState<string>("");
@@ -213,9 +222,60 @@ export function EmojiTable({ data, session }: EmojiTableProps) {
     }
   };
 
+  const handleExportJson = async () => {
+    setIsExporting(true);
+    try {
+      const response = await getEmojiJsonDataAction();
+
+      if (response.success && response.data) {
+        // JSON 파일로 저장
+        const jsonData = JSON.stringify(response.data, null, 2);
+        const blob = new Blob([jsonData], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        a.href = url;
+        a.download = `이모지_데이터_${timestamp}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "JSON 반출 성공",
+          description: "이모지 데이터가 JSON 파일로 저장되었습니다.",
+        });
+      } else {
+        toast({
+          title: "JSON 반출 실패",
+          description: response.error || "데이터 반출 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "JSON 반출 실패",
+        description: "데이터 반출 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end items-center">
+      <div className="flex justify-end items-center gap-2">
+        <Button
+          variant="outline"
+          onClick={handleExportJson}
+          disabled={isExporting}
+          className="mr-auto"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          JSON 다운로드
+        </Button>
         {hasManageAccess && (
           <Button onClick={() => setIsAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />

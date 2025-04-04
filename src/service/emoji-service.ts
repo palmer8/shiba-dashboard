@@ -60,6 +60,52 @@ class EmojiService {
   }
 
   /**
+   * 이모지 데이터를 JSON 형태로 반출합니다.
+   */
+  async getEmojiJsonData(): Promise<ApiResponse<Record<string, number[]>>> {
+    const session = await auth();
+    if (!session?.user) return redirect("/login");
+
+    try {
+      const emojisResponse = await this.getAllEmojis();
+
+      if (!emojisResponse.success || !emojisResponse.data) {
+        return {
+          success: false,
+          data: null,
+          error:
+            emojisResponse.error || "이모지 데이터를 가져오는데 실패했습니다.",
+        };
+      }
+
+      // 요청한 형식({이모지: [사용자ID배열]})으로 변환
+      const jsonData = emojisResponse.data.reduce<Record<string, number[]>>(
+        (acc, item) => {
+          acc[item.emoji] = item.users;
+          return acc;
+        },
+        {}
+      );
+
+      return {
+        success: true,
+        data: jsonData,
+        error: null,
+      };
+    } catch (error) {
+      console.error("이모지 JSON 데이터 변환 에러:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "이모지 데이터 변환에 실패했습니다.",
+      };
+    }
+  }
+
+  /**
    * 특정 사용자의 이모지를 가져옵니다.
    */
   async getUserEmojis(userId: number): Promise<ApiResponse<string[]>> {

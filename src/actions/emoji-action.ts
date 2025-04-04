@@ -70,3 +70,25 @@ export async function removeEmojiFromUserAction(
     };
   }
 }
+
+/**
+ * 이모지 데이터를 JSON 형태로 반출합니다.
+ */
+export async function getEmojiJsonDataAction(): Promise<
+  ApiResponse<Record<string, number[]>>
+> {
+  try {
+    const result = await emojiService.getEmojiJsonData();
+    return result;
+  } catch (error) {
+    console.error("Get emoji JSON data action error:", error);
+    return {
+      success: false,
+      data: null,
+      error:
+        error instanceof Error
+          ? error.message
+          : "이모지 데이터 반출 중 오류가 발생했습니다.",
+    };
+  }
+}
