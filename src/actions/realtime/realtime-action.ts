@@ -97,3 +97,19 @@ export async function reloadPlayerDataAction(userId: number) {
   const result = await realtimeService.reloadPlayerData(userId);
   return result;
 }
+
+/**
+ * 사용자의 Discord ID를 업데이트하는 서버 액션
+ * @param gameUserId 게임 유저 ID
+ * @param newDiscordId 새로운 Discord 사용자 ID (숫자 문자열)
+ */
+export async function updateUserDiscordIdAction(
+  gameUserId: number,
+  newDiscordId: string
+) {
+  const result = await realtimeService.updateUserDiscordId(
+    gameUserId,
+    newDiscordId
+  );
+  return result;
+}

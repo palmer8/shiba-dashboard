@@ -3,7 +3,7 @@ import prisma from "@/db/prisma";
 import { auth } from "@/lib/auth-config";
 import { formatKoreanNumber, hasAccess, ROLE_HIERARCHY } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
-import { RowDataPacket } from "mysql2";
+import { RowDataPacket, ResultSetHeader } from "mysql2";
 import { ApiResponse } from "@/types/global.dto";
 import { reportService } from "@/service/report-service";
 import { CompanyResult, InstagramResult } from "@/types/game";
@@ -161,12 +161,13 @@ class RealtimeService {
     try {
       // 첫 번째 쿼리: 기본 사용자 데이터 가져오기
       const userDataQuery = `
-        SELECT 
+        SELECT
           n.code as newbie_code,
           COALESCE(w.count, 0) as warning_count,
           p.phone_number,
           p.pin,
-          REPLACE(v.identifier, 'discord:', '') as discord_id,
+          -- discord: 접두어를 포함한 전체 identifier 가져오기
+          (SELECT identifier FROM vrp_user_ids WHERE user_id = ? AND identifier LIKE 'discord:%' LIMIT 1) as discord_identifier,
           c.user_id as chunobot_user_id,
           c.adminName as chunobot_admin_name,
           c.reason as chunobot_reason,
@@ -176,19 +177,18 @@ class RealtimeService {
         LEFT JOIN dokku_newbie n ON n.user_id = u.user_id
         LEFT JOIN dokku_warning w ON w.user_id = u.user_id
         LEFT JOIN phone_phones p ON p.id = u.user_id
-        LEFT JOIN vrp_user_ids v ON v.user_id = u.user_id 
-          AND v.identifier LIKE 'discord:%'
         LEFT JOIN dokku_chunobot c ON c.user_id = u.user_id
         LEFT JOIN dokku_coupleemojis e ON e.user_id = u.user_id
       `;
 
-      const [[userData]] = await pool.execute<RowDataPacket[]>(userDataQuery, [
-        userId,
-      ]);
+      const [[dbUserData]] = await pool.execute<RowDataPacket[]>(
+        userDataQuery,
+        [userId, userId] // user_id 바인딩 두 번 필요
+      );
 
       // 두 번째 쿼리: 유저 메모 모두 가져오기
       const userMemoQuery = `
-        SELECT 
+        SELECT
           m.user_id as memo_user_id,
           m.adminName as memo_admin_name,
           m.text as memo_text,
@@ -202,7 +202,7 @@ class RealtimeService {
       ]);
 
       // 게임 데이터 가져오기
-      const userDataResponse = await this.fetchWithRetry<RealtimeGameUserData>(
+      const gameDataApiResponse = await this.fetchWithRetry<any>(
         "/DokkuApi/getPlayerData",
         {
           method: "POST",
@@ -210,28 +210,45 @@ class RealtimeService {
         }
       );
 
+      // 에러 처리 개선
+      if (gameDataApiResponse.error) {
+        return {
+          success: false,
+          data: null,
+          error:
+            gameDataApiResponse.message ||
+            "게임 데이터 조회 중 오류가 발생했습니다.",
+        };
+      }
+
       // 인시던트 리포트 가져오기
       const incidentReports =
         await reportService.getIncidentReportsByTargetUserId(userId);
 
       // Discord 데이터 추가
       let discordData = null;
-      if (userData?.discord_id) {
-        discordData = await this.getDiscordUserData(userData.discord_id);
+      const discordIdentifier = dbUserData?.discord_identifier;
+      const discordIdFromDb = discordIdentifier?.replace("discord:", "");
+
+      if (discordIdFromDb) {
+        discordData = await this.getDiscordUserData(discordIdFromDb);
       }
 
       // 데이터 통합
-      const enrichedData = {
-        ...userDataResponse,
-        newbieCode: userData?.newbie_code ?? null,
-        warningCount: userData?.warning_count ?? 0,
+      const enrichedData: RealtimeGameUserData = {
+        ...(gameDataApiResponse as Omit<
+          RealtimeGameUserData,
+          "discordId" | "discordData"
+        >), // API 응답 타입 캐스팅 (주의 필요)
+        newbieCode: dbUserData?.newbie_code ?? null,
+        warningCount: dbUserData?.warning_count ?? 0,
         incidentReports: incidentReports.success
           ? incidentReports.data.records
           : [],
-        lbPhoneNumber: userData?.phone_number ?? null,
-        lbPhonePin: userData?.pin ?? null,
-        discordId: userData?.discord_id ?? null,
-        discordData,
+        lbPhoneNumber: dbUserData?.phone_number ?? null,
+        lbPhonePin: dbUserData?.pin ?? null,
+        discordId: discordIdentifier ?? null, // DB에서 가져온 identifier (접두어 포함)
+        discordData: discordData, // API 조회 결과
         memos:
           memos.length > 0
             ? memos.map((memo) => ({
@@ -241,34 +258,27 @@ class RealtimeService {
                 time: memo.memo_time,
               }))
             : [],
-        chunobot: userData?.chunobot_user_id
+        chunobot: dbUserData?.chunobot_user_id
           ? {
-              user_id: userData.chunobot_user_id,
-              adminName: userData.chunobot_admin_name,
-              reason: userData.chunobot_reason,
-              time: userData.chunobot_time,
+              user_id: dbUserData.chunobot_user_id,
+              adminName: dbUserData.chunobot_admin_name,
+              reason: dbUserData.chunobot_reason,
+              time: dbUserData.chunobot_time,
             }
           : null,
-        emoji: userData?.emoji ?? null,
+        emoji: dbUserData?.emoji ?? null,
       };
 
-      if (userDataResponse.last_nickname) {
+      // 로그 작성은 성공 시 한 번만
+      if (enrichedData.last_nickname) {
         await logService.writeAdminLog(
-          `${userDataResponse.last_nickname}(${userId}) 유저 조회`
+          `${enrichedData.last_nickname}(${userId}) 유저 조회`
         );
-      }
-
-      if (userDataResponse.error) {
-        return {
-          success: false,
-          data: null,
-          error: userDataResponse.message || "알 수 없는 오류가 발생했습니다.",
-        };
       }
 
       return {
         success: true,
-        data: enrichedData as RealtimeGameUserData,
+        data: enrichedData,
         error: null,
       };
     } catch (error) {
@@ -1814,6 +1824,104 @@ class RealtimeService {
         success: false,
         data: null,
         error: "플레이어 데이터 재로드 중 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  /**
+   * 사용자의 Discord ID (identifier)를 업데이트합니다.
+   * @param gameUserId 게임 유저 ID
+   * @param newDiscordId 새로운 Discord 사용자 ID (숫자 문자열)
+   */
+  async updateUserDiscordId(
+    gameUserId: number,
+    newDiscordId: string
+  ): Promise<ApiResponse<boolean>> {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "로그인이 필요합니다.", data: false };
+    }
+
+    // 권한 확인 (INGAME_ADMIN 이상)
+    if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
+      return { success: false, error: "권한이 없습니다.", data: false };
+    }
+
+    // 입력값 유효성 검사 (숫자 문자열인지)
+    if (!/^\d+$/.test(newDiscordId)) {
+      return {
+        success: false,
+        error: "잘못된 Discord ID 형식입니다.",
+        data: false,
+      };
+    }
+
+    const newIdentifier = `discord:${newDiscordId}`;
+
+    try {
+      const connection = await pool.getConnection();
+      try {
+        const query = `UPDATE vrp_user_ids SET identifier = ? WHERE user_id = ? AND identifier LIKE 'discord:%'`;
+        const [result] = await connection.execute<ResultSetHeader>(query, [
+          newIdentifier,
+          gameUserId,
+        ]);
+
+        if (result.affectedRows === 0) {
+          // 업데이트 대상이 없거나 이미 해당 값일 수 있음
+          // 또는 identifier가 discord: 형태가 아닐 수 있음
+          // 대상이 없는 경우 새로 생성할지 여부 결정 필요 (현재는 업데이트만)
+          const checkQuery = `SELECT identifier FROM vrp_user_ids WHERE user_id = ?`;
+          const [checkRows] = await pool.execute<RowDataPacket[]>(checkQuery, [
+            gameUserId,
+          ]);
+          if (
+            checkRows.length > 0 &&
+            checkRows[0].identifier.startsWith("discord:")
+          ) {
+            // 이미 discord id가 있으나 업데이트가 안된 경우 (다른 오류 가능성)
+            console.warn(
+              `Discord ID for user ${gameUserId} might not have been updated. Current: ${checkRows[0].identifier}, New: ${newIdentifier}`
+            );
+            // 필요 시 에러 반환
+            // return { success: false, error: "디스코드 ID 업데이트에 실패했습니다 (대상이 없거나 변경사항 없음).", data: false };
+          } else if (checkRows.length === 0) {
+            // vrp_user_ids 레코드 자체가 없는 경우
+            return {
+              success: false,
+              error: "해당 게임 유저 ID를 찾을 수 없습니다.",
+              data: false,
+            };
+          } else {
+            // identifier가 discord: 형태가 아닌 경우 (예: steam:)
+            return {
+              success: false,
+              error:
+                "기존 식별자가 Discord ID가 아닙니다. 직접 확인이 필요합니다.",
+              data: false,
+            };
+          }
+          // 일단 affectedRows 0일 때 성공으로 간주하지 않음
+          return {
+            success: false,
+            error: "디스코드 ID 업데이트 대상이 없거나 변경되지 않았습니다.",
+            data: false,
+          };
+        }
+
+        await logService.writeAdminLog(
+          `${session.user.nickname}가 사용자 ${gameUserId}의 Discord ID를 ${newDiscordId}(으)로 변경`
+        );
+        return { success: true, data: true, error: null };
+      } finally {
+        connection.release();
+      }
+    } catch (error) {
+      console.error("Update Discord ID error:", error);
+      return {
+        success: false,
+        error: "Discord ID 업데이트 중 오류 발생",
+        data: false,
       };
     }
   }

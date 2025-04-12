@@ -11,57 +11,61 @@ export type Chunobot = {
 };
 
 type SignUpUser = Omit<Prisma.UserCreateInput, "hashedPassword">;
-type RealtimeGameUserData = {
-  banadmin: string | null;
-  bank: string | null;
-  banned: boolean | null;
-  banreason: string | null;
-  bantime: string | null;
-  chunoreason: string | null;
-  chunobot: Chunobot | null;
-  credit: string | null;
-  credit2: string | null;
-  cumulative_cash: number | null;
-  current_cash: number | null;
-  current_coin: number | null;
-  exercise: string | null;
-  exp: string | null;
-  first_join: string | null;
-  groups: Record<string, never> | null;
-  inventory: Record<string, never> | null;
-  job: string | null;
-  last_datetime: string | null;
-  last_ip: string | null;
-  last_nickname: string | null;
-  online: boolean | null;
-  phone: string | null;
-  registration: string | null;
-  newbieCode: string | null;
-  warningCount: number | null;
-  sanctions: Record<string, never>[] | null;
-  tier_reward: string | null;
-  vehicles: Record<string, string> | null;
-  wallet: string | null;
-  weapons: Record<string, { name: string; ammo: number }> | null;
-  skinName?: string;
-  lbPhoneNumber?: string;
-  lbPhonePin?: string;
-  incidentReports: IncidentReport[];
-  memos: UserMemo[] | null;
-  error?: number;
-  message?: string;
-  discordData?: {
-    username: string;
-    globalName: string;
-    nickname: string;
-    joinedAt: string;
-    avatarUrl: string;
-    roles: string[];
-  };
-  isJailAdmin?: boolean;
+export interface RealtimeGameUserData {
+  user_id: number;
+  last_nickname: string;
+  first_join: string;
+  wallet?: string;
+  bank?: string;
+  credit?: string;
+  credit2?: string;
+  current_coin?: string;
+  job: string;
+  phone: string;
+  registration: string;
+  groups: { group_name: string; group_boolean: boolean }[];
+  whitelist: boolean;
+  weapons: Record<string, number>;
+  inventory: Record<string, { amount: number; name: string }>;
+  vehicles: Record<
+    string,
+    { name: string; vehicle_plate: string; vehicle_colorprimary: string }
+  >;
+  banned: boolean;
+  banadmin?: string;
+  banreason?: string;
+  bantime?: string;
   jailtime?: number;
-  emoji: string | null;
-};
+  isJailAdmin?: boolean;
+  online: boolean;
+  skinName?: string;
+  last_datetime?: string;
+  last_ip?: string;
+  newbieCode?: string | null;
+  warningCount?: number;
+  incidentReports?: any[]; // 상세 타입 필요 시 IncidentReport[] 등으로 변경
+  lbPhoneNumber?: string | null;
+  lbPhonePin?: string | null;
+  discordId: string | null; // DB에서 가져온 ID (접두어 포함)
+  discordData?: DiscordUserData | null; // Discord API 조회 결과
+  memos?: UserMemo[];
+  chunobot?: Chunobot | null;
+  emoji?: string | null;
+  current_cash?: string;
+  cumulative_cash?: string;
+  tier_reward?: string;
+  message?: string; // API 에러 메시지 등
+  error?: boolean; // API 에러 여부
+}
+
+export interface DiscordUserData {
+  username: string;
+  globalName?: string | null;
+  nickname?: string | null;
+  joinedAt: string;
+  avatarUrl?: string | null;
+  roles: string[];
+}
 
 type UpdateUserData = {
   user_id: string;
@@ -118,7 +122,6 @@ interface GroupTableData {
 
 export type {
   SignUpUser,
-  RealtimeGameUserData,
   UpdateUserData,
   AdminUser,
   RealtimeGroupData,

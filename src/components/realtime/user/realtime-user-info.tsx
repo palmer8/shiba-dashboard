@@ -20,6 +20,7 @@ import {
   Pencil,
   Trash2,
   Plus,
+  Link,
 } from "lucide-react";
 import IncidentReportTable from "@/components/report/incident-report-table";
 import { Session } from "next-auth";
@@ -46,6 +47,9 @@ import UpdateChunobotDialog from "@/components/dialog/update-chunobot-dialog";
 import { UserMemo } from "@/types/realtime";
 import { Chunobot } from "@/types/user";
 import { JailDialog } from "./jail-dialog";
+import EditDiscordIdDialog from "@/components/dialog/edit-discordid-dialog";
+import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
 
 interface RealtimeUserInfoProps {
   data: RealtimeGameUserData;
@@ -76,6 +80,7 @@ export default function RealtimeUserInfo({
   );
   const [jailDialogOpen, setJailDialogOpen] = useState(false);
   const [isJailRelease, setIsJailRelease] = useState(false);
+  const [editDiscordIdOpen, setEditDiscordIdOpen] = useState(false);
 
   useEffect(() => {
     setCanNotResolveBanStatus(!isAdmin && Boolean(data.banned));
@@ -223,6 +228,11 @@ export default function RealtimeUserInfo({
       });
     }
   };
+
+  // INGAME_ADMIN 이상인지 확인 (session.user가 없을 경우 false)
+  const canEditDiscordId = session?.user
+    ? hasAccess(session.user.role, UserRole.INGAME_ADMIN)
+    : false;
 
   if (!isMounted) {
     return null;
@@ -632,81 +642,125 @@ export default function RealtimeUserInfo({
         </TabsContent>
 
         <TabsContent value="discord">
-          {data.discordData ? (
-            <Card className="pt-6">
-              <CardHeader className="hidden" />
-              <CardContent className="space-y-6">
-                <div className="flex items-start gap-4">
-                  {data.discordData.avatarUrl && (
-                    <Avatar className="h-20 w-20 border-2 border-primary/10">
-                      <AvatarImage
-                        src={data.discordData.avatarUrl}
-                        alt={data.discordData.username}
-                      />
-                      <AvatarFallback>
-                        {getFirstNonEmojiCharacter(data.discordData.username)}
-                      </AvatarFallback>
-                    </Avatar>
+          <Card>
+            <CardHeader className="p-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-base">디스코드 연동 정보</CardTitle>
+              {/* 수정 버튼 (권한 있을 때만 표시) */}
+              {canEditDiscordId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditDiscordIdOpen(true)}
+                  disabled={!data.discordId} // DB에 ID가 있어야 수정 가능
+                >
+                  <Pencil className="h-3 w-3 mr-1.5" />
+                  ID 변경
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-6 pt-0 pb-6">
+              {/* DB에 저장된 ID 표시 */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  저장된 Discord ID
+                </h3>
+                <div className="flex items-center gap-2">
+                  <p className="font-mono text-sm break-all">
+                    {data.discordId || "-"}
+                  </p>
+                  {data.discordId && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => {
+                        navigator.clipboard.writeText(data.discordId || "");
+                        toast({ title: "ID 복사됨" });
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
                   )}
-                  <div className="space-y-3">
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground">
-                        사용자명
-                      </h3>
-                      <p className="text-lg font-medium">
-                        {data.discordData.username}
-                      </p>
-                    </div>
-                    {data.discordData.globalName && (
-                      <>
+                </div>
+              </div>
+              <Separator />
+              {/* Discord API 조회 결과 표시 */}
+              {data.discordId ? ( // DB에 ID가 있는 경우에만 API 결과 섹션 표시
+                data.discordData ? ( // API 조회가 성공한 경우
+                  <div className="space-y-6">
+                    <div className="flex items-start gap-4">
+                      {data.discordData.avatarUrl && (
+                        <Avatar className="h-16 w-16 border">
+                          <AvatarImage
+                            src={data.discordData.avatarUrl}
+                            alt={data.discordData.username}
+                          />
+                          <AvatarFallback>
+                            {getFirstNonEmojiCharacter(
+                              data.discordData.username
+                            )}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      <div className="space-y-3">
                         <div>
                           <h3 className="text-sm font-medium text-muted-foreground">
-                            글로벌 이름
+                            사용자명 (서버 닉네임)
                           </h3>
-                          <p>{data.discordData.globalName}</p>
+                          <p className="text-base font-medium">
+                            {data.discordData.username}
+                            {data.discordData.nickname &&
+                              ` (${data.discordData.nickname})`}
+                          </p>
                         </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-muted-foreground">
-                            닉네임
-                          </h3>
-                          <p>{data.discordData.nickname}</p>
-                        </div>
-                      </>
-                    )}
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground">
-                        서버 가입일
-                      </h3>
-                      <p>
-                        {formatKoreanDateTime(
-                          new Date(data.discordData.joinedAt)
+                        {data.discordData.globalName && (
+                          <div>
+                            <h3 className="text-sm font-medium text-muted-foreground">
+                              글로벌 이름
+                            </h3>
+                            <p>{data.discordData.globalName}</p>
+                          </div>
                         )}
-                      </p>
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">
+                            서버 가입일
+                          </h3>
+                          <p>
+                            {formatKoreanDateTime(
+                              new Date(data.discordData.joinedAt)
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                        역할
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {data.discordData.roles.map((role) => (
+                          <Badge key={role} variant="secondary">
+                            {role}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                    역할
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {data.discordData.roles.map((role) => (
-                      <Badge key={role} variant="secondary">
-                        {role}
-                      </Badge>
-                    ))}
+                ) : (
+                  // API 조회가 실패한 경우 (서버에 없거나 ID 오류)
+                  <div className="text-center text-muted-foreground text-sm py-4">
+                    서버에 참여중이지 않거나 유효하지 않은 Discord ID 입니다.
                   </div>
+                )
+              ) : (
+                // DB에 ID가 없는 경우
+                <div className="text-center text-muted-foreground text-sm py-4">
+                  연동된 디스코드 계정이 없습니다.
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="py-6 text-center text-muted-foreground">
-                연동된 디스코드 계정이 없습니다
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {isAdmin && (
@@ -915,6 +969,18 @@ export default function RealtimeUserInfo({
             : undefined
         }
       />
+
+      {/* Discord ID 수정 다이얼로그 */}
+      {canEditDiscordId && (
+        <EditDiscordIdDialog
+          open={editDiscordIdOpen}
+          setOpen={setEditDiscordIdOpen}
+          gameUserId={userId}
+          // DB에 저장된 ID에서 'discord:' 접두어 제거 후 전달
+          currentDiscordId={data.discordId?.replace("discord:", "") || null}
+          mutate={mutate} // 데이터 갱신 함수 전달
+        />
+      )}
     </>
   );
 }
