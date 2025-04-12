@@ -8,7 +8,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
 import {
@@ -184,7 +183,7 @@ export default function AddCreditDialog({
                         <SelectItem value="BANK">계좌</SelectItem>
                         <SelectItem value="CREDIT">무료 캐시</SelectItem>
                         <SelectItem value="CREDIT2">유료 캐시</SelectItem>
-                        {/* <SelectItem value="CURRENT_COIN">마일리지</SelectItem> */}
+                        <SelectItem value="CURRENT_COIN">마일리지</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

@@ -12,7 +12,6 @@ import { RealtimeGameUserData } from "@/types/user";
 import { MemoResponse, UserMemo } from "@/types/realtime";
 import { logService } from "./log-service";
 import { boardService } from "@/service/board-service";
-import { log } from "node:console";
 
 type ComparisonOperator = "gt" | "gte" | "lt" | "lte" | "eq";
 type PaginationParams = { page: number };

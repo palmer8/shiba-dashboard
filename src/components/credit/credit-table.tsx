@@ -307,29 +307,47 @@ export function CreditTable({ data, session }: CreditTableProps) {
       const result = await approveCreditAction(selectedIds);
       if (result.success && Array.isArray(result.data)) {
         result.data.forEach((item, index) => {
-          sonnerToast("재화 지급이 완료되었습니다.", {
-            id: `approve-${item.userId}-${item.creditType}-${
-              item.finalAmount
-            }-${Date.now()}`,
-            description: (
-              <div className="mt-2 space-y-1">
-                <p>
-                  대상자: {item.nickname}({item.userId})
-                </p>
-                <p>재화 종류: {item.creditType}</p>
-                <p>변동 금액: {formatKoreanNumber(item.amount)}원</p>
-                <p>최종 금액: {formatKoreanNumber(item.finalAmount)}원</p>
-              </div>
-            ),
-            action: {
-              label: "닫기",
-              onClick: () => {
-                sonnerToast.dismiss(`approve-${item.userId}-${Date.now()}`);
+          if (item.result) {
+            sonnerToast(`[${item.creditType}] 재화 지급/회수 승인 완료`, {
+              id: `approve-${item.userId}-${item.creditType}-${Date.now()}`,
+              description: (
+                <div className="mt-2 space-y-1 text-sm">
+                  <p>
+                    대상자: {item.nickname} ({item.userId})
+                  </p>
+                  <p>재화 종류: {CREDIT_TYPE_MAP[item.creditType as string]}</p>
+                  <p>변동 금액: {formatKoreanNumber(Number(item.amount))}원</p>
+                  {typeof item.finalAmount === "number" &&
+                    !isNaN(item.finalAmount) && (
+                      <p>최종 금액: {formatKoreanNumber(item.finalAmount)}원</p>
+                    )}
+                </div>
+              ),
+              action: {
+                label: "닫기",
+                onClick: () =>
+                  sonnerToast.dismiss(
+                    `approve-${item.userId}-${item.creditType}-${Date.now()}`
+                  ),
               },
-            },
-            duration: 3000 + index * 1000,
-          });
+              duration: 5000 + index * 500,
+            });
+          } else {
+            toast({
+              title: `[${item.creditType}] 승인 실패`,
+              description: `사용자 ${item.nickname}(${item.userId})의 승인 처리 중 오류가 발생했습니다.`,
+              variant: "destructive",
+            });
+          }
         });
+
+        if (result.data.every((item) => !item.result)) {
+          toast({
+            title: "모든 항목 승인 실패",
+            description: "선택된 모든 항목의 승인 처리에 실패했습니다.",
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
           title: "승인 실패",
@@ -345,6 +363,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
       });
     } finally {
       setIsLoading(false);
+      table.resetRowSelection();
     }
   };
 
@@ -419,34 +438,65 @@ export function CreditTable({ data, session }: CreditTableProps) {
     try {
       const result = await approveAllCreditAction();
       if (result.success && Array.isArray(result.data)) {
+        let successCount = 0;
         result.data.forEach((item, index) => {
-          sonnerToast("재화 지급이 완료되었습니다.", {
-            id: `bulk-approve-${item.userId}-${item.creditType}-${
-              item.finalAmount
-            }-${Date.now()}`,
-            description: (
-              <div className="mt-2 space-y-1">
-                <p>
-                  대상자: {item.nickname}({item.userId})
-                </p>
-                <p>재화 종류: {item.creditType}</p>
-                <p>변동 금액: {formatKoreanNumber(item.amount)}원</p>
-                <p>최종 금액: {formatKoreanNumber(item.finalAmount)}원</p>
-              </div>
-            ),
-            duration: 3000 + index * 1000,
-            action: {
-              label: "닫기",
-              onClick: () => {
-                sonnerToast.dismiss(
-                  `bulk-approve-${item.userId}-${item.creditType}-${
-                    item.finalAmount
-                  }-${Date.now()}`
-                );
+          if (item.result) {
+            successCount++;
+            sonnerToast(`[${item.creditType}] 재화 지급/회수 승인 완료`, {
+              id: `bulk-approve-${item.userId}-${
+                item.creditType
+              }-${Date.now()}`,
+              description: (
+                <div className="mt-2 space-y-1 text-sm">
+                  <p>
+                    대상자: {item.nickname}({item.userId})
+                  </p>
+                  <p>재화 종류: {CREDIT_TYPE_MAP[item.creditType as string]}</p>
+                  <p>변동 금액: {formatKoreanNumber(Number(item.amount))}원</p>
+                  {typeof item.finalAmount === "number" &&
+                    !isNaN(item.finalAmount) && (
+                      <p>최종 금액: {formatKoreanNumber(item.finalAmount)}원</p>
+                    )}
+                </div>
+              ),
+              duration: 5000 + index * 500,
+              action: {
+                label: "닫기",
+                onClick: () =>
+                  sonnerToast.dismiss(
+                    `bulk-approve-${item.userId}-${
+                      item.creditType
+                    }-${Date.now()}`
+                  ),
               },
-            },
-          });
+            });
+          } else {
+            toast({
+              title: `[${item.creditType}] 전체 승인 중 실패`,
+              description: `사용자 ${item.nickname}(${item.userId}) 처리 중 오류 발생`,
+              variant: "destructive",
+            });
+          }
         });
+
+        if (successCount === 0 && result.data.length > 0) {
+          toast({
+            title: "전체 승인 실패",
+            description: "모든 항목의 승인 처리에 실패했습니다.",
+            variant: "destructive",
+          });
+        } else if (successCount < result.data.length) {
+          toast({
+            title: "부분 성공",
+            description: `${result.data.length}건 중 ${successCount}건만 성공적으로 승인되었습니다.`,
+            variant: "default",
+          });
+        } else if (successCount === result.data.length && successCount > 0) {
+          toast({
+            title: "전체 승인 완료",
+            description: `${successCount}건 모두 성공적으로 승인되었습니다.`,
+          });
+        }
       } else {
         toast({
           title: "전체 승인 실패",
@@ -462,6 +512,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
       });
     } finally {
       setIsLoading(false);
+      table.resetRowSelection();
     }
   };
 
