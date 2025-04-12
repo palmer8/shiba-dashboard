@@ -25,12 +25,9 @@ export interface RealtimeGameUserData {
   registration: string;
   groups: { group_name: string; group_boolean: boolean }[];
   whitelist: boolean;
-  weapons: Record<string, number>;
-  inventory: Record<string, { amount: number; name: string }>;
-  vehicles: Record<
-    string,
-    { name: string; vehicle_plate: string; vehicle_colorprimary: string }
-  >;
+  weapons: Record<string, { name: string; ammo: number }>;
+  inventory: Record<string, { name: string; amount: number }>;
+  vehicles: Record<string, string>;
   banned: boolean;
   banadmin?: string;
   banreason?: string;
