@@ -2,7 +2,6 @@
 
 import { UploadCloud, X } from "lucide-react";
 import { Button } from "./button";
-import { FIVEMANAGE_API_KEY, FIVEMANAGE_API_URL } from "@/constant/constant";
 
 interface ImageUploadProps {
   value?: string | null;
@@ -31,26 +30,49 @@ export function ImageUpload({
       onUploadStart?.();
 
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("files", file);
 
-      const response = await fetch(FIVEMANAGE_API_URL, {
+      // 내부 프록시 API 엔드포인트 사용
+      const uploadUrl = "/api/upload";
+      /*
+      const uploadUrl = process.env.NEXT_PUBLIC_IMAGE_UPLOAD_URL;
+      if (!uploadUrl) {
+        console.error("Image upload URL is not configured.");
+        throw new Error("Upload configuration error");
+      }
+      */
+
+      const response = await fetch(uploadUrl, {
         method: "POST",
         body: formData,
-        headers: {
-          Authorization: FIVEMANAGE_API_KEY || "",
-        },
       });
 
       if (!response.ok) {
-        throw new Error("Upload failed");
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Unknown upload error" }));
+        console.error("Upload failed:", response.status, errorData);
+        throw new Error(
+          errorData.error || `Upload failed with status ${response.status}`
+        );
       }
 
       const data = await response.json();
+      if (!data.url) {
+        console.error("Upload response missing URL:", data);
+        throw new Error("Invalid upload response");
+      }
       onChange(data.url);
     } catch (error) {
       console.error("Upload error:", error);
+      // 사용자에게 에러 표시 (예: toast 사용)
+      // import { toast } from "@/hooks/use-toast";
+      // toast({ title: "업로드 실패", description: error.message, variant: "destructive" });
     } finally {
       onUploadEnd?.();
+      if (e.target) {
+        e.target.value = "";
+      }
     }
   };
 
@@ -60,13 +82,13 @@ export function ImageUpload({
         type="button"
         variant="outline"
         disabled={disabled}
-        onClick={() => document.getElementById("imageUpload")?.click()}
+        onClick={() => document.getElementById("imageUploadInput")?.click()}
       >
         <UploadCloud className="h-4 w-4 mr-2" />
         이미지 업로드
       </Button>
       <input
-        id="imageUpload"
+        id="imageUploadInput"
         type="file"
         accept="image/*"
         className="hidden"
@@ -74,7 +96,15 @@ export function ImageUpload({
         disabled={disabled}
       />
       {value && isRemove && (
-        <Button variant="outline" size="icon" onClick={onRemove}>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => {
+            onChange("");
+            onRemove();
+          }}
+          disabled={disabled}
+        >
           <X className="h-4 w-4" />
         </Button>
       )}

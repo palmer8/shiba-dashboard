@@ -234,7 +234,10 @@ export const GAME_DATA_TYPE = {
   ACCUMULATED_CASH: "누적 캐시",
 };
 
-export const FIVEMANAGE_API_URL =
-  process.env.NEXT_PUBLIC_FIVEMANAGE_API_URL + "/api/image";
-export const FIVEMANAGE_API_KEY = process.env.NEXT_PUBLIC_FIVEMANAGE_API_KEY;
+// 대시보드 API 키
+export const SHIBA_DASHBOARD_API_KEY = process.env.SHIBA_DASHBOARD_API_KEY;
+
+// 로그 API 키
+export const SHIBA_LOG_API_KEY = process.env.SHIBA_LOG_API_KEY;
+
 export { ROLE_LINKS, PENALTY_TYPE, reasonOptions, WHITELIST_STATUS };

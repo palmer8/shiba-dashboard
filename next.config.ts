@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "proxy.dokku.co.kr",
+        port: "",
+        pathname: "/screenshot/**",
+      },
     ],
   },
   async rewrites() {
