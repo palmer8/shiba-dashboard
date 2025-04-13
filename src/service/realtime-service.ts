@@ -1829,7 +1829,7 @@ class RealtimeService {
   }
 
   /**
-   * 사용자의 Discord ID (identifier)를 업데이트합니다.
+   * 사용자의 Discord ID (identifier)를 업데이트하거나 삽입(Upsert)합니다.
    * @param gameUserId 게임 유저 ID
    * @param newDiscordId 새로운 Discord 사용자 ID (숫자 문자열)
    */
@@ -1842,12 +1842,10 @@ class RealtimeService {
       return { success: false, error: "로그인이 필요합니다.", data: false };
     }
 
-    // 권한 확인 (INGAME_ADMIN 이상)
     if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
       return { success: false, error: "권한이 없습니다.", data: false };
     }
 
-    // 입력값 유효성 검사 (숫자 문자열인지)
     if (!/^\d+$/.test(newDiscordId)) {
       return {
         success: false,
@@ -1859,68 +1857,63 @@ class RealtimeService {
     const newIdentifier = `discord:${newDiscordId}`;
 
     try {
+      // 1. gameUserId가 vrp_users 테이블에 존재하는지 먼저 확인 (선택적이지만 권장)
+      const [userCheck] = await pool.execute<RowDataPacket[]>(
+        `SELECT 1 FROM vrp_users WHERE id = ? LIMIT 1`,
+        [gameUserId]
+      );
+      if (userCheck.length === 0) {
+        return {
+          success: false,
+          error: "존재하지 않는 게임 유저 ID입니다.",
+          data: false,
+        };
+      }
+
+      // 2. Upsert 실행
       const connection = await pool.getConnection();
       try {
-        const query = `UPDATE vrp_user_ids SET identifier = ? WHERE user_id = ? AND identifier LIKE 'discord:%'`;
+        // user_id가 PK 또는 UNIQUE 키라고 가정
+        const query = `
+          INSERT INTO vrp_user_ids (user_id, identifier)
+          VALUES (?, ?)
+          ON DUPLICATE KEY UPDATE identifier = VALUES(identifier)
+        `;
         const [result] = await connection.execute<ResultSetHeader>(query, [
-          newIdentifier,
           gameUserId,
+          newIdentifier,
         ]);
 
-        if (result.affectedRows === 0) {
-          // 업데이트 대상이 없거나 이미 해당 값일 수 있음
-          // 또는 identifier가 discord: 형태가 아닐 수 있음
-          // 대상이 없는 경우 새로 생성할지 여부 결정 필요 (현재는 업데이트만)
-          const checkQuery = `SELECT identifier FROM vrp_user_ids WHERE user_id = ?`;
-          const [checkRows] = await pool.execute<RowDataPacket[]>(checkQuery, [
-            gameUserId,
-          ]);
-          if (
-            checkRows.length > 0 &&
-            checkRows[0].identifier.startsWith("discord:")
-          ) {
-            // 이미 discord id가 있으나 업데이트가 안된 경우 (다른 오류 가능성)
-            console.warn(
-              `Discord ID for user ${gameUserId} might not have been updated. Current: ${checkRows[0].identifier}, New: ${newIdentifier}`
-            );
-            // 필요 시 에러 반환
-            // return { success: false, error: "디스코드 ID 업데이트에 실패했습니다 (대상이 없거나 변경사항 없음).", data: false };
-          } else if (checkRows.length === 0) {
-            // vrp_user_ids 레코드 자체가 없는 경우
-            return {
-              success: false,
-              error: "해당 게임 유저 ID를 찾을 수 없습니다.",
-              data: false,
-            };
-          } else {
-            // identifier가 discord: 형태가 아닌 경우 (예: steam:)
-            return {
-              success: false,
-              error:
-                "기존 식별자가 Discord ID가 아닙니다. 직접 확인이 필요합니다.",
-              data: false,
-            };
-          }
-          // 일단 affectedRows 0일 때 성공으로 간주하지 않음
+        // result.affectedRows: 1 = insert, 2 = update (값이 변경됨), 1 = update (값이 동일함 - MySQL 버전 따라 다름)
+        // result.warningStatus == 0 (or check warnings if needed)
+        if (result.affectedRows >= 1) {
+          await logService.writeAdminLog(
+            `${session.user.nickname}가 사용자 ${gameUserId}의 Discord ID를 ${newDiscordId}(으)로 설정/변경`
+          );
+          // 데이터 변경이 있었으므로 캐시 무효화 또는 갱신 필요 시 추가
+          // 예: revalidateTag(`user-${gameUserId}-data`);
+          return { success: true, data: true, error: null };
+        } else {
+          // affectedRows가 0인 경우: ON DUPLICATE KEY UPDATE 조건에서 아무 변경도 없었거나 예상치 못한 오류
+          console.warn(
+            `Discord ID Upsert for user ${gameUserId} resulted in 0 affected rows.`
+          );
           return {
             success: false,
-            error: "디스코드 ID 업데이트 대상이 없거나 변경되지 않았습니다.",
+            error:
+              "Discord ID 설정/변경에 실패했습니다 (변경사항 없음 또는 오류).",
             data: false,
           };
         }
-
-        await logService.writeAdminLog(
-          `${session.user.nickname}가 사용자 ${gameUserId}의 Discord ID를 ${newDiscordId}(으)로 변경`
-        );
-        return { success: true, data: true, error: null };
       } finally {
         connection.release();
       }
     } catch (error) {
-      console.error("Update Discord ID error:", error);
+      console.error("Update/Insert Discord ID error:", error);
+      // MySQL 에러 코드 확인 가능 (e.g., foreign key constraint violation)
       return {
         success: false,
-        error: "Discord ID 업데이트 중 오류 발생",
+        error: "Discord ID 설정/변경 중 DB 오류 발생",
         data: false,
       };
     }
