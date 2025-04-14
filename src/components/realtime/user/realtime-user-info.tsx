@@ -645,16 +645,21 @@ export default function RealtimeUserInfo({
           <Card>
             <CardHeader className="p-4 flex flex-row items-center justify-between">
               <CardTitle className="text-base">디스코드 연동 정보</CardTitle>
-              {/* 수정 버튼 (권한 있을 때만 표시) */}
+              {/* 버튼 로직 수정 */}
               {canEditDiscordId && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setEditDiscordIdOpen(true)}
-                  disabled={!data.discordId} // DB에 ID가 있어야 수정 가능
+                  // disabled={!data.discordId} // 이 조건 제거
                 >
-                  <Pencil className="h-3 w-3 mr-1.5" />
-                  ID 변경
+                  {data.discordId ? (
+                    <Pencil className="h-3 w-3 mr-1.5" />
+                  ) : (
+                    <Plus className="h-3 w-3 mr-1.5" />
+                  )}
+                  {data.discordId ? "ID 변경" : "ID 추가"}{" "}
+                  {/* 텍스트 동적 변경 */}
                 </Button>
               )}
             </CardHeader>
@@ -666,7 +671,7 @@ export default function RealtimeUserInfo({
                 </h3>
                 <div className="flex items-center gap-2">
                   <p className="font-mono text-sm break-all">
-                    {data.discordId || "-"}
+                    {data.discordId || "(없음)"}
                   </p>
                   {data.discordId && (
                     <Button
@@ -674,8 +679,14 @@ export default function RealtimeUserInfo({
                       size="icon"
                       className="h-6 w-6"
                       onClick={() => {
-                        navigator.clipboard.writeText(data.discordId || "");
-                        toast({ title: "ID 복사됨" });
+                        // 'discord:' 접두어 제거 후 복사
+                        const numericId =
+                          data.discordId?.replace("discord:", "") || "";
+                        navigator.clipboard.writeText(numericId);
+                        toast({
+                          title: "ID 복사됨",
+                          description: "숫자 ID가 복사되었습니다.",
+                        });
                       }}
                     >
                       <Copy className="h-3 w-3" />
@@ -756,7 +767,7 @@ export default function RealtimeUserInfo({
               ) : (
                 // DB에 ID가 없는 경우
                 <div className="text-center text-muted-foreground text-sm py-4">
-                  연동된 디스코드 계정이 없습니다.
+                  연동된 디스코드 계정이 없습니다. (ID 추가 버튼으로 등록)
                 </div>
               )}
             </CardContent>
@@ -970,15 +981,14 @@ export default function RealtimeUserInfo({
         }
       />
 
-      {/* Discord ID 수정 다이얼로그 */}
+      {/* Discord ID 수정/추가 다이얼로그 */}
       {canEditDiscordId && (
         <EditDiscordIdDialog
           open={editDiscordIdOpen}
           setOpen={setEditDiscordIdOpen}
           gameUserId={userId}
-          // DB에 저장된 ID에서 'discord:' 접두어 제거 후 전달
           currentDiscordId={data.discordId?.replace("discord:", "") || null}
-          mutate={mutate} // 데이터 갱신 함수 전달
+          mutate={mutate}
         />
       )}
     </>
