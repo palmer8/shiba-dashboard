@@ -17,12 +17,14 @@ interface DatePickerWithRangeProps {
   date: DateRange | undefined;
   onSelect: (date: DateRange | undefined) => void;
   className?: string;
+  disabled?: boolean;
 }
 
 export function DatePickerWithRange({
   date,
   onSelect,
   className,
+  disabled,
 }: DatePickerWithRangeProps) {
   return (
     <div className={cn("grid gap-2", className)}>
@@ -53,6 +55,7 @@ export function DatePickerWithRange({
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
+            disabled={disabled ?? false}
             initialFocus
             mode="range"
             defaultMonth={date?.from}
