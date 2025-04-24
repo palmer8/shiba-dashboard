@@ -340,11 +340,21 @@ export function UserDataTable({
     }
   };
 
-  if (!data?.length) {
+  if (!data) {
     return (
       <div className="rounded-md p-8">
         <div className="flex flex-col items-center justify-center text-center">
-          <Empty description="데이터가 존재하지 않습니다." />
+          <Empty description="검색 조건을 입력하고 조회해주세요." />
+        </div>
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="rounded-md p-8">
+        <div className="flex flex-col items-center justify-center text-center">
+          <Empty description="검색 조건에 맞는 로그가 없습니다." />
         </div>
       </div>
     );

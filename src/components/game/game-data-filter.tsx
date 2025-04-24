@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import { GameDataType } from "@/types/game";
 import { toast } from "@/hooks/use-toast";
 import { ItemComboBox } from "@/components/global/item-combo-box";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Loader2 } from "lucide-react";
 import { Session } from "next-auth";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
@@ -37,6 +37,8 @@ export default function GameDataFilter({
   session,
 }: GameDataFilterProps) {
   const router = useRouter();
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const initialQuery = useMemo(() => {
     return {
@@ -49,43 +51,91 @@ export default function GameDataFilter({
 
   const [query, setQuery] = useState(initialQuery);
 
-  const handleReset = () => {
-    router.replace("/log/game");
-    setQuery(initialQuery);
-  };
+  const handleReset = useCallback(() => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    // 입력값 검증
-    if (!query.type) return;
-
-    // ITEM_CODE나 ITEM_NAME인 경우 itemId 필수
-    if (
-      (query.type === "ITEM_CODE" || query.type === "ITEM_NAME") &&
-      !query.itemId
-    ) {
-      return;
+    try {
+      router.replace("/log/game");
+      setQuery(initialQuery);
+    } catch (error) {
+      toast({
+        title: "초기화 중 오류가 발생했습니다.",
+        description: "잠시 후 다시 시도해주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
+  }, [router, initialQuery, isSubmitting]);
 
-    // 값이 필요한 경우 검증
-    if (
-      !["INSTAGRAM", "NICKNAME", "REGISTRATION"].includes(query.type) &&
-      !query.value
-    ) {
-      return;
-    }
+  const handleSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      if (isSubmitting) return;
+      setIsSubmitting(true);
+      setIsSearching(true);
 
-    if (query.type === "ITEM_CODE" || query.type === "ITEM_NAME") {
-      router.replace(
-        `/log/game?type=${query.type}&itemId=${query.itemId}&value=${query.value}&condition=${query.condition}&page=1`
-      );
-    } else {
-      router.replace(
-        `/log/game?type=${query.type}&value=${query.value}&condition=${query.condition}&page=1`
-      );
-    }
-  };
+      const timeoutId = setTimeout(() => {
+        try {
+          // 입력값 검증
+          if (!query.type) {
+            toast({
+              title: "유형을 선택해주세요.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          // ITEM_CODE나 ITEM_NAME인 경우 itemId 필수
+          if (
+            (query.type === "ITEM_CODE" || query.type === "ITEM_NAME") &&
+            !query.itemId
+          ) {
+            toast({
+              title: "아이템을 선택해주세요.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          // 값이 필요한 경우 검증
+          if (
+            !["INSTAGRAM", "NICKNAME", "REGISTRATION"].includes(query.type) &&
+            !query.value
+          ) {
+            toast({
+              title: "값을 입력해주세요.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          if (query.type === "ITEM_CODE" || query.type === "ITEM_NAME") {
+            router.replace(
+              `/log/game?type=${query.type}&itemId=${query.itemId}&value=${query.value}&condition=${query.condition}&page=1`
+            );
+          } else {
+            router.replace(
+              `/log/game?type=${query.type}&value=${query.value}&condition=${query.condition}&page=1`
+            );
+          }
+        } catch (error) {
+          toast({
+            title: "검색 중 오류가 발생했습니다.",
+            description: "잠시 후 다시 시도해주세요.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsSearching(false);
+          setIsSubmitting(false);
+        }
+      }, 300);
+
+      return () => clearTimeout(timeoutId);
+    },
+    [query, router, isSubmitting]
+  );
 
   useEffect(() => {
     if (!data && error) {
@@ -107,6 +157,7 @@ export default function GameDataFilter({
               onValueChange={(value) =>
                 setQuery({ ...initialQuery, type: value as GameDataType })
               }
+              disabled={isSubmitting}
             >
               <SelectTrigger>
                 <SelectValue placeholder="유형 선택" />
@@ -143,6 +194,7 @@ export default function GameDataFilter({
                 placeholder="아이템 코드"
                 value={query.itemId}
                 onChange={(e) => setQuery({ ...query, itemId: e.target.value })}
+                disabled={isSubmitting}
               />
             </div>
           )}
@@ -156,6 +208,7 @@ export default function GameDataFilter({
                 onChange={(item) => setQuery({ ...query, itemId: item.id })}
                 placeholder="아이템 이름 검색..."
                 className="w-full sm:w-[300px]"
+                disabled={isSubmitting}
               />
             </div>
           )}
@@ -166,6 +219,7 @@ export default function GameDataFilter({
               placeholder="값 입력"
               value={query.value}
               onChange={(e) => setQuery({ ...query, value: e.target.value })}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -179,6 +233,7 @@ export default function GameDataFilter({
                 onValueChange={(value) =>
                   setQuery({ ...query, condition: value })
                 }
+                disabled={isSubmitting}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="조건 선택" />
@@ -201,11 +256,21 @@ export default function GameDataFilter({
             variant="outline"
             onClick={handleReset}
             className="gap-2"
+            disabled={isSubmitting}
           >
             <RotateCcw className="h-4 w-4" />
             초기화
           </Button>
-          <Button type="submit">조회</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSearching ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                검색 중...
+              </>
+            ) : (
+              "조회"
+            )}
+          </Button>
         </div>
       </form>
     </div>

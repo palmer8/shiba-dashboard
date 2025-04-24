@@ -6,6 +6,7 @@ import { InstagramTable } from "./tables/instagram-table";
 import { DataTable } from "./tables/data-table";
 import { Session } from "next-auth";
 import { IpTable } from "./tables/ip-table";
+import Empty from "@/components/ui/empty";
 
 interface GameDataTableProps {
   data: any;
@@ -27,6 +28,24 @@ export function GameDataTable({
     page: currentPage,
     totalPages: totalPages,
   };
+
+  // 데이터가 아직 조회되지 않은 경우
+  if (!data) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Empty description="검색 조건을 입력하고 조회해주세요." />
+      </div>
+    );
+  }
+
+  // 데이터가 조회되었지만 결과가 없는 경우
+  if (data.total === 0) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Empty description="검색 조건에 맞는 데이터가 없습니다." />
+      </div>
+    );
+  }
 
   switch (queryType) {
     case "COMPANY":

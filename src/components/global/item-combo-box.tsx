@@ -25,12 +25,14 @@ interface ItemComboBoxProps {
   onChange?: (value: { id: string; name: string }) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export function ItemComboBox({
   value,
   onChange,
   placeholder,
+  disabled,
   className,
 }: ItemComboBoxProps) {
   const [open, setOpen] = React.useState(false);
@@ -73,6 +75,7 @@ export function ItemComboBox({
           role="combobox"
           aria-expanded={open}
           className={cn("w-full justify-between", className)}
+          disabled={disabled ?? false}
         >
           <span className="text-ellipsis overflow-hidden whitespace-nowrap">
             {value

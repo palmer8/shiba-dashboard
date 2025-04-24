@@ -1,14 +1,15 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Loader2 } from "lucide-react";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import { DateRange } from "react-day-picker";
 import { UserLogFilter as UserLogFilterType } from "@/types/game";
+import { toast } from "@/hooks/use-toast";
 
 interface UserLogFilterProps {
   filter: UserLogFilterType;
@@ -25,6 +26,8 @@ export default function UserLogFilter({ filter }: UserLogFilterProps) {
         }
       : undefined
   );
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFilterChange = useCallback(
     (
@@ -44,37 +47,79 @@ export default function UserLogFilter({ filter }: UserLogFilterProps) {
   }, []);
 
   const handleSearch = useCallback(() => {
-    const searchParams = new URLSearchParams();
-    searchParams.set("page", "1");
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setIsSearching(true);
 
-    if (localFilter.message) {
-      searchParams.set("message", localFilter.message);
-    }
-    if (localFilter.level) {
-      searchParams.set("level", localFilter.level);
-    }
-    if (localFilter.type) {
-      searchParams.set("type", localFilter.type);
-    }
-    if (dateRange?.from && dateRange?.to) {
-      const formatDate = (date: Date) => {
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-          2,
-          "0"
-        )}-${String(date.getDate()).padStart(2, "0")}`;
-      };
-      searchParams.set("startDate", formatDate(dateRange.from));
-      searchParams.set("endDate", formatDate(dateRange.to));
-    }
+    const timeoutId = setTimeout(() => {
+      try {
+        const searchParams = new URLSearchParams();
+        searchParams.set("page", "1");
 
-    router.replace(`?${searchParams.toString()}`);
-  }, [localFilter, dateRange, router]);
+        if (localFilter.message) {
+          searchParams.set("message", localFilter.message);
+        }
+        if (localFilter.level) {
+          searchParams.set("level", localFilter.level);
+        }
+        if (localFilter.type) {
+          searchParams.set("type", localFilter.type);
+        }
+        if (dateRange?.from && dateRange?.to) {
+          const formatDate = (date: Date) => {
+            return `${date.getFullYear()}-${String(
+              date.getMonth() + 1
+            ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+          };
+          searchParams.set("startDate", formatDate(dateRange.from));
+          searchParams.set("endDate", formatDate(dateRange.to));
+        }
+
+        router.replace(`?${searchParams.toString()}`);
+      } catch (error) {
+        toast({
+          title: "검색 중 오류가 발생했습니다.",
+          description: "잠시 후 다시 시도해주세요.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSearching(false);
+        setIsSubmitting(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [localFilter, dateRange, router, isSubmitting]);
 
   const handleReset = useCallback(() => {
-    router.replace("/log/user");
-    setLocalFilter({ page: 1 });
-    setDateRange(undefined);
-  }, [router]);
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      router.replace("/log/user");
+      setLocalFilter({ page: 1 });
+      setDateRange(undefined);
+    } catch (error) {
+      toast({
+        title: "초기화 중 오류가 발생했습니다.",
+        description: "잠시 후 다시 시도해주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [router, isSubmitting]);
+
+  // 엔터키 처리
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSearch();
+      }
+    },
+    [handleSearch]
+  );
 
   return (
     <>
@@ -86,6 +131,8 @@ export default function UserLogFilter({ filter }: UserLogFilterProps) {
             placeholder="메시지 입력"
             value={localFilter.message || ""}
             onChange={(e) => handleFilterChange("message", e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isSubmitting}
           />
         </div>
 
@@ -96,6 +143,8 @@ export default function UserLogFilter({ filter }: UserLogFilterProps) {
             placeholder="레벨 입력"
             value={localFilter.level || ""}
             onChange={(e) => handleFilterChange("level", e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isSubmitting}
           />
         </div>
 
@@ -106,12 +155,18 @@ export default function UserLogFilter({ filter }: UserLogFilterProps) {
             placeholder="타입 입력"
             value={localFilter.type || ""}
             onChange={(e) => handleFilterChange("type", e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isSubmitting}
           />
         </div>
 
         <div className="space-y-2">
           <Label>등록 일시</Label>
-          <DatePickerWithRange date={dateRange} onSelect={handleDateChange} />
+          <DatePickerWithRange
+            date={dateRange}
+            onSelect={handleDateChange}
+            disabled={isSubmitting}
+          />
         </div>
       </div>
 
@@ -121,12 +176,20 @@ export default function UserLogFilter({ filter }: UserLogFilterProps) {
           onClick={handleReset}
           className="gap-2"
           size="sm"
+          disabled={isSubmitting}
         >
           <RotateCcw className="h-4 w-4" />
           초기화
         </Button>
-        <Button onClick={handleSearch} size="sm">
-          조회
+        <Button onClick={handleSearch} size="sm" disabled={isSubmitting}>
+          {isSearching ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              검색 중...
+            </>
+          ) : (
+            "조회"
+          )}
         </Button>
       </div>
     </>
