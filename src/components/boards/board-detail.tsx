@@ -9,6 +9,10 @@ import {
   MoreVertical,
   Pencil,
   Trash,
+  MessageCircle,
+  Edit,
+  Download,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -45,11 +49,18 @@ import {
 import { UserRole } from "@prisma/client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { formatKoreanDateTime } from "@/lib/utils";
+import {
+  formatKoreanDateTime,
+  hasAccess,
+  checkPermission,
+  convertNovelToMarkdown,
+} from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import Editor from "@/components/editor/advanced-editor";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { JSONContent } from "@tiptap/react";
+// import { MarkdownSerializer, defaultMarkdownSerializer } from "tiptap-markdown";
 
 interface BoardDetailProps {
   board: BoardDetailView;
@@ -68,9 +79,11 @@ export const BoardDetail = memo(function BoardDetail({
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [isLiked, setIsLiked] = useState(board.isLiked);
   const [likeCount, setLikeCount] = useState(board._count.likes);
+  const [isExporting, setIsExporting] = useState(false);
 
   const canModify =
     userId === board.registrant.id || userRole === UserRole.SUPERMASTER;
+  const canExport = hasAccess(userRole, UserRole.MASTER);
 
   const handleLikeClick = useCallback(async () => {
     if (!session?.user) {
@@ -111,6 +124,43 @@ export const BoardDetail = memo(function BoardDetail({
     }
   };
 
+  const handleExportMarkdown = useCallback(async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+
+    try {
+      const markdownContent = convertNovelToMarkdown(
+        board.content as JSONContent
+      );
+
+      const blob = new Blob([markdownContent], {
+        type: "text/markdown;charset=utf-8;",
+      });
+
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      const fileName = `${
+        board.title.replace(/[/\?%*:|"<>]/g, "-") || "게시글"
+      }.md`;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+      toast({ title: "Markdown 파일 내보내기 성공" });
+    } catch (error) {
+      console.error("Markdown export error:", error);
+      toast({
+        title: "Markdown 파일 내보내기 실패",
+        description: "오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [board.content, board.title, isExporting]);
+
   return (
     <>
       <div className="w-full mx-auto min-h-[calc(100vh-300px)] flex flex-col">
@@ -124,36 +174,60 @@ export const BoardDetail = memo(function BoardDetail({
                 <ArrowLeft className="h-4 w-4" />
                 목록
               </Link>
-              {canModify && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowLikes(true)}
-                  >
-                    <Heart
-                      className={`h-4 w-4 ${
-                        isLiked ? "fill-current text-red-500" : ""
-                      }`}
-                    />
-                    <span className="ml-1">{likeCount}</span>
-                  </Button>
-                  <Link href={`/board/${board.id}/edit`}>
-                    <Button variant="ghost" size="sm">
-                      <Pencil className="h-4 w-4 mr-1" />
-                      수정
+              <div className="flex items-center gap-2">
+                {canModify && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowLikes(true)}
+                      disabled={isExporting}
+                    >
+                      <Heart
+                        className={`h-4 w-4 ${
+                          isLiked ? "fill-current text-red-500" : ""
+                        }`}
+                      />
+                      <span className="ml-1">{likeCount}</span>
                     </Button>
-                  </Link>
+                    <Link href={`/board/${board.id}/edit`}>
+                      <Button variant="ghost" size="sm" disabled={isExporting}>
+                        <Pencil className="h-4 w-4 mr-1" />
+                        수정
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowDeleteAlert(true)}
+                      disabled={isExporting}
+                    >
+                      <Trash className="h-4 w-4 mr-1" />
+                      삭제
+                    </Button>
+                  </>
+                )}
+                {canExport && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setShowDeleteAlert(true)}
+                    onClick={handleExportMarkdown}
+                    disabled={isExporting}
                   >
-                    <Trash className="h-4 w-4 mr-1" />
-                    삭제
+                    {isExporting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        내보내는 중...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-1" />
+                        내보내기(MD)
+                      </>
+                    )}
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -188,6 +262,7 @@ export const BoardDetail = memo(function BoardDetail({
                       size="sm"
                       className="h-auto p-0"
                       onClick={handleLikeClick}
+                      disabled={isExporting}
                     >
                       <Heart
                         className={`h-4 w-4 ${

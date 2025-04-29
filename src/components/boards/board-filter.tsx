@@ -60,7 +60,7 @@ export function BoardFilters({ filters }: BoardFiltersProps) {
 
   const handleSearch = useCallback(() => {
     const params = new URLSearchParams();
-    params.set("page", "1");
+    params.set("page", "0");
 
     if (dateRange?.from) {
       const fromDate = `${dateRange.from.getFullYear()}-${String(

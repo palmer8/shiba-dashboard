@@ -17,7 +17,12 @@ import {
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { formatKoreanDateTime, getFirstNonEmojiCharacter } from "@/lib/utils";
+import {
+  formatKoreanDateTime,
+  getFirstNonEmojiCharacter,
+  convertNovelToMarkdown,
+  hasAccess,
+} from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useMemo, useState, useEffect, useCallback } from "react";
@@ -27,13 +32,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Pencil, Trash, Eye, Heart } from "lucide-react";
+import {
+  MoreHorizontal,
+  Pencil,
+  Trash,
+  Eye,
+  Heart,
+  Download,
+  Loader2,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
-import { deleteBoardAction } from "@/actions/board-action";
+import {
+  deleteBoardAction,
+  getBoardContentAction,
+} from "@/actions/board-action";
 import { toast } from "@/hooks/use-toast";
 import { BoardData, BoardList } from "@/types/board";
 import { checkPermission } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserRole } from "@prisma/client";
+import { JSONContent } from "novel";
+
 interface BoardTableProps {
   data: BoardData[];
   notices: BoardData[];
@@ -45,6 +64,7 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  const [exportingId, setExportingId] = useState<string | null>(null);
 
   const memorizedData = useMemo(() => [...notices, ...data], [notices, data]);
 
@@ -62,6 +82,54 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
   useEffect(() => {
     setInputPage((page + 1).toString());
   }, [page]);
+
+  const handleRowExport = useCallback(
+    async (row: Row<BoardData>) => {
+      if (exportingId) return;
+      setExportingId(row.original.id);
+
+      try {
+        const contentResult = await getBoardContentAction(row.original.id);
+
+        if (!contentResult.success || !contentResult.data) {
+          throw new Error(
+            contentResult.error || "게시글 내용을 가져올 수 없습니다."
+          );
+        }
+
+        const markdownContent = convertNovelToMarkdown(
+          contentResult.data as JSONContent
+        );
+
+        const blob = new Blob([markdownContent], {
+          type: "text/markdown;charset=utf-8;",
+        });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        const fileName = `${
+          row.original.title.replace(/[/\\?%*:|\"<>]/g, "-") || "게시글"
+        }.md`;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+
+        toast({ title: "Markdown 파일 내보내기 성공" });
+      } catch (error) {
+        console.error("Markdown export error:", error);
+        toast({
+          title: "Markdown 파일 내보내기 실패",
+          description:
+            error instanceof Error ? error.message : "오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      } finally {
+        setExportingId(null);
+      }
+    },
+    [exportingId]
+  );
 
   const columns: ColumnDef<BoardData>[] = useMemo(
     () => [
@@ -147,42 +215,70 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
       {
         id: "actions",
         cell: ({ row }: { row: Row<BoardData> }) => {
-          const hasPermission = checkPermission(
+          const isCurrentUserRowExporting = exportingId === row.original.id;
+          const hasModifyPermission = checkPermission(
             session?.user?.id,
             row.original.registrant.id,
             session?.user?.role
           );
-
-          if (!hasPermission) return null;
+          const hasExportPermission = hasAccess(
+            session?.user?.role as UserRole,
+            UserRole.MASTER
+          );
 
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <MoreHorizontal className="h-4 w-4" />
+                <Button
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  disabled={isCurrentUserRowExporting}
+                >
+                  {isCurrentUserRowExporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MoreHorizontal className="h-4 w-4" />
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => router.push(`/board/${row.original.id}/edit`)}
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  <span>수정</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleDelete(row.original.id)}
-                  className="text-red-600"
-                >
-                  <Trash className="mr-2 h-4 w-4" />
-                  <span>삭제</span>
-                </DropdownMenuItem>
+                {hasModifyPermission && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        router.push(`/board/${row.original.id}/edit`)
+                      }
+                      disabled={isCurrentUserRowExporting}
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      <span>수정</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDelete(row.original.id)}
+                      className="text-red-600"
+                      disabled={isCurrentUserRowExporting}
+                    >
+                      <Trash className="mr-2 h-4 w-4" />
+                      <span>삭제</span>
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {hasExportPermission && (
+                  <DropdownMenuItem
+                    onClick={() => handleRowExport(row)}
+                    disabled={isCurrentUserRowExporting || !!exportingId}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    <span>내보내기(MD)</span>
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           );
         },
       },
     ],
-    []
+    [session, exportingId, handleRowExport, router]
   );
 
   const table = useReactTable({
@@ -191,22 +287,26 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  const handleDelete = useCallback(async (id: string) => {
-    if (confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
-      const result = await deleteBoardAction(id);
-      if (result.success) {
-        toast({
-          title: "게시글이 삭제되었습니다.",
-        });
-      } else {
-        toast({
-          title: "게시글 삭제에 실패했습니다.",
-          description: result.error || "잠시 후에 다시 시도해주세요",
-          variant: "destructive",
-        });
+  const handleDelete = useCallback(
+    async (id: string) => {
+      if (confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
+        const result = await deleteBoardAction(id);
+        if (result.success) {
+          toast({
+            title: "게시글이 삭제되었습니다.",
+          });
+          router.refresh();
+        } else {
+          toast({
+            title: "게시글 삭제에 실패했습니다.",
+            description: result.error || "잠시 후에 다시 시도해주세요",
+            variant: "destructive",
+          });
+        }
       }
-    }
-  }, []);
+    },
+    [router]
+  );
 
   if (!data || (!data?.length && !notices?.length)) {
     return (
@@ -266,7 +366,7 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
           )}
         </TableBody>
       </Table>
-      {memorizedData.length > 0 && (
+      {memorizedData.length > 0 && metadata.totalCount > 0 && (
         <div className="flex items-center justify-between py-2">
           <div className="text-sm text-muted-foreground">
             총 {metadata.totalCount.toLocaleString()}개 중 {page * 50 + 1}-

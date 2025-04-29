@@ -596,3 +596,89 @@ export function getDateOnly(date: Date | string | null): Date | null {
   const d = new Date(date);
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
+
+// Novel JSON을 Markdown으로 변환하는 함수
+export function convertNovelToMarkdown(node: JSONContent): string {
+  let markdown = "";
+
+  switch (node.type) {
+    case "doc":
+      markdown = node.content?.map(convertNovelToMarkdown).join("\n\n") || "";
+      break;
+    case "paragraph":
+      markdown = node.content?.map(convertNovelToMarkdown).join("") || "";
+      break;
+    case "heading":
+      const level = node.attrs?.level || 1;
+      markdown =
+        "#".repeat(level) +
+        " " +
+        (node.content?.map(convertNovelToMarkdown).join("") || "");
+      break;
+    case "bulletList":
+      markdown =
+        node.content
+          ?.map((item) => "- " + convertNovelToMarkdown(item))
+          .join("\n") || "";
+      break;
+    case "orderedList":
+      markdown =
+        node.content
+          ?.map(
+            (item, index) => `${index + 1}. ` + convertNovelToMarkdown(item)
+          )
+          .join("\n") || "";
+      break;
+    case "listItem":
+      // listItem 내용은 보통 paragraph 안에 있으므로, paragraph 처리를 재사용
+      markdown = node.content?.map(convertNovelToMarkdown).join("") || "";
+      break;
+    case "text":
+      let text = node.text || "";
+      if (node.marks) {
+        node.marks.forEach((mark) => {
+          if (mark.type === "bold") {
+            text = `**${text}**`;
+          }
+          if (mark.type === "italic") {
+            text = `_${text}_`;
+          }
+          if (mark.type === "code") {
+            text = `\`${text}\``;
+          }
+          if (mark.type === "link") {
+            text = `[${text}](${mark.attrs?.href || ""})`;
+          }
+          // 다른 마크 타입(strike 등) 추가 가능
+        });
+      }
+      markdown = text;
+      break;
+    case "image":
+      markdown = `![${node.attrs?.alt || ""}](${node.attrs?.src || ""})`;
+      break;
+    case "blockquote":
+      markdown =
+        "> " + (node.content?.map(convertNovelToMarkdown).join("\n> ") || "");
+      break;
+    case "horizontalRule":
+      markdown = "---";
+      break;
+    case "codeBlock": // 코드 블록 처리 추가
+      const language = node.attrs?.language || "";
+      markdown =
+        "```" +
+        language +
+        "\n" +
+        (node.content?.map(convertNovelToMarkdown).join("\n") || "") +
+        "\n```";
+      break;
+    // 다른 노드 타입 처리 추가 가능 (예: table)
+    default:
+      // 기본적으로는 내용을 그대로 이어붙임 (예상치 못한 타입 대비)
+      markdown = node.content?.map(convertNovelToMarkdown).join("") || "";
+      break;
+  }
+
+  return markdown;
+}

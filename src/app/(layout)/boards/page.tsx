@@ -1,14 +1,10 @@
-import { Suspense } from "react";
 import { BoardFilter } from "@/types/board";
 import { BoardFilters } from "@/components/boards/board-filter";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { GlobalTitle } from "@/components/global/global-title";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
-import BoardTableSkeleton from "@/components/boards/board-table-skeleton";
-import { BoardContent } from "@/components/boards/board-content";
 import { boardService } from "@/service/board-service";
-import Empty from "@/components/ui/empty";
 import { BoardTable } from "@/components/boards/board-table";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
