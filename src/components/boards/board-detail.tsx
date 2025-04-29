@@ -59,8 +59,7 @@ import { Badge } from "@/components/ui/badge";
 import Editor from "@/components/editor/advanced-editor";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { JSONContent } from "@tiptap/react";
-// import { MarkdownSerializer, defaultMarkdownSerializer } from "tiptap-markdown";
+import { JSONContent } from "novel";
 
 interface BoardDetailProps {
   board: BoardDetailView;
