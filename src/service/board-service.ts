@@ -577,8 +577,7 @@ class BoardService {
 
     try {
       const itemsPerPage = 20;
-      const skip =
-        ((filters.page === 0 ? 1 : filters.page || 1) - 1) * itemsPerPage;
+      const skip = (filters.page || 0) * itemsPerPage;
 
       // 1. 공통 where 조건을 미리 구성하여 재사용
       const baseWhereCondition: Prisma.BoardWhereInput = {
@@ -669,7 +668,7 @@ class BoardService {
 
       // 4. 메타데이터 계산을 최적화
       const totalPages = Math.ceil(totalCount / itemsPerPage);
-      const currentPage = filters.page || 1;
+      const currentPage = filters.page || 0;
 
       return {
         success: true,
