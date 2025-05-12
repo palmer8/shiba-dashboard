@@ -164,7 +164,6 @@ export async function getAttendanceRecordsForUserAction(
   );
   return result;
 }
-
 export async function updateWarningCountAction(
   userId: number,
   newCount: number
