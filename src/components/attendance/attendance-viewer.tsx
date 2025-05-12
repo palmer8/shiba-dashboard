@@ -4,65 +4,80 @@ import { useState } from "react";
 import { DateRange } from "react-day-picker";
 import { AttendanceFilter } from "./attendance-filter";
 import { useRouter, useSearchParams } from "next/navigation";
-import { format } from "date-fns";
+import {
+  format,
+  subDays,
+  startOfDay,
+  endOfDay,
+  min,
+  max as maxDate,
+} from "date-fns";
 import { AttendanceList } from "./attendance-list";
 import { AttendanceStats } from "./attendance-stats";
-import { ProcessedAdminAttendance } from "@/types/attendance";
+import { AttendanceCalendar } from "./attendance-calendar";
+import { AttendanceRecordWithUser, SimplifiedUser } from "@/types/attendance";
 
 interface AttendanceViewerProps {
-  attendances?: ProcessedAdminAttendance[];
+  initialRecords: AttendanceRecordWithUser[];
+  initialUsers: SimplifiedUser[];
 }
 
-export function AttendanceViewer({ attendances = [] }: AttendanceViewerProps) {
+export function AttendanceViewer({
+  initialRecords,
+  initialUsers,
+}: AttendanceViewerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // 초기 날짜 범위 설정 (한달)
-  const today = new Date();
-  const oneMonthAgo = new Date(
-    today.getFullYear(),
-    today.getMonth() - 1,
-    today.getDate()
-  );
+  const deriveInitialDateRange = (): DateRange | undefined => {
+    const today = new Date();
+    if (!initialRecords || initialRecords.length === 0) {
+      return { from: startOfDay(subDays(today, 6)), to: endOfDay(today) };
+    }
+    return { from: startOfDay(subDays(today, 6)), to: endOfDay(today) };
+  };
 
-  const [date, setDate] = useState<DateRange | undefined>({
-    from: searchParams.get("startDate")
-      ? new Date(searchParams.get("startDate")!)
-      : oneMonthAgo,
-    to: searchParams.get("endDate")
-      ? new Date(searchParams.get("endDate")!)
-      : today,
-  });
-  const [expandedAdmin, setExpandedAdmin] = useState<number | null>(null);
+  const [date, setDate] = useState<DateRange | undefined>(
+    deriveInitialDateRange()
+  );
+  const [expandedAdminId, setExpandedAdminId] = useState<string | null>(null);
 
   const handleDateChange = (range: DateRange | undefined) => {
-    if (!range?.from) return;
+    if (!range?.from || !range?.to) return;
 
     const params = new URLSearchParams(searchParams.toString());
     params.set("startDate", format(range.from, "yyyy-MM-dd"));
-    params.set("endDate", format(range.to || range.from, "yyyy-MM-dd"));
+    params.set("endDate", format(range.to, "yyyy-MM-dd"));
 
     router.push(`/admin/attendance?${params.toString()}`);
     setDate(range);
   };
 
-  if (!attendances.length) {
+  if (!initialRecords || initialRecords.length === 0) {
     return (
-      <div className="text-center py-10 text-muted-foreground">
-        출퇴근 기록이 없습니다.
+      <div className="space-y-6">
+        <AttendanceFilter date={date} onDateChange={handleDateChange} />
+        <div className="text-center py-10 text-muted-foreground">
+          선택된 기간에 출퇴근 기록이 없습니다. (또는 전체 기록이 없습니다.)
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <AttendanceFilter date={date} onDateChange={handleDateChange} />
-      <AttendanceStats data={attendances} dateRange={date} />
+      {/* <AttendanceFilter date={date} onDateChange={handleDateChange} /> */}
+      {/* <AttendanceCalendar
+        records={initialRecords}
+        users={initialUsers}
+        currentDateRange={date}
+      /> */}
       <AttendanceList
-        attendances={attendances}
-        expandedAdmin={expandedAdmin}
-        onExpand={setExpandedAdmin}
-        date={date}
+        records={initialRecords}
+        users={initialUsers}
+        expandedAdminId={expandedAdminId}
+        onExpand={setExpandedAdminId}
+        dateRange={date}
       />
     </div>
   );

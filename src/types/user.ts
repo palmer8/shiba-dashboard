@@ -53,6 +53,7 @@ export interface RealtimeGameUserData {
   tier_reward?: string;
   message?: string; // API 에러 메시지 등
   error?: boolean; // API 에러 여부
+  isIdBan?: boolean;
 }
 
 export interface DiscordUserData {

@@ -1,7 +1,12 @@
 import pool from "@/db/mysql";
 import prisma from "@/db/prisma";
 import { auth } from "@/lib/auth-config";
-import { formatKoreanNumber, hasAccess, ROLE_HIERARCHY } from "@/lib/utils";
+import {
+  formatKoreanNumber,
+  hasAccess,
+  ROLE_HIERARCHY,
+  parseCustomDateString,
+} from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 import { ApiResponse } from "@/types/global.dto";
@@ -12,6 +17,8 @@ import { RealtimeGameUserData } from "@/types/user";
 import { MemoResponse, UserMemo } from "@/types/realtime";
 import { logService } from "./log-service";
 import { boardService } from "@/service/board-service";
+import { AttendanceRecordWithUser, SimplifiedUser } from "@/types/attendance";
+import { DateRange } from "react-day-picker";
 
 type ComparisonOperator = "gt" | "gte" | "lt" | "lte" | "eq";
 type PaginationParams = { page: number };
@@ -234,6 +241,23 @@ class RealtimeService {
         discordData = await this.getDiscordUserData(discordIdFromDb);
       }
 
+      // 하드밴 여부 조회 (user_id 또는 닉네임)
+      let isIdBan = false;
+      const nickname = gameDataApiResponse?.last_nickname || null;
+      if (nickname) {
+        const [idBanRows] = await pool.execute<RowDataPacket[]>(
+          `SELECT id FROM dokku_hwidban WHERE user_id = ? OR LOWER(name) = LOWER(?) LIMIT 1`,
+          [userId, nickname]
+        );
+        isIdBan = idBanRows.length > 0;
+      } else {
+        const [idBanRows] = await pool.execute<RowDataPacket[]>(
+          `SELECT id FROM dokku_hwidban WHERE user_id = ? LIMIT 1`,
+          [userId]
+        );
+        isIdBan = idBanRows.length > 0;
+      }
+
       // 데이터 통합
       const enrichedData: RealtimeGameUserData = {
         ...(gameDataApiResponse as Omit<
@@ -267,6 +291,7 @@ class RealtimeService {
             }
           : null,
         emoji: dbUserData?.emoji ?? null,
+        isIdBan,
       };
 
       // 로그 작성은 성공 시 한 번만
@@ -1918,6 +1943,542 @@ class RealtimeService {
       };
     }
   }
+
+  async checkOnlinePlayer(userId: number) {
+    const response = await this.fetchWithRetry<{ online: boolean }>(
+      "/DokkuApi/getPlayerOnlineCheck",
+      {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId }),
+      }
+    );
+    return response;
+  }
+
+  /**
+   * SUPERMASTER 이상만 가능한 유저 고유번호 변경
+   * 1차: last_login, 온라인 여부, 경고 메시지 반환
+   * 2차(confirm=true): 외부 API 연동 및 실제 변경
+   */
+  async changeUserId(
+    currentUserId: number,
+    newUserId: number,
+    confirm: boolean
+  ): Promise<
+    ApiResponse<{
+      lastLoginDate: string | null;
+      isCurrentUserOnline: boolean;
+      changed?: boolean;
+      isNewUserIdExists?: boolean; // <<< 추가: newUserId 존재 여부 플래그
+    }>
+  > {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, data: null, error: "로그인이 필요합니다." };
+    }
+    if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) {
+      return { success: false, data: null, error: "권한이 없습니다." };
+    }
+    // currentUserId, newUserId 존재 확인
+    const [currentRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT id FROM vrp_users WHERE id = ? LIMIT 1`,
+      [currentUserId]
+    );
+    if (currentRows.length === 0) {
+      return {
+        success: false,
+        data: null,
+        error: `기존 고유번호(${currentUserId})가 존재하지 않습니다.`,
+      };
+    }
+    const [newRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT last_login FROM vrp_users WHERE id = ? LIMIT 1`,
+      [newUserId]
+    );
+
+    const isNewUserIdExists = newRows.length > 0; // <<< 추가: 존재 여부 확인
+    let lastLoginRaw: string | null = null;
+    let lastLoginDate: Date | null = null;
+    let isOver31Days = false;
+
+    // <<< 수정 시작: isNewUserIdExists 체크 로직 추가
+    if (isNewUserIdExists) {
+      // newUserId가 존재할 때만 last_login 파싱 및 31일 체크
+      lastLoginRaw = newRows[0].last_login as string | null;
+      if (lastLoginRaw) {
+        try {
+          // <<< 수정: 정규식을 사용하여 날짜/시간 부분 추출
+          const dateTimeMatch = lastLoginRaw.match(
+            /(\d{2}:\d{2}:\d{2})\s(\d{2}\/\d{2}\/\d{4})/
+          );
+          if (dateTimeMatch && dateTimeMatch.length >= 3) {
+            const timeStr = dateTimeMatch[1]; // "22:31:51"
+            const dateStr = dateTimeMatch[2]; // "23/01/2025"
+            // 추출된 문자열을 parseCustomDateString 함수에 전달
+            lastLoginDate = parseCustomDateString(`${timeStr} ${dateStr}`);
+          } else {
+            // 매칭 실패 시 로그 남기고 null 처리
+            console.warn(
+              `Could not parse date/time from last_login: ${lastLoginRaw}`
+            );
+            lastLoginDate = null;
+          }
+          // <<< 수정 끝
+        } catch (e) {
+          console.error(`Error parsing last_login string: ${lastLoginRaw}`, e);
+          lastLoginDate = null;
+        }
+      }
+      if (lastLoginDate) {
+        const now = new Date();
+        const diff = now.getTime() - lastLoginDate.getTime();
+        isOver31Days = diff >= 31 * 24 * 60 * 60 * 1000;
+      }
+    }
+    // <<< 수정 끝
+
+    // currentUserId 온라인 여부
+    const onlineResult = await this.checkOnlinePlayer(currentUserId);
+    const isCurrentUserOnline = onlineResult?.online ?? false;
+
+    // 1차: 경고 메시지/상태 반환
+    if (!confirm) {
+      let warningMsg: string | null = null;
+      let errorMsg: string | null = null;
+
+      // Directly use newRows.length to check existence
+      const isNewUserIdExists = newRows.length > 0;
+
+      if (!isNewUserIdExists) {
+        // Case 1: newUserId doesn't exist
+        warningMsg = `변경할 고유번호(${newUserId})는 사용된 적이 없습니다. 정말로 이 번호로 변경하시겠습니까?`;
+        // Append online status warning if needed
+        if (isCurrentUserOnline) {
+          warningMsg += `\n(주의: 현재 유저(${currentUserId})는 온라인 상태입니다.)`;
+        }
+      } else {
+        // Case where newUserId exists
+        // Check 31 day rule ONLY if it exists
+        if (!isOver31Days) {
+          // Case 2: Exists, but logged in recently (Error)
+          errorMsg = `변경할 고유번호(${newUserId})의 마지막 접속일이 31일 이내입니다. (마지막 접속: ${lastLoginRaw})`;
+        } else {
+          // Case 3: Exists, and not logged in for >31 days (Warning)
+          warningMsg = `변경할 고유번호(${newUserId})의 마지막 접속일은 ${lastLoginRaw} (D+31 이후)입니다. 정말로 고유번호를 변경하시겠습니까?`;
+          // Append online status warning if needed
+          if (isCurrentUserOnline) {
+            warningMsg += `\n(주의: 현재 유저(${currentUserId})는 온라인 상태입니다.)`;
+          }
+        }
+      }
+
+      // Determine final success status
+      const success = !errorMsg; // success is true if no blocking error occurred
+
+      // Return the result
+      return {
+        success,
+        data: {
+          lastLoginDate: lastLoginRaw,
+          isCurrentUserOnline,
+          isNewUserIdExists, // Include the flag
+        },
+        // Return the appropriate message (error takes precedence)
+        error: errorMsg || warningMsg,
+      };
+    }
+
+    // 2차: 실제 변경(외부 API)
+    try {
+      const response = await fetch(
+        `http://95.214.178.186:30120/DokkuApi/changeUserId`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", key: this.API_KEY },
+          body: JSON.stringify({
+            currentuserid: currentUserId,
+            newuserid: newUserId,
+          }),
+        }
+      );
+      const result = await response.json();
+      if (result.success) {
+        await logService.writeAdminLog(
+          `${session.user.nickname}가 유저 고유번호를 ${currentUserId} → ${newUserId}로 변경 (2차 승인)`
+        );
+        return {
+          success: true,
+          data: {
+            lastLoginDate: lastLoginRaw,
+            isCurrentUserOnline,
+            changed: true,
+            isNewUserIdExists, // <<< 추가
+          },
+          error: null,
+        };
+      } else {
+        return {
+          success: false,
+          data: {
+            lastLoginDate: lastLoginRaw,
+            isCurrentUserOnline,
+            changed: false,
+            isNewUserIdExists, // <<< 추가
+          },
+          error: result.message || "고유번호 변경에 실패했습니다.",
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        data: {
+          lastLoginDate: lastLoginRaw,
+          isCurrentUserOnline,
+          changed: false,
+          isNewUserIdExists, // <<< 추가
+        },
+        error:
+          error instanceof Error
+            ? error.message
+            : "고유번호 변경 중 알 수 없는 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  /**
+   * SUPERMASTER 이상만 가능한 유저 차량번호/계좌번호 변경
+   * registration(차량번호), phone(계좌번호) 중 입력된 값만 수정
+   * 자기 자신 제외 중복 체크, 성공/실패/중복 등 명확한 메시지 반환
+   */
+  async changeUserIdentity(
+    userId: number,
+    registration?: string,
+    phone?: string
+  ): Promise<
+    ApiResponse<{ updatedRegistration?: string; updatedPhone?: string }>
+  > {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, data: null, error: "로그인이 필요합니다." };
+    }
+    if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) {
+      return { success: false, data: null, error: "권한이 없습니다." };
+    }
+    // userId 존재 확인
+    const [userRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT user_id FROM vrp_user_identities WHERE user_id = ? LIMIT 1`,
+      [userId]
+    );
+    // 중복 체크 및 업데이트 준비
+    let updateFields: string[] = [];
+    let updateValues: any[] = [];
+    // 차량번호(registration) 중복 체크 및 준비
+    if (registration && registration.trim() !== "") {
+      const [regRows] = await pool.execute<RowDataPacket[]>(
+        `SELECT user_id FROM vrp_user_identities WHERE registration = ? AND user_id != ? LIMIT 1`,
+        [registration, userId]
+      );
+      if (regRows.length > 0) {
+        return {
+          success: false,
+          data: null,
+          error: `이미 사용 중인 차량번호입니다.`,
+        };
+      }
+      updateFields.push("registration = ?");
+      updateValues.push(registration);
+    }
+    // 계좌번호(phone) 중복 체크 및 준비
+    if (phone && phone.trim() !== "") {
+      const [phoneRows] = await pool.execute<RowDataPacket[]>(
+        `SELECT user_id FROM vrp_user_identities WHERE phone = ? AND user_id != ? LIMIT 1`,
+        [phone, userId]
+      );
+      if (phoneRows.length > 0) {
+        return {
+          success: false,
+          data: null,
+          error: `이미 사용 중인 계좌번호입니다.`,
+        };
+      }
+      updateFields.push("phone = ?");
+      updateValues.push(phone);
+    }
+    if (updateFields.length === 0) {
+      return { success: false, data: null, error: "수정할 정보가 없습니다." };
+    }
+    // UPDATE 쿼리 실행
+    try {
+      const query = `UPDATE vrp_user_identities SET ${updateFields.join(
+        ", "
+      )} WHERE user_id = ?`;
+      await pool.execute(query, [...updateValues, userId]);
+      // 변경 로그 추가
+      let changedFields: string[] = [];
+      if (registration)
+        changedFields.push(`차량번호를 ${registration}(으)로 변경`);
+      if (phone) changedFields.push(`계좌번호를 ${phone}(으)로 변경`);
+      await logService.writeAdminLog(
+        `${session.user.nickname}(user_id=${userId}) ${changedFields.join(
+          ", "
+        )}`
+      );
+      return {
+        success: true,
+        data: {
+          updatedRegistration: registration || undefined,
+          updatedPhone: phone || undefined,
+        },
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "유저 정보 수정 중 알 수 없는 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  async getAttendanceRecordsForUser(
+    userNumericId: number,
+    dateRange: DateRange | undefined
+  ): Promise<ApiResponse<AttendanceRecordWithUser[]>> {
+    const session = await auth();
+    if (!session || !session.user) {
+      return {
+        success: false,
+        data: null,
+        error: "권한이 없습니다. 로그인이 필요합니다.",
+      };
+    }
+
+    if (!dateRange || !dateRange.from || !dateRange.to) {
+      return {
+        success: false,
+        data: null,
+        error: "날짜 범위가 올바르지 않습니다.",
+      };
+    }
+
+    try {
+      const records = await prisma.attendanceRecord.findMany({
+        where: {
+          userNumericId: userNumericId,
+          checkInTime: {
+            gte: dateRange.from,
+            lte: dateRange.to,
+          },
+          // 또는 checkInTime과 checkOutTime이 dateRange와 겹치는지 확인하는 더 복잡한 로직도 가능
+          // 예: OR: [
+          //   { checkInTime: { lte: dateRange.to }, checkOutTime: { gte: dateRange.from } },
+          //   { checkInTime: { gte: dateRange.from, lte: dateRange.to } },
+          // ],
+        },
+        orderBy: {
+          checkInTime: "desc",
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              userId: true,
+              nickname: true,
+              image: true,
+              role: true,
+            },
+          },
+        },
+      });
+
+      const formattedRecords: AttendanceRecordWithUser[] = records.map(
+        (record) => {
+          const { user, ...restOfRecord } = record;
+          const simplifiedUser: SimplifiedUser = {
+            id: user.id,
+            userId: user.userId,
+            nickname: user.nickname,
+            image: user.image,
+            role: user.role, // role 추가
+          };
+          return {
+            ...restOfRecord,
+            userNumericId: user.userId,
+            user: simplifiedUser,
+          };
+        }
+      );
+
+      // 이 부분은 사용자별 조회이므로 로그 메시지를 다르게 할 수 있음
+      // await logService.writeAdminLog(
+      //   `${session.user.nickname}님이 사용자 ${userNumericId}의 근태 기록 조회 (${format(dateRange.from, "yyyy-MM-dd")} - ${format(dateRange.to, "yyyy-MM-dd")})`
+      // );
+
+      return {
+        success: true,
+        data: formattedRecords,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Error fetching attendance records for user:", error);
+      // await logService.writeAdminLog(
+      //   `사용자 ${userNumericId} 근태 기록 조회 중 오류 발생`,
+      // );
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "사용자 근태 기록 조회 중 알 수 없는 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  // 모든 사용자의 모든 근태 기록을 가져오는 메소드
+  async getAttendanceRecordsWithUser(): Promise<
+    ApiResponse<AttendanceRecordWithUser[]>
+  > {
+    const session = await auth();
+    if (!session || !session.user) {
+      return {
+        success: false,
+        data: null,
+        error: "권한이 없습니다. 로그인이 필요합니다.",
+      };
+    }
+
+    try {
+      const records = await prisma.attendanceRecord.findMany({
+        orderBy: {
+          checkInTime: "desc",
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              userId: true,
+              nickname: true,
+              image: true,
+              role: true,
+            },
+          },
+        },
+      });
+
+      const formattedRecords: AttendanceRecordWithUser[] = records.map(
+        (record) => {
+          const { user, ...restOfRecord } = record;
+          const simplifiedUser: SimplifiedUser = {
+            id: user.id,
+            userId: user.userId,
+            nickname: user.nickname,
+            image: user.image,
+            role: user.role, // role 추가
+          };
+          return {
+            ...restOfRecord,
+            userNumericId: user.userId,
+            user: simplifiedUser,
+          };
+        }
+      );
+      await logService.writeAdminLog(
+        `${session.user.nickname}님이 전체 근태 기록 조회`
+      );
+      return {
+        success: true,
+        data: formattedRecords,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Error fetching all attendance records:", error);
+      await logService.writeAdminLog(
+        `전체 근태 기록 조회 중 오류 발생: ${
+          error instanceof Error ? error.message : "알 수 없는 오류"
+        }`
+      );
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "전체 근태 기록 조회 중 알 수 없는 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  // <<< 새로운 함수 추가 시작 >>>
+  /**
+   * 사용자의 경고 횟수를 직접 설정합니다 (Master 이상).
+   * @param userId 대상 유저 ID
+   * @param count 새로운 경고 횟수 (0-7)
+   */
+  async setWarningCount(
+    userId: number,
+    count: number
+  ): Promise<ApiResponse<boolean>> {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "로그인이 필요합니다.", data: false };
+    }
+
+    // 권한 확인 (Master 이상)
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return { success: false, error: "권한이 없습니다.", data: false };
+    }
+
+    // 입력값 검증 (0-7)
+    if (count < 0 || count > 7 || !Number.isInteger(count)) {
+      return {
+        success: false,
+        error: "경고 횟수는 0에서 7 사이의 정수여야 합니다.",
+        data: false,
+      };
+    }
+
+    try {
+      // UPSERT 쿼리 실행
+      const query = `
+        INSERT INTO dokku_warning (user_id, count)
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE count = VALUES(count)
+      `;
+      const [result] = await pool.execute<ResultSetHeader>(query, [
+        userId,
+        count,
+      ]);
+
+      // 성공 로그 기록
+      if (result.affectedRows > 0 || result.warningStatus === 0) {
+        await logService.writeAdminLog(
+          `${session.user.nickname}가 사용자 ${userId}의 경고 횟수를 ${count}(으)로 직접 설정`
+        );
+        return { success: true, data: true, error: null };
+      } else {
+        console.warn(
+          `Warning count set for user ${userId} to ${count} resulted in 0 affected rows.`
+        );
+        return {
+          success: false,
+          error: "경고 횟수 설정에 실패했습니다.",
+          data: false,
+        };
+      }
+    } catch (error) {
+      console.error("Set warning count error:", error);
+      return {
+        success: false,
+        error: "경고 횟수 설정 중 DB 오류 발생",
+        data: false,
+      };
+    }
+  }
+  // <<< 새로운 함수 추가 끝 >>>
 }
 
 export const realtimeService = new RealtimeService();

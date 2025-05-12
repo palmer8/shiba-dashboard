@@ -188,6 +188,11 @@ export class LogService {
     };
   }
 
+  private getDateWithoutTime(dateStr: string): Date {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0);
+  }
+
   async getAdminLogs(
     filters: AdminLogFilters
   ): Promise<ApiResponse<AdminLogListResponse>> {
@@ -267,68 +272,61 @@ export class LogService {
   ): Promise<ApiResponse<GameLogResponse>> {
     try {
       const limit = filters.limit || 50;
-      const offset = ((filters.page || 1) - 1) * limit;
+      const page = filters.page || 0;
+      const offset = page * limit;
 
-      let conditions = ["1=1"]; // 기본 조건
+      let conditions: string[] = [];
       let params: any[] = [];
       let paramIndex = 1;
 
       if (filters.startDate) {
-        const startRange = this.getDateRange(filters.startDate);
-        conditions.push(`timestamp >= $${paramIndex}`);
-        params.push(startRange.start);
-        paramIndex++;
+        conditions.push(`timestamp >= $${paramIndex++}`);
+        params.push(this.getDateWithoutTime(filters.startDate));
       }
-
       if (filters.endDate) {
-        const endRange = this.getDateRange(filters.endDate);
-        conditions.push(`timestamp <= $${paramIndex}`);
-        params.push(endRange.end);
-        paramIndex++;
+        conditions.push(`timestamp <= $${paramIndex++}`);
+        params.push(
+          new Date(
+            this.getDateWithoutTime(filters.endDate).setHours(23, 59, 59, 999)
+          )
+        );
       }
-
       if (filters.type) {
-        conditions.push(`type = $${paramIndex}`);
+        conditions.push(`type = $${paramIndex++}`);
         params.push(filters.type);
-        paramIndex++;
       }
-
       if (filters.level) {
-        conditions.push(`level = $${paramIndex}`);
+        conditions.push(`level = $${paramIndex++}`);
         params.push(filters.level);
-        paramIndex++;
       }
-
       if (filters.message) {
-        conditions.push(`message ILIKE $${paramIndex}`);
+        conditions.push(`message ILIKE $${paramIndex++}`);
         params.push(`%${filters.message}%`);
-        paramIndex++;
       }
+      const whereClause =
+        conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-      const query = `
-        WITH filtered_logs AS (
-          SELECT 
-            id,
-            timestamp,
-            level,
-            type,
-            message,
-            metadata,
-            COUNT(*) OVER() as total_count
-          FROM game_logs
-          WHERE ${conditions.join(" AND ")}
-          ORDER BY timestamp DESC
-          LIMIT $${paramIndex} 
-          OFFSET $${paramIndex + 1}
-        )
-        SELECT * FROM filtered_logs
+      const countQuery = `SELECT COUNT(*) as total FROM game_logs ${whereClause}`;
+      const countParams = [...params];
+      const countResult = await db.sql.unsafe(countQuery, countParams);
+      const totalCount = Number(countResult[0]?.total) || 0;
+
+      const dataQuery = `
+        SELECT 
+          id,
+          timestamp,
+          level,
+          type,
+          message,
+          metadata
+        FROM game_logs
+        ${whereClause}
+        ORDER BY timestamp DESC
+        LIMIT $${paramIndex++}
+        OFFSET $${paramIndex++}
       `;
-
-      // 마지막에 limit과 offset 추가
-      params.push(limit, offset);
-
-      const result = await db.sql.unsafe(query, params);
-      const totalCount = result.length > 0 ? result[0].total_count : 0;
+      const dataParams = [...params, limit, offset];
+      const records = await db.sql.unsafe(dataQuery, dataParams);
 
       await this.writeAdminLog(
         `유저 로그 조회 (${[
@@ -345,7 +343,7 @@ export class LogService {
       return {
         success: true,
         data: {
-          records: result.map(({ total_count, ...log }) => ({
+          records: records.map((log: any) => ({
             id: log.id,
             timestamp: log.timestamp,
             level: log.level,
@@ -354,8 +352,8 @@ export class LogService {
             metadata: log.metadata,
           })),
           total: totalCount,
-          page: filters.page || 1,
-          totalPages: Math.ceil(totalCount / (filters.limit || 50)),
+          page: page,
+          totalPages: Math.ceil(totalCount / limit),
         },
         error: null,
       };
@@ -367,7 +365,7 @@ export class LogService {
         data: {
           records: [],
           total: 0,
-          page: 1,
+          page: 0,
           totalPages: 1,
         },
       };

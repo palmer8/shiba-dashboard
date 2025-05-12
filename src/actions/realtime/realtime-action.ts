@@ -2,6 +2,15 @@
 
 import { realtimeService } from "@/service/realtime-service";
 import { UserMemo } from "@/types/realtime";
+import { DateRange } from "react-day-picker";
+import { ApiResponse } from "@/types/global.dto";
+
+export type ChangeUserIdResponseData = {
+  lastLoginDate: string | null;
+  isCurrentUserOnline: boolean;
+  changed?: boolean;
+  isNewUserIdExists?: boolean;
+};
 
 export async function returnPlayerSkinAction(userId: number) {
   const result = await realtimeService.returnPlayerSkin(userId);
@@ -111,5 +120,60 @@ export async function updateUserDiscordIdAction(
     gameUserId,
     newDiscordId
   );
+  return result;
+}
+
+export async function changeUserIdAction(
+  currentUserId: number,
+  newUserId: number,
+  confirm: boolean
+): Promise<ApiResponse<ChangeUserIdResponseData>> {
+  const result = await realtimeService.changeUserId(
+    currentUserId,
+    newUserId,
+    confirm
+  );
+  return result;
+}
+
+export async function changeUserIdentityAction(
+  userId: number,
+  registration?: string,
+  phone?: string
+) {
+  const result = await realtimeService.changeUserIdentity(
+    userId,
+    registration,
+    phone
+  );
+  return result;
+}
+
+export async function getAttendanceRecordsWithUsersAction() {
+  const result = await realtimeService.getAttendanceRecordsWithUser();
+  return result;
+}
+
+export async function getAttendanceRecordsForUserAction(
+  userNumericId: number,
+  dateRange: DateRange | undefined
+) {
+  const result = await realtimeService.getAttendanceRecordsForUser(
+    userNumericId,
+    dateRange
+  );
+  return result;
+}
+
+export async function updateWarningCountAction(
+  userId: number,
+  newCount: number
+) {
+  const result = await realtimeService.setWarningCount(userId, newCount);
+  return result;
+}
+
+export async function setWarningCountAction(userId: number, count: number) {
+  const result = await realtimeService.setWarningCount(userId, count);
   return result;
 }

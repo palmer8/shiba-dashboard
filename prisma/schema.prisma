@@ -114,6 +114,8 @@ model User {
   boardComments   BoardComment[]
   boardLikes      BoardLike[]
 
+  attendanceRecords AttendanceRecord[]
+
   @@map("user")
 }
 
@@ -418,45 +420,17 @@ model BoardLike {
   @@map("board_like")
 }
 
-// 현재 출퇴근 상태
-model Attendance {
-  id        String   @id @default(cuid())
-  userId    Int      @map("user_id")
-  nickname  String   @map("nickname")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+model AttendanceRecord {
+  id           String    @id @default(uuid())
+  userNumericId Int      @map("user_id")
+  user         User      @relation(fields: [userNumericId], references: [userId], onDelete: Cascade)
 
-  // 출근/퇴근 기록과의 관계
-  checkIns  CheckIn[]
-  checkOuts CheckOut[]
+  checkInTime  DateTime  @map("check_in_time") @db.Timestamp(6)
+  checkOutTime DateTime? @map("check_out_time") @db.Timestamp(6)
 
-  @@unique([userId]) // 한 유저당 하나의 상태만 존재
-  @@index([userId])
-  @@map("attendance")
-}
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
-// 출근 기록
-model CheckIn {
-  id           String     @id @default(cuid())
-  attendanceId String     @map("attendance_id")
-  attendance   Attendance @relation(fields: [attendanceId], references: [id])
-  timestamp    DateTime   @map("timestamp")
-  createdAt    DateTime   @default(now()) @map("created_at")
-
-  @@index([attendanceId])
-  @@index([timestamp])
-  @@map("check_in")
-}
-
-// 퇴근 기록
-model CheckOut {
-  id           String     @id @default(cuid())
-  attendanceId String // 출퇴근 상태 ID
-  attendance   Attendance @relation(fields: [attendanceId], references: [id])
-  timestamp    DateTime   @map("timestamp")
-  createdAt    DateTime   @default(now()) @map("created_at")
-
-  @@index([attendanceId])
-  @@index([timestamp])
-  @@map("check_out")
+  @@index([userNumericId, checkInTime(sort: Desc)])
+  @@map("attendance_record")
 }

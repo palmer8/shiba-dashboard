@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { UserRole } from "@prisma/client";
+import { UserRole as PrismaUserRole } from "@prisma/client";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Parser } from "json2csv";
@@ -9,6 +9,9 @@ import { JSONContent } from "novel";
 import { parse } from "csv-parse/sync";
 import { MarkdownNode } from "@/types/lib";
 import JSZip from "jszip";
+
+export type UserRole = PrismaUserRole;
+export const UserRole = PrismaUserRole;
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

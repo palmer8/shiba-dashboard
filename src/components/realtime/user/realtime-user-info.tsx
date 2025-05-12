@@ -21,6 +21,9 @@ import {
   Trash2,
   Plus,
   Link,
+  Loader2 as LoadingSpinner,
+  Save,
+  X,
 } from "lucide-react";
 import IncidentReportTable from "@/components/report/incident-report-table";
 import { Session } from "next-auth";
@@ -30,6 +33,8 @@ import {
   deleteChunobotAction,
   updateJailAction,
   createMemoAction,
+  updateWarningCountAction,
+  setWarningCountAction,
 } from "@/actions/realtime/realtime-action";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, Fragment } from "react";
@@ -50,6 +55,11 @@ import { JailDialog } from "./jail-dialog";
 import EditDiscordIdDialog from "@/components/dialog/edit-discordid-dialog";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
+import ChangeUserIdDialog from "@/components/dialog/change-userid-dialog";
+import ChangeUserIdentityDialog from "@/components/dialog/change-user-identity-dialog";
+import { addBanAction, deleteBanAction } from "@/actions/ban-action";
+import { Input } from "@/components/ui/input";
+import SetWarningCountDialog from "@/components/dialog/set-warning-count-dialog";
 
 interface RealtimeUserInfoProps {
   data: RealtimeGameUserData;
@@ -81,6 +91,21 @@ export default function RealtimeUserInfo({
   const [jailDialogOpen, setJailDialogOpen] = useState(false);
   const [isJailRelease, setIsJailRelease] = useState(false);
   const [editDiscordIdOpen, setEditDiscordIdOpen] = useState(false);
+  const [changeUserIdDialogOpen, setChangeUserIdDialogOpen] = useState(false);
+  const [changeUserIdentityDialogOpen, setChangeUserIdentityDialogOpen] =
+    useState(false);
+  const [isWarningLoading, setIsWarningLoading] = useState(false);
+  const [setWarningCountDialogOpen, setSetWarningCountDialogOpen] =
+    useState(false);
+
+  const isSupermaster =
+    session?.user && hasAccess(session.user.role, UserRole.SUPERMASTER);
+  const isMaster =
+    session?.user && hasAccess(session.user.role, UserRole.MASTER);
+  const canIncrementDecrement =
+    session?.user && hasAccess(session.user.role, UserRole.STAFF);
+  const canDirectlySet =
+    session?.user && hasAccess(session.user.role, UserRole.MASTER);
 
   useEffect(() => {
     setCanNotResolveBanStatus(!isAdmin && Boolean(data.banned));
@@ -229,6 +254,44 @@ export default function RealtimeUserInfo({
     }
   };
 
+  const handleUpdateWarningCount = async (change: 1 | -1) => {
+    if (!data.warningCount && data.warningCount !== 0) return;
+
+    const currentCount = data.warningCount || 0;
+    const newCount = currentCount + change;
+
+    if (newCount < 0 || newCount > 7) {
+      console.warn("Warning count out of bounds (0-7).");
+      return;
+    }
+
+    setIsWarningLoading(true);
+    try {
+      const result = await updateWarningCountAction(userId, newCount);
+      if (result.success) {
+        toast({
+          title: "경고 횟수 변경 성공",
+          description: `경고 횟수가 ${newCount}회로 변경되었습니다.`,
+        });
+        mutate();
+      } else {
+        toast({
+          title: "경고 횟수 변경 실패",
+          description: result.error || "경고 횟수 변경 중 오류 발생",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "경고 횟수 변경 실패",
+        description: "경고 횟수 변경 중 오류 발생",
+        variant: "destructive",
+      });
+    } finally {
+      setIsWarningLoading(false);
+    }
+  };
+
   // INGAME_ADMIN 이상인지 확인 (session.user가 없을 경우 false)
   const canEditDiscordId = session?.user
     ? hasAccess(session.user.role, UserRole.INGAME_ADMIN)
@@ -240,36 +303,111 @@ export default function RealtimeUserInfo({
 
   return (
     <>
+      {/* 하드밴 안내문구 (모든 권한) */}
+      {data.isIdBan && (
+        <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-700 text-sm font-semibold flex items-center gap-2 justify-between">
+          하드밴 된 이용자입니다
+          {isMaster && (
+            <Button
+              size="sm"
+              variant="destructive"
+              className="ml-2 h-7 px-3"
+              onClick={async () => {
+                const res = await deleteBanAction(data.user_id.toString());
+                if (res.success) {
+                  toast({
+                    title: "하드밴 해제 성공",
+                    description: "하드밴이 해제되었습니다.",
+                  });
+                  mutate();
+                } else {
+                  toast({
+                    title: "하드밴 해제 실패",
+                    description: res.error || "해제 중 오류가 발생했습니다.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+              tabIndex={0}
+              aria-label="하드밴 해제"
+            >
+              해제
+            </Button>
+          )}
+        </div>
+      )}
       {/* 헤더 섹션 - 중요 정보 */}
       <div className="my-6">
-        <div className="flex items-start gap-6">
-          <Avatar className="h-24 w-24">
-            <AvatarFallback className="text-lg">
-              {getFirstNonEmojiCharacter(data.last_nickname || "?")}
-            </AvatarFallback>
-          </Avatar>
-
-          <div className="space-y-2">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-bold">{data.last_nickname}</h2>
-                {data.banned && <Badge variant="destructive">비정상</Badge>}
-                {!data.banned &&
-                  (data.online ? (
-                    <Badge variant="outline" className="bg-green-500/50">
-                      온라인
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">오프라인</Badge>
-                  ))}
-              </div>
-
-              <div className="flex gap-2 text-sm text-muted-foreground">
-                <span>{data.job}</span>
-                <Separator orientation="vertical" className="h-4" />
-                <span>가입일: {data.first_join}</span>
+        <div className="flex items-start gap-6 justify-between">
+          <div className="flex items-start gap-6">
+            <Avatar className="h-24 w-24">
+              <AvatarFallback className="text-lg">
+                {getFirstNonEmojiCharacter(data.last_nickname || "?")}
+              </AvatarFallback>
+            </Avatar>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-bold">{data.last_nickname}</h2>
+                  {data.banned && <Badge variant="destructive">비정상</Badge>}
+                  {!data.banned &&
+                    (data.online ? (
+                      <Badge variant="outline" className="bg-green-500/50">
+                        온라인
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">오프라인</Badge>
+                    ))}
+                </div>
+                <div className="flex gap-2 text-sm text-muted-foreground">
+                  <span>{data.job}</span>
+                  <Separator orientation="vertical" className="h-4" />
+                  <span>가입일: {data.first_join}</span>
+                </div>
               </div>
             </div>
+          </div>
+          <div className="flex flex-col gap-2 items-end">
+            {isSupermaster && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-28"
+                    tabIndex={0}
+                    aria-label="유저 관리"
+                  >
+                    유저 관리
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => setChangeUserIdentityDialogOpen(true)}
+                    tabIndex={0}
+                    aria-label="유저 정보 수정"
+                  >
+                    유저 정보 수정
+                  </DropdownMenuItem>
+                  {canDirectlySet && (
+                    <DropdownMenuItem
+                      onClick={() => setSetWarningCountDialogOpen(true)}
+                      tabIndex={0}
+                      aria-label="경고 횟수 변경"
+                    >
+                      경고 횟수 변경
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => setChangeUserIdDialogOpen(true)}
+                    tabIndex={0}
+                    aria-label="고유번호 변경"
+                  >
+                    고유번호 변경
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </div>
@@ -335,15 +473,68 @@ export default function RealtimeUserInfo({
           </Button>
         </div>
 
-        {/* 상단의 이용 정지 버튼 */}
-        <div className="flex justify-between items-center mt-4">
+        {/* 상단의 이용 정지/하드밴 버튼 */}
+        <div className="flex justify-between items-center mt-4 gap-2">
           <div></div>
-          <Button
-            disabled={canNotResolveBanStatus}
-            onClick={() => setBanDialogOpen(true)}
-          >
-            {data.banned ? "정지 해제" : "이용 정지"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              disabled={canNotResolveBanStatus}
+              onClick={() => setBanDialogOpen(true)}
+            >
+              {data.banned ? "정지 해제" : "이용 정지"}
+            </Button>
+            {isMaster && (
+              <Button
+                variant={data.isIdBan ? "destructive" : "default"}
+                onClick={async () => {
+                  if (data.isIdBan) {
+                    const res = await deleteBanAction(data.user_id.toString());
+                    if (res.success) {
+                      toast({
+                        title: "하드밴 해제 성공",
+                        description: "하드밴이 해제되었습니다.",
+                      });
+                      mutate();
+                    } else {
+                      toast({
+                        title: "하드밴 해제 실패",
+                        description:
+                          res.error || "해제 중 오류가 발생했습니다.",
+                        variant: "destructive",
+                      });
+                    }
+                  } else {
+                    // 하드밴 추가
+                    const res = await addBanAction({
+                      user_id: data.user_id.toString(),
+                      name: data.last_nickname,
+                      banreason: "관리자 수동 하드밴",
+                      identifiers: [],
+                    });
+                    if (res.success) {
+                      toast({
+                        title: "하드밴 추가 성공",
+                        description: "하드밴이 적용되었습니다.",
+                      });
+                      mutate();
+                    } else {
+                      toast({
+                        title: "하드밴 추가 실패",
+                        description:
+                          res.error || "추가 중 오류가 발생했습니다.",
+                        variant: "destructive",
+                      });
+                    }
+                  }
+                }}
+                className="h-9"
+                tabIndex={0}
+                aria-label={data.isIdBan ? "하드밴 해제" : "하드밴 추가"}
+              >
+                {data.isIdBan ? "하드밴 해제" : "하드밴"}
+              </Button>
+            )}
+          </div>
         </div>
 
         <TabsContent value="details">
@@ -645,26 +836,22 @@ export default function RealtimeUserInfo({
           <Card>
             <CardHeader className="p-4 flex flex-row items-center justify-between">
               <CardTitle className="text-base">디스코드 연동 정보</CardTitle>
-              {/* 버튼 로직 수정 */}
               {canEditDiscordId && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setEditDiscordIdOpen(true)}
-                  // disabled={!data.discordId} // 이 조건 제거
                 >
                   {data.discordId ? (
                     <Pencil className="h-3 w-3 mr-1.5" />
                   ) : (
                     <Plus className="h-3 w-3 mr-1.5" />
                   )}
-                  {data.discordId ? "ID 변경" : "ID 추가"}{" "}
-                  {/* 텍스트 동적 변경 */}
+                  {data.discordId ? "ID 변경" : "ID 추가"}
                 </Button>
               )}
             </CardHeader>
             <CardContent className="space-y-6 pt-0 pb-6">
-              {/* DB에 저장된 ID 표시 */}
               <div className="space-y-2">
                 <h3 className="text-sm font-medium text-muted-foreground">
                   저장된 Discord ID
@@ -679,7 +866,6 @@ export default function RealtimeUserInfo({
                       size="icon"
                       className="h-6 w-6"
                       onClick={() => {
-                        // 'discord:' 접두어 제거 후 복사
                         const numericId =
                           data.discordId?.replace("discord:", "") || "";
                         navigator.clipboard.writeText(numericId);
@@ -695,9 +881,8 @@ export default function RealtimeUserInfo({
                 </div>
               </div>
               <Separator />
-              {/* Discord API 조회 결과 표시 */}
-              {data.discordId ? ( // DB에 ID가 있는 경우에만 API 결과 섹션 표시
-                data.discordData ? ( // API 조회가 성공한 경우
+              {data.discordId ? (
+                data.discordData ? (
                   <div className="space-y-6">
                     <div className="flex items-start gap-4">
                       {data.discordData.avatarUrl && (
@@ -759,13 +944,11 @@ export default function RealtimeUserInfo({
                     </div>
                   </div>
                 ) : (
-                  // API 조회가 실패한 경우 (서버에 없거나 ID 오류)
                   <div className="text-center text-muted-foreground text-sm py-4">
                     서버에 참여중이지 않거나 유효하지 않은 Discord ID 입니다.
                   </div>
                 )
               ) : (
-                // DB에 ID가 없는 경우
                 <div className="text-center text-muted-foreground text-sm py-4">
                   연동된 디스코드 계정이 없습니다. (ID 추가 버튼으로 등록)
                 </div>
@@ -816,7 +999,50 @@ export default function RealtimeUserInfo({
                     경고 횟수
                   </h3>
                   <div className="flex items-center gap-2">
-                    <p>{data.warningCount || "-"}</p>
+                    <p aria-label="경고 횟수">
+                      {data.warningCount === null ||
+                      data.warningCount === undefined
+                        ? "-"
+                        : `${data.warningCount}회`}
+                    </p>
+                    {canIncrementDecrement && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => handleUpdateWarningCount(-1)}
+                          disabled={
+                            isWarningLoading || (data.warningCount || 0) <= 0
+                          }
+                          aria-label="경고 감소"
+                          tabIndex={0}
+                        >
+                          {isWarningLoading && (data.warningCount || 0) > 0 ? (
+                            <LoadingSpinner className="h-3 w-3 animate-spin" />
+                          ) : (
+                            "-"
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => handleUpdateWarningCount(1)}
+                          disabled={
+                            isWarningLoading || (data.warningCount || 0) >= 7
+                          }
+                          aria-label="경고 증가"
+                          tabIndex={0}
+                        >
+                          {isWarningLoading && (data.warningCount || 0) < 7 ? (
+                            <LoadingSpinner className="h-3 w-3 animate-spin" />
+                          ) : (
+                            "+"
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -913,7 +1139,6 @@ export default function RealtimeUserInfo({
         </TabsContent>
       </Tabs>
 
-      {/* 다이얼로그 컴포넌트 */}
       {data.last_nickname && (
         <BanPlayerDialog
           session={session}
@@ -981,13 +1206,41 @@ export default function RealtimeUserInfo({
         }
       />
 
-      {/* Discord ID 수정/추가 다이얼로그 */}
       {canEditDiscordId && (
         <EditDiscordIdDialog
           open={editDiscordIdOpen}
           setOpen={setEditDiscordIdOpen}
           gameUserId={userId}
           currentDiscordId={data.discordId?.replace("discord:", "") || null}
+          mutate={mutate}
+        />
+      )}
+
+      <ChangeUserIdDialog
+        open={changeUserIdDialogOpen}
+        setOpen={setChangeUserIdDialogOpen}
+        currentUserId={userId}
+        session={session}
+        mutate={mutate}
+      />
+
+      <ChangeUserIdentityDialog
+        open={changeUserIdentityDialogOpen}
+        setOpen={setChangeUserIdentityDialogOpen}
+        userId={userId}
+        session={session}
+        mutate={mutate}
+        currentRegistration={data.registration || ""}
+        currentPhone={data.phone || ""}
+      />
+
+      {canDirectlySet && (
+        <SetWarningCountDialog
+          open={setWarningCountDialogOpen}
+          setOpen={setSetWarningCountDialogOpen}
+          userId={userId}
+          currentWarningCount={data.warningCount}
+          session={session}
           mutate={mutate}
         />
       )}

@@ -94,6 +94,11 @@ const ROLE_LINKS = {
         href: "/game/group-mail",
         role: ["MASTER", "SUPERMASTER"],
       },
+      {
+        name: "하드밴",
+        href: "/game/ban",
+        role: ["STAFF", "INGAME_ADMIN", "MASTER", "SUPERMASTER"],
+      },
     ],
   },
   payment: {
