@@ -1797,17 +1797,32 @@ class RealtimeService {
   > {
     try {
       const response = await this.fetchWithRetry<{
-        users: Array<{ user_id: number; name: string }>;
+        users?: Array<{ user_id: number; name: string }>; // users를 optional로 변경
       }>("/DokkuApi/getOnlinePlayers", { method: "POST" });
 
-      // user_id 기준으로 오름차순 정렬
-      const sortedUsers = response.users.sort((a, b) => a.user_id - b.user_id);
-
-      return {
-        success: true,
-        data: { users: sortedUsers },
-        error: null,
-      };
+      // response.users가 존재하고 배열인지 확인
+      if (response && Array.isArray(response.users)) {
+        // user_id 기준으로 오름차순 정렬
+        const sortedUsers = response.users.sort(
+          (a, b) => a.user_id - b.user_id
+        );
+        return {
+          success: true,
+          data: { users: sortedUsers },
+          error: null,
+        };
+      } else {
+        // users가 없거나 배열이 아닌 경우 (API 응답 문제 등)
+        console.warn(
+          "Online players fetch: response.users is missing or not an array",
+          response
+        );
+        return {
+          success: true, // 또는 false로 처리하고 에러 메시지를 명확히 할 수 있음
+          data: { users: [] }, // 빈 배열 반환
+          error: null, // 또는 "Failed to parse online players data"와 같은 에러 메시지 설정
+        };
+      }
     } catch (error) {
       console.error("Online players fetch error:", error);
       return {
