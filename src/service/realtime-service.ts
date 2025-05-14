@@ -2442,10 +2442,10 @@ class RealtimeService {
       return { success: false, error: "로그인이 필요합니다.", data: false };
     }
 
-    // 권한 확인 (Master 이상)
-    if (!hasAccess(session.user.role, UserRole.MASTER)) {
-      return { success: false, error: "권한이 없습니다.", data: false };
-    }
+    // // 권한 확인 (Master 이상)
+    // if (!hasAccess(session.user.role, UserRole.MASTER)) {
+    //   return { success: false, error: "권한이 없습니다.", data: false };
+    // }
 
     // 입력값 검증 (0-7)
     if (count < 0 || count > 7 || !Number.isInteger(count)) {

@@ -3,8 +3,9 @@
 import { userService } from "@/service/user-service";
 import { ApiResponse } from "@/types/global.dto";
 import { SignUpUser, UpdateProfileData } from "@/types/user";
-import { User } from "@prisma/client";
+import { User, UserRole } from "@prisma/client";
 import { SignUpFormValues } from "@/lib/validations/auth";
+import { auth } from "@/lib/auth-config";
 
 export async function signUpAction(
   data: SignUpFormValues
@@ -48,5 +49,29 @@ export async function deleteUserAction(
   nickname: string
 ): Promise<ApiResponse<User>> {
   const result = await userService.deleteUser(id, nickname);
+  return result;
+}
+
+export async function updateUserByMasterAction(
+  targetUserIdToUpdate: string,
+  data: any
+): Promise<ApiResponse<User>> {
+  const session = await auth();
+  if (!session?.user?.id || !session?.user?.role || !session?.user?.nickname) {
+    return {
+      success: false,
+      error:
+        "인증되지 않은 사용자이거나 필수 정보(ID, 역할, 닉네임)가 없습니다.",
+      data: null,
+    };
+  }
+
+  const result = await userService.updateUserByMaster(
+    session.user.id,
+    session.user.role as UserRole,
+    session.user.nickname,
+    targetUserIdToUpdate,
+    data
+  );
   return result;
 }

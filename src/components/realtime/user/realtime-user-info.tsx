@@ -24,6 +24,7 @@ import {
   Loader2 as LoadingSpinner,
   Save,
   X,
+  ChevronDown,
 } from "lucide-react";
 import IncidentReportTable from "@/components/report/incident-report-table";
 import { Session } from "next-auth";
@@ -104,8 +105,7 @@ export default function RealtimeUserInfo({
     session?.user && hasAccess(session.user.role, UserRole.MASTER);
   const canIncrementDecrement =
     session?.user && hasAccess(session.user.role, UserRole.STAFF);
-  const canDirectlySet =
-    session?.user && hasAccess(session.user.role, UserRole.MASTER);
+  const canDirectlySet = isMaster;
 
   useEffect(() => {
     setCanNotResolveBanStatus(!isAdmin && Boolean(data.banned));
@@ -368,27 +368,30 @@ export default function RealtimeUserInfo({
             </div>
           </div>
           <div className="flex flex-col gap-2 items-end">
-            {isSupermaster && (
+            {isMaster && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 w-28"
+                    className="h-9 w-auto px-3 flex items-center"
                     tabIndex={0}
                     aria-label="유저 관리"
                   >
-                    유저 관리
+                    <span>유저 관리</span>
+                    <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => setChangeUserIdentityDialogOpen(true)}
-                    tabIndex={0}
-                    aria-label="유저 정보 수정"
-                  >
-                    유저 정보 수정
-                  </DropdownMenuItem>
+                <DropdownMenuContent align="end" className="w-48">
+                  {isSupermaster && (
+                    <DropdownMenuItem
+                      onClick={() => setChangeUserIdentityDialogOpen(true)}
+                      tabIndex={0}
+                      aria-label="유저 정보 수정 (차량/계좌)"
+                    >
+                      차량/계좌번호 변경
+                    </DropdownMenuItem>
+                  )}
                   {canDirectlySet && (
                     <DropdownMenuItem
                       onClick={() => setSetWarningCountDialogOpen(true)}
@@ -398,13 +401,15 @@ export default function RealtimeUserInfo({
                       경고 횟수 변경
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem
-                    onClick={() => setChangeUserIdDialogOpen(true)}
-                    tabIndex={0}
-                    aria-label="고유번호 변경"
-                  >
-                    고유번호 변경
-                  </DropdownMenuItem>
+                  {isSupermaster && (
+                    <DropdownMenuItem
+                      onClick={() => setChangeUserIdDialogOpen(true)}
+                      tabIndex={0}
+                      aria-label="게임 고유번호 변경"
+                    >
+                      게임 고유번호 변경
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

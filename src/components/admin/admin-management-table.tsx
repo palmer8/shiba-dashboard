@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AdminDto } from "@/types/user";
 import { toast } from "sonner";
+import EditAdminDialog from "@/components/dialog/edit-admin-dialog";
 
 interface AdminManagementTableProps {
   data: AdminDto;
@@ -94,6 +95,10 @@ export function AdminManagementTable({
   >(null);
   const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [selectedAdminForEdit, setSelectedAdminForEdit] = useState<
+    AdminDto["items"][number] | null
+  >(null);
+  const [showEditAdminDialog, setShowEditAdminDialog] = useState(false);
 
   useEffect(() => {
     setInputPage(data.page.toString());
@@ -122,9 +127,11 @@ export function AdminManagementTable({
           : a.nickname.localeCompare(b.nickname);
       }
       if (sortBy === "role") {
+        const roleAOrder = ROLE_HIERARCHY[a.role as UserRole] ?? 99;
+        const roleBOrder = ROLE_HIERARCHY[b.role as UserRole] ?? 99;
         return sortDirection === "desc"
-          ? b.role.localeCompare(a.role)
-          : a.role.localeCompare(b.role);
+          ? roleBOrder - roleAOrder
+          : roleAOrder - roleBOrder;
       }
       return 0;
     });
@@ -154,6 +161,30 @@ export function AdminManagementTable({
       return targetRole === "STAFF"; // 인게임 관리자는 스태프만 관리 가능
     }
     return !isSameOrHigherRole(sessionRole, targetRole); // 기존 로직 유지
+  };
+
+  const canEditThisUser = (targetAdmin: AdminDto["items"][number]) => {
+    if (!session.user || !session.user.role) return false;
+    const currentUserRole = session.user.role as UserRole;
+    const targetUserRole = targetAdmin.role as UserRole;
+
+    if (ROLE_HIERARCHY[currentUserRole] < ROLE_HIERARCHY[UserRole.MASTER]) {
+      return false;
+    }
+
+    if (currentUserRole === UserRole.SUPERMASTER) {
+      return true;
+    }
+
+    if (session.user.id === targetAdmin.id) {
+      return false;
+    }
+
+    if (ROLE_HIERARCHY[currentUserRole] <= ROLE_HIERARCHY[targetUserRole]) {
+      return false;
+    }
+
+    return true;
   };
 
   return (
@@ -268,7 +299,6 @@ export function AdminManagementTable({
                                 {ROLE_OPTIONS.filter(
                                   (option) =>
                                     option.value !== "ALL" &&
-                                    // 자신보다 낮은 권한만 표시
                                     ROLE_HIERARCHY[option.value as UserRole] <
                                       ROLE_HIERARCHY[
                                         session.user?.role as UserRole
@@ -286,16 +316,29 @@ export function AdminManagementTable({
                           )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedAdminForEdit(admin);
+                              setShowEditAdminDialog(true);
+                            }}
+                            disabled={!canEditThisUser(admin)}
+                          >
+                            유저 정보 변경
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
                             onClick={async () => {
                               await toggleDashboardUserPermissionAction(
                                 admin.id,
                                 !admin.isPermissive
                               );
+                              router.refresh();
                             }}
                             disabled={
+                              (session.user.id === admin.id &&
+                                session.user.role !== UserRole.SUPERMASTER) ||
                               !canManagePermissions(
-                                session.user.role,
-                                admin.role
+                                session.user.role as UserRole,
+                                admin.role as UserRole
                               )
                             }
                           >
@@ -323,18 +366,22 @@ export function AdminManagementTable({
                                 비밀번호 재설정
                               </DropdownMenuItem>
                             )}
-                          <DropdownMenuSeparator />
+                          {session.user.userId === 1 &&
+                            session.user.role === "SUPERMASTER" && (
+                              <DropdownMenuSeparator />
+                            )}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <DropdownMenuItem
                                 onSelect={(e) => e.preventDefault()}
                                 className="text-destructive"
                                 disabled={
-                                  session.user.userId !== 1 &&
-                                  isSameOrHigherRole(
-                                    session.user.role,
-                                    admin.role
-                                  )
+                                  session.user.id === admin.id ||
+                                  (session.user.role !== UserRole.SUPERMASTER &&
+                                    isSameOrHigherRole(
+                                      session.user.role as UserRole,
+                                      admin.role as UserRole
+                                    ))
                                 }
                               >
                                 <Trash className="mr-2 h-4 w-4" />
@@ -544,6 +591,22 @@ export function AdminManagementTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {selectedAdminForEdit && (
+        <EditAdminDialog
+          isOpen={showEditAdminDialog}
+          onOpenChange={(open) => {
+            setShowEditAdminDialog(open);
+            if (!open) {
+              setSelectedAdminForEdit(null);
+            }
+          }}
+          targetUser={selectedAdminForEdit}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
