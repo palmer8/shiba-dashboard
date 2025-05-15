@@ -1016,23 +1016,6 @@ export default function RealtimeUserInfo({
                           variant="outline"
                           size="icon"
                           className="h-6 w-6"
-                          onClick={() => handleUpdateWarningCount(-1)}
-                          disabled={
-                            isWarningLoading || (data.warningCount || 0) <= 0
-                          }
-                          aria-label="경고 감소"
-                          tabIndex={0}
-                        >
-                          {isWarningLoading && (data.warningCount || 0) > 0 ? (
-                            <LoadingSpinner className="h-3 w-3 animate-spin" />
-                          ) : (
-                            "-"
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-6 w-6"
                           onClick={() => handleUpdateWarningCount(1)}
                           disabled={
                             isWarningLoading || (data.warningCount || 0) >= 7
