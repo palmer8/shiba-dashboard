@@ -21,12 +21,16 @@ import { XIcon, CopyIcon } from "lucide-react";
 
 interface BanIdentifiersDialogProps {
   banId: string;
+  currentUserId: string | null;
+  currentName: string;
   currentBanreason: string;
   initialIdentifiers: string[];
 }
 
 export default function BanIdentifiersDialog({
   banId,
+  currentUserId,
+  currentName,
   currentBanreason,
   initialIdentifiers,
 }: BanIdentifiersDialogProps) {
@@ -54,6 +58,8 @@ export default function BanIdentifiersDialog({
     setIsSubmitting(true);
     const result = await editBanDirectlyInDbAction({
       id: banId,
+      user_id: currentUserId,
+      name: currentName,
       banreason: currentBanreason,
       identifiers: updatedIdentifiers,
     });

@@ -116,6 +116,8 @@ export default function BanTable({ data }: BanTableProps) {
                   <TableCell>
                     <BanIdentifiersDialog
                       banId={row.id}
+                      currentUserId={row.user_id}
+                      currentName={row.name}
                       currentBanreason={row.banreason}
                       initialIdentifiers={row.identifiers}
                     />
