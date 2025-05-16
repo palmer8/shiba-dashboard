@@ -15,7 +15,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Empty from "@/components/ui/empty";
 import EditBanDialog from "@/components/game/edit-ban-dialog";
 import BanIdentifiersDialog from "@/components/game/ban-identifiers-dialog";
-import { deleteBanAction } from "@/actions/ban-action";
+import { deleteBanDirectlyFromDbAction } from "@/actions/ban-action";
 import { toast } from "@/hooks/use-toast";
 import { useSession } from "next-auth/react";
 import { UserRole } from "@prisma/client";
@@ -62,7 +62,7 @@ export default function BanTable({ data }: BanTableProps) {
 
   const handleDelete = async (id: string) => {
     if (!confirm("정말로 이 하드밴을 해제하시겠습니까?")) return;
-    const result = await deleteBanAction(id);
+    const result = await deleteBanDirectlyFromDbAction(id);
     if (result.success) {
       toast({ title: "하드밴 해제 성공" });
     } else {
@@ -76,7 +76,7 @@ export default function BanTable({ data }: BanTableProps) {
 
   return (
     <div className="space-y-4">
-      {hasAccess(session?.user?.role, UserRole.MASTER) && (
+      {isMaster && (
         <div className="flex justify-end items-center">
           <AddBanDialog />
         </div>
@@ -96,12 +96,6 @@ export default function BanTable({ data }: BanTableProps) {
         {data.records.length > 0 ? (
           <TableBody>
             {data.records.map((row) => {
-              let identifiers: string[] = [];
-              try {
-                identifiers = JSON.parse(row.identifiers);
-              } catch {
-                identifiers = [];
-              }
               return (
                 <TableRow key={row.id}>
                   <TableCell>{row.id}</TableCell>
@@ -120,7 +114,11 @@ export default function BanTable({ data }: BanTableProps) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <BanIdentifiersDialog identifiers={identifiers} />
+                    <BanIdentifiersDialog
+                      banId={row.id}
+                      currentBanreason={row.banreason}
+                      initialIdentifiers={row.identifiers}
+                    />
                   </TableCell>
                   <TableCell>
                     {new Date(row.created_at).toLocaleString("ko-KR")}
@@ -136,8 +134,10 @@ export default function BanTable({ data }: BanTableProps) {
                         <DropdownMenuContent align="end">
                           <EditBanDialog
                             id={row.id}
+                            initialUserId={row.user_id}
+                            initialName={row.name}
                             initialBanreason={row.banreason}
-                            initialIdentifiers={identifiers}
+                            initialIdentifiers={row.identifiers}
                             trigger={
                               <DropdownMenuItem
                                 onSelect={(e) => e.preventDefault()}

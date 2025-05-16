@@ -58,9 +58,12 @@ import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import ChangeUserIdDialog from "@/components/dialog/change-userid-dialog";
 import ChangeUserIdentityDialog from "@/components/dialog/change-user-identity-dialog";
-import { addBanAction, deleteBanAction } from "@/actions/ban-action";
-import { Input } from "@/components/ui/input";
 import SetWarningCountDialog from "@/components/dialog/set-warning-count-dialog";
+import {
+  banUserViaApiAction,
+  unbanUserViaApiAction,
+  getBanRecordByUserIdAction,
+} from "@/actions/ban-action";
 
 interface RealtimeUserInfoProps {
   data: RealtimeGameUserData;
@@ -77,6 +80,8 @@ export default function RealtimeUserInfo({
   session,
   mutate,
 }: RealtimeUserInfoProps) {
+  console.log(data);
+
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [banDialogOpen, setBanDialogOpen] = useState(false);
@@ -313,7 +318,29 @@ export default function RealtimeUserInfo({
               variant="destructive"
               className="ml-2 h-7 px-3"
               onClick={async () => {
-                const res = await deleteBanAction(data.user_id.toString());
+                if (!data.online) {
+                  toast({
+                    title: "오프라인 유저",
+                    description: "해당 유저는 온라인 상태가 아닙니다.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                const banRecordResult = await getBanRecordByUserIdAction(
+                  userId.toString()
+                );
+                if (!banRecordResult.success || !banRecordResult.data) {
+                  toast({
+                    title: "오류",
+                    description:
+                      banRecordResult.error ||
+                      "해당 유저의 밴 정보를 찾을 수 없습니다.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                const banId = banRecordResult.data.id;
+                const res = await unbanUserViaApiAction(banId);
                 if (res.success) {
                   toast({
                     title: "하드밴 해제 성공",
@@ -492,8 +519,30 @@ export default function RealtimeUserInfo({
               <Button
                 variant={data.isIdBan ? "destructive" : "default"}
                 onClick={async () => {
+                  if (!data.online) {
+                    toast({
+                      title: "오프라인 유저",
+                      description: "해당 유저는 온라인 상태가 아닙니다.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
                   if (data.isIdBan) {
-                    const res = await deleteBanAction(data.user_id.toString());
+                    const banRecordResult = await getBanRecordByUserIdAction(
+                      userId.toString()
+                    );
+                    if (!banRecordResult.success || !banRecordResult.data) {
+                      toast({
+                        title: "오류",
+                        description:
+                          banRecordResult.error ||
+                          "해당 유저의 밴 정보를 찾을 수 없습니다.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    const banId = banRecordResult.data.id;
+                    const res = await unbanUserViaApiAction(banId);
                     if (res.success) {
                       toast({
                         title: "하드밴 해제 성공",
@@ -510,12 +559,10 @@ export default function RealtimeUserInfo({
                     }
                   } else {
                     // 하드밴 추가
-                    const res = await addBanAction({
-                      user_id: data.user_id.toString(),
-                      name: data.last_nickname,
-                      banreason: "관리자 수동 하드밴",
-                      identifiers: [],
-                    });
+                    const res = await banUserViaApiAction(
+                      userId,
+                      "관리자 수동 하드밴 (유저 정보)"
+                    );
                     if (res.success) {
                       toast({
                         title: "하드밴 추가 성공",

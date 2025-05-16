@@ -1,16 +1,6 @@
 "use client";
 
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Cell,
-} from "recharts";
-import {
   format,
   eachDayOfInterval,
   startOfDay,
@@ -22,76 +12,48 @@ import {
   max,
   addMinutes,
   differenceInMinutes,
+  isWithinInterval,
+  parse,
 } from "date-fns";
 import { ko } from "date-fns/locale";
-import { AttendanceCalendarProps, SimplifiedUser } from "@/types/attendance";
-import { useMemo } from "react";
+import {
+  AttendanceCalendarProps,
+  AttendanceRecordWithUser,
+  SimplifiedUser,
+} from "@/types/attendance";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
-// 30분 단위 시간 슬롯을 위한 타입
-interface TimeSlots {
-  [key: string]: number; // 예: "t0_0" (0시 0분), "t0_30" (0시 30분)
-}
-
+// ChartDataRecord 인터페이스는 그대로 사용
 interface ChartDataRecord {
-  date: string;
+  id: string;
   dayLabel: string;
-  slots: TimeSlots; // 시간 슬롯 데이터를 별도 객체로 관리
-  totalWorkTimeToday?: string;
-  user?: SimplifiedUser;
+  userNickname?: string;
+  workInterval: [number, number];
+  checkInTime: string;
+  checkOutTime: string;
+  workDurationMinutes: number;
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length && payload[0].value !== undefined) {
-    const data: ChartDataRecord = payload[0].payload;
-    const slotKey = payload[0].dataKey as string;
-
-    let hour = NaN;
-    let minute = NaN;
-
-    if (slotKey && typeof slotKey === "string" && slotKey.startsWith("t")) {
-      const parts = slotKey.substring(1).split("_");
-      if (parts.length === 2) {
-        hour = parseInt(parts[0]);
-        minute = parseInt(parts[1]);
-      }
-    }
-
-    let userName = data.user?.nickname || "";
-    // NaN 체크 후 시간 범위 생성
-    const timeRange =
-      !isNaN(hour) && !isNaN(minute)
-        ? `${String(hour).padStart(2, "0")}:${String(minute).padStart(
-            2,
-            "0"
-          )} - ${String(hour).padStart(2, "0")}:${String(minute + 29).padStart(
-            2,
-            "0"
-          )}`
-        : "시간 정보 없음";
-
-    return (
-      <div className="rounded-lg border bg-background p-2 shadow-sm text-xs">
-        <p className="font-medium mb-1">
-          {data.dayLabel}
-          {userName ? ` (${userName})` : ""}
-        </p>
-        <p>시간: {timeRange}</p>
-        <p
-          className={
-            payload[0].value === 1 ? "text-primary" : "text-muted-foreground"
-          }
-        >
-          상태: {payload[0].value === 1 ? "근무" : "근무 아님"}
-        </p>
-        {data.totalWorkTimeToday && (
-          <p>당일 총 근무: {data.totalWorkTimeToday}</p>
-        )}
-      </div>
-    );
-  }
-  return null;
+// 시간 변환 및 포맷팅 헬퍼 함수들은 그대로 사용
+const timeToNumeric = (date: Date): number => {
+  return getHours(date) + getMinutes(date) / 60;
 };
+
+const formatMinutesToHoursAndMinutes = (totalMinutes: number): string => {
+  if (isNaN(totalMinutes) || totalMinutes < 0) return "-";
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}시간 ${minutes > 0 ? `${minutes}분` : ""}`.trim();
+};
+
+// 새로운 툴팁 데이터 및 위치 상태 인터페이스
+interface TooltipInfo {
+  data: ChartDataRecord;
+  top: number;
+  left: number;
+}
 
 export function AttendanceCalendar({
   records,
@@ -106,6 +68,178 @@ export function AttendanceCalendar({
     }
     return undefined;
   }, [targetUserNumericId, users]);
+
+  const yAxisDayLabels = useMemo(() => {
+    // 이 로직은 이전과 동일하게 유지 (중복 없는 날짜 레이블 배열 생성)
+    if (!currentDateRange?.from || !currentDateRange?.to) {
+      return [];
+    }
+    const dayLabels = new Set<string>();
+    const range = {
+      start: startOfDay(currentDateRange.from),
+      end: startOfDay(currentDateRange.to),
+    };
+    if (range.start > range.end) {
+      dayLabels.add(format(range.start, "MM/dd (EE)", { locale: ko }));
+    } else {
+      const daysInView = eachDayOfInterval(range);
+      daysInView.forEach((day) => {
+        dayLabels.add(format(day, "MM/dd (EE)", { locale: ko }));
+      });
+    }
+    let finalLabels = Array.from(new Set(Array.from(dayLabels)));
+    finalLabels.sort();
+    finalLabels.reverse();
+    return finalLabels;
+  }, [currentDateRange]);
+
+  const chartData = useMemo((): ChartDataRecord[] => {
+    // 이 로직은 이전과 동일하게 유지 (차트 데이터 가공)
+    if (
+      !currentDateRange ||
+      !currentDateRange.from ||
+      !currentDateRange.to ||
+      yAxisDayLabels.length === 0
+    ) {
+      return [];
+    }
+    const processedRecords: ChartDataRecord[] = [];
+    const viewStartDate = startOfDay(currentDateRange.from);
+    const viewEndDate = endOfDay(currentDateRange.to);
+
+    const filteredUserRecords = targetUserNumericId
+      ? records.filter((r) => r.userNumericId === targetUserNumericId)
+      : records;
+
+    filteredUserRecords.forEach((attRecord) => {
+      if (
+        !attRecord.checkInTime ||
+        !attRecord.checkOutTime ||
+        !isValid(new Date(attRecord.checkInTime)) ||
+        !isValid(new Date(attRecord.checkOutTime))
+      ) {
+        return;
+      }
+      const checkIn = new Date(attRecord.checkInTime);
+      const checkOut = new Date(attRecord.checkOutTime);
+      let currentDateIter = startOfDay(checkIn);
+      while (currentDateIter <= checkOut && currentDateIter <= viewEndDate) {
+        if (currentDateIter < viewStartDate) {
+          currentDateIter = startOfDay(addMinutes(currentDateIter, 24 * 60));
+          continue;
+        }
+        const dayStart = startOfDay(currentDateIter);
+        const dayEnd = endOfDay(currentDateIter);
+        const segmentStart = max([checkIn, dayStart]);
+        const segmentEnd = min([checkOut, dayEnd]);
+
+        if (segmentStart < segmentEnd) {
+          const numericStartTime = timeToNumeric(segmentStart);
+          let numericEndTime = timeToNumeric(segmentEnd);
+          if (
+            numericEndTime === 0 &&
+            !isWithinInterval(segmentStart, { start: dayStart, end: dayEnd })
+          ) {
+            if (
+              differenceInMinutes(segmentEnd, segmentStart) > 0 &&
+              getHours(segmentEnd) === 0 &&
+              getMinutes(segmentEnd) === 0
+            ) {
+              numericEndTime = 24;
+            }
+          }
+          if (
+            numericStartTime === 0 &&
+            numericEndTime === 0 &&
+            differenceInMinutes(segmentEnd, segmentStart) >= 24 * 60 - 1
+          ) {
+            numericEndTime = 24;
+          }
+          if (numericStartTime < numericEndTime) {
+            processedRecords.push({
+              id: `${attRecord.id}_${format(dayStart, "yyyyMMdd")}`,
+              dayLabel: format(dayStart, "MM/dd (EE)", { locale: ko }),
+              userNickname: attRecord.user?.nickname || currentUserNickname,
+              workInterval: [numericStartTime, numericEndTime],
+              checkInTime: attRecord.checkInTime.toISOString(),
+              checkOutTime: attRecord.checkOutTime.toISOString(),
+              workDurationMinutes: differenceInMinutes(checkOut, checkIn),
+            });
+          }
+        }
+        currentDateIter = startOfDay(addMinutes(currentDateIter, 24 * 60));
+      }
+    });
+    processedRecords.sort((a, b) => {
+      const aIndex = yAxisDayLabels.indexOf(a.dayLabel);
+      const bIndex = yAxisDayLabels.indexOf(b.dayLabel);
+      if (aIndex === -1 && bIndex !== -1) return 1;
+      if (aIndex !== -1 && bIndex === -1) return -1;
+      if (aIndex === -1 && bIndex === -1) {
+        const dateAVal = parse(a.dayLabel, "MM/dd (EE)", new Date()).getTime();
+        const dateBVal = parse(b.dayLabel, "MM/dd (EE)", new Date()).getTime();
+        if (dateAVal > dateBVal) return -1;
+        if (dateAVal < dateBVal) return 1;
+        return a.workInterval[0] - b.workInterval[0];
+      }
+      if (aIndex < bIndex) return -1;
+      if (aIndex > bIndex) return 1;
+      return a.workInterval[0] - b.workInterval[0];
+    });
+    return processedRecords;
+  }, [
+    records,
+    users,
+    currentDateRange,
+    targetUserNumericId,
+    currentUserNickname,
+    yAxisDayLabels,
+  ]);
+
+  const [activeTooltip, setActiveTooltip] = useState<TooltipInfo | null>(null);
+
+  const handleShowTooltip = (
+    record: ChartDataRecord,
+    event: React.MouseEvent<HTMLDivElement> | React.FocusEvent<HTMLDivElement>
+  ) => {
+    const barRect = event.currentTarget.getBoundingClientRect();
+    const chartAreaContainer = event.currentTarget.closest(
+      '[data-chart-area="true"]'
+    );
+    const chartAreaRect = chartAreaContainer?.getBoundingClientRect();
+
+    let top = barRect.top - (chartAreaRect?.top || 0) + barRect.height / 2;
+    let left = barRect.left - (chartAreaRect?.left || 0) + barRect.width;
+
+    if (chartAreaRect) {
+      const tooltipEstimatedWidth = 180;
+      const tooltipEstimatedHeight = 100;
+
+      if (left + tooltipEstimatedWidth > chartAreaRect.width) {
+        left =
+          barRect.left - (chartAreaRect?.left || 0) - tooltipEstimatedWidth - 5;
+      }
+      if (left < 0) {
+        left = 5;
+      }
+      if (top + tooltipEstimatedHeight > chartAreaRect.height) {
+        top =
+          barRect.top -
+          (chartAreaRect?.top || 0) -
+          tooltipEstimatedHeight +
+          barRect.height / 2;
+      }
+      if (top < 0) {
+        top = 5;
+      }
+    }
+
+    setActiveTooltip({ data: record, top, left });
+  };
+
+  const handleHideTooltip = () => {
+    setActiveTooltip(null);
+  };
 
   if (!currentDateRange || !currentDateRange.from || !currentDateRange.to) {
     return (
@@ -126,122 +260,7 @@ export function AttendanceCalendar({
     );
   }
 
-  const processDataForChart = (): ChartDataRecord[] => {
-    const processed: ChartDataRecord[] = [];
-    if (!currentDateRange || !currentDateRange.from || !currentDateRange.to)
-      return processed;
-
-    const daysInView = eachDayOfInterval({
-      start: startOfDay(currentDateRange.from),
-      end: startOfDay(currentDateRange.to),
-    });
-
-    const filteredRecords = targetUserNumericId
-      ? records.filter((r) => r.userNumericId === targetUserNumericId)
-      : records;
-
-    let currentUser: SimplifiedUser | undefined = undefined;
-    if (targetUserNumericId && users) {
-      currentUser = users.find(
-        (u: SimplifiedUser) => u.userId === targetUserNumericId
-      );
-    } else if (filteredRecords.length > 0 && filteredRecords[0].user) {
-      currentUser = filteredRecords[0].user;
-    }
-
-    daysInView.forEach((day) => {
-      const dayKey = format(day, "yyyy-MM-dd");
-      const dayLabel = format(day, "MM/dd (EE)", { locale: ko });
-      const initialSlots: TimeSlots = {};
-      for (let h = 0; h < 24; h++) {
-        initialSlots[`t${h}_0`] = 0;
-        initialSlots[`t${h}_30`] = 0;
-      }
-
-      const recordForDay: ChartDataRecord = {
-        date: dayKey,
-        dayLabel: dayLabel,
-        user: currentUser,
-        slots: initialSlots,
-      };
-      let totalMinutesToday = 0;
-
-      filteredRecords.forEach((attRecord) => {
-        if (!attRecord.checkInTime || !isValid(new Date(attRecord.checkInTime)))
-          return;
-
-        const checkIn = new Date(attRecord.checkInTime);
-        const checkOut =
-          attRecord.checkOutTime && isValid(new Date(attRecord.checkOutTime))
-            ? new Date(attRecord.checkOutTime)
-            : null;
-
-        if (!checkOut) return;
-
-        const dayStart = startOfDay(day);
-        const dayEnd = endOfDay(day);
-        const segmentStart = max([checkIn, dayStart]);
-        const segmentEnd = min([checkOut, dayEnd]);
-
-        if (segmentStart < segmentEnd) {
-          let currentSlotTime = startOfDay(segmentStart);
-          currentSlotTime = new Date(
-            currentSlotTime.getFullYear(),
-            currentSlotTime.getMonth(),
-            currentSlotTime.getDate(),
-            getHours(segmentStart),
-            getMinutes(segmentStart) < 30 ? 0 : 30
-          );
-
-          while (currentSlotTime < segmentEnd) {
-            const slotHour = getHours(currentSlotTime);
-            const slotMinute = getMinutes(currentSlotTime);
-            const slotKey = `t${slotHour}_${slotMinute}`;
-
-            const slotEndBoundary = addMinutes(currentSlotTime, 30);
-            if (
-              max([currentSlotTime, segmentStart]) <
-              min([slotEndBoundary, segmentEnd])
-            ) {
-              if (recordForDay.slots.hasOwnProperty(slotKey)) {
-                recordForDay.slots[slotKey] = 1;
-              }
-            }
-            currentSlotTime = addMinutes(currentSlotTime, 30);
-          }
-
-          // 당일 총 근무시간 계산 로직 수정
-          // segmentStart와 segmentEnd는 이미 해당 'day' 기준으로 잘린 실제 근무 시간이므로, 이걸 사용
-          if (
-            isValid(segmentStart) &&
-            isValid(segmentEnd) &&
-            segmentEnd > segmentStart
-          ) {
-            totalMinutesToday += differenceInMinutes(segmentEnd, segmentStart);
-          }
-        }
-      });
-
-      if (totalMinutesToday > 0) {
-        const hours = Math.floor(totalMinutesToday / 60);
-        const minutes = totalMinutesToday % 60;
-        recordForDay.totalWorkTimeToday = `${hours}시간 ${minutes}분`;
-      }
-      processed.push(recordForDay);
-    });
-    return processed.reverse();
-  };
-
-  const chartData = processDataForChart();
-
-  const timeSlotKeys = useMemo(() => {
-    const keys = [];
-    for (let h = 0; h < 24; h++) {
-      keys.push(`t${h}_0`);
-      keys.push(`t${h}_30`);
-    }
-    return keys;
-  }, []);
+  const hourLabels = Array.from({ length: 13 }, (_, i) => i * 2);
 
   return (
     <Card>
@@ -252,63 +271,122 @@ export function AttendanceCalendar({
             : "타임라인"}
         </CardTitle>
       </CardHeader>
-      <CardContent className="pl-0 pr-2 pb-2 pt-0">
-        <ResponsiveContainer
-          width="100%"
-          height={Math.max(300, chartData.length * 40)}
-        >
-          <BarChart
-            layout="vertical"
-            data={chartData}
-            margin={{ top: 5, right: 25, left: 10, bottom: 5 }}
-            barCategoryGap="25%"
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              horizontal={true}
-              vertical={false}
-            />
-            <XAxis
-              type="number"
-              domain={[0, 24]}
-              ticks={[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24]}
-              tickFormatter={(value) => `${value}시`}
-              allowDecimals={false}
-              fontSize={12}
-            />
-            <YAxis
-              type="category"
-              dataKey="dayLabel"
-              width={75}
-              fontSize={12}
-            />
-            <Tooltip
-              content={<CustomTooltip />}
-              cursor={{ fill: "hsl(var(--muted) / 0.2)" }}
-            />
-
-            {timeSlotKeys.map((slotKey) => (
-              <Bar
-                key={slotKey}
-                dataKey={`slots.${slotKey}`} // Cell 내부에서 entry.slots[slotKey]로 접근하도록 dataKey 수정
-                stackId="workTime"
-                barSize={18}
-              >
-                {chartData.map((entry, entryIndex) => (
-                  <Cell
-                    key={`cell-${entryIndex}-${slotKey}`}
-                    fill={
-                      entry.slots && entry.slots[slotKey] === 1 // 수정된 접근 방식
-                        ? "hsl(var(--primary))"
-                        : "hsl(var(--card))"
-                    }
-                    radius={0}
-                  />
-                ))}
-              </Bar>
+      <CardContent className="pr-4 pl-2 py-4 relative" data-chart-area="true">
+        <div className="flex text-xs text-muted-foreground">
+          <div className="w-20 shrink-0"></div>
+          <div className="flex-1 grid grid-cols-12">
+            {hourLabels.slice(0, -1).map((hour) => (
+              <div key={`xlabel-${hour}`} className="text-center">
+                {hour}시
+              </div>
             ))}
-          </BarChart>
-        </ResponsiveContainer>
+          </div>
+          <div className="w-6 shrink-0"></div>
+        </div>
+
+        <div className="flex mt-1">
+          <div className="w-20 shrink-0 space-y-1">
+            {yAxisDayLabels.map((label) => (
+              <div
+                key={`ylabel-${label}`}
+                className="h-10 flex items-center justify-end pr-2 text-xs text-muted-foreground"
+              >
+                {label}
+              </div>
+            ))}
+            {yAxisDayLabels.length === 0 && <div className="h-10"></div>}
+          </div>
+
+          <div className="flex-1 relative border-l border-muted">
+            {yAxisDayLabels.map((label, dayIndex) => (
+              <div
+                key={`row-${label}`}
+                className={cn(
+                  "h-10 relative",
+                  dayIndex < yAxisDayLabels.length - 1
+                    ? "border-b border-dashed border-muted"
+                    : ""
+                )}
+              >
+                {chartData
+                  .filter((d) => d.dayLabel === label)
+                  .map((record) => {
+                    const leftPercent = (record.workInterval[0] / 24) * 100;
+                    const widthPercent =
+                      ((record.workInterval[1] - record.workInterval[0]) / 24) *
+                      100;
+                    return (
+                      <div
+                        key={record.id}
+                        className="absolute bg-blue-500 rounded top-[20%] h-[60%] hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 cursor-pointer"
+                        style={{
+                          left: `${leftPercent}%`,
+                          width: `${Math.max(0.5, widthPercent)}%`,
+                        }}
+                        onMouseEnter={(e) => handleShowTooltip(record, e)}
+                        onMouseLeave={handleHideTooltip}
+                        onFocus={(e) => handleShowTooltip(record, e)}
+                        onBlur={handleHideTooltip}
+                        tabIndex={0}
+                        aria-label={`근무: ${format(
+                          new Date(record.checkInTime),
+                          "HH:mm"
+                        )} - ${
+                          record.checkOutTime
+                            ? format(new Date(record.checkOutTime), "HH:mm")
+                            : "진행중"
+                        }, ${record.userNickname || ""}`}
+                      ></div>
+                    );
+                  })}
+              </div>
+            ))}
+            {hourLabels.map((hour) => (
+              <div
+                key={`vline-${hour}`}
+                className="absolute top-0 bottom-0 border-l border-dashed border-muted -z-10"
+                style={{ left: `${(hour / 24) * 100}%` }}
+              ></div>
+            ))}
+            <div className="absolute -top-5 right-0 text-xs text-muted-foreground pr-1">
+              24시
+            </div>
+          </div>
+        </div>
+
+        {activeTooltip && (
+          <div
+            className="absolute z-20 rounded-lg border bg-popover text-popover-foreground p-2 shadow-md text-xs min-w-[180px] pointer-events-none"
+            style={{
+              top: activeTooltip.top,
+              left: activeTooltip.left,
+              transform: "translateY(-50%)",
+            }}
+          >
+            <p className="font-medium mb-1">
+              {activeTooltip.data.dayLabel}{" "}
+              {activeTooltip.data.userNickname
+                ? `(${activeTooltip.data.userNickname})`
+                : ""}
+            </p>
+            <hr className="my-1" />
+            <p>
+              출근: {format(new Date(activeTooltip.data.checkInTime), "HH:mm")}
+            </p>
+            <p>
+              퇴근:{" "}
+              {activeTooltip.data.checkOutTime
+                ? format(new Date(activeTooltip.data.checkOutTime), "HH:mm")
+                : "-"}
+            </p>
+            <p>
+              근무:{" "}
+              {formatMinutesToHoursAndMinutes(
+                activeTooltip.data.workDurationMinutes
+              )}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

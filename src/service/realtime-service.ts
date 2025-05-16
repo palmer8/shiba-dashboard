@@ -2279,19 +2279,27 @@ class RealtimeService {
       };
     }
 
+    // 이전에 추가한 디버깅 로그는 제거합니다.
+
+    const rangeStart = dateRange.from; // JS Date 객체 (UTC 시작 시간 유지)
+
+    // rangeEnd를 dateRange.to 날짜의 UTC 기준 23:59:59.999로 설정
+    const adjustedRangeEnd = new Date(dateRange.to);
+    adjustedRangeEnd.setUTCHours(23, 59, 59, 999);
+
     try {
       const records = await prisma.attendanceRecord.findMany({
         where: {
           userNumericId: userNumericId,
-          checkInTime: {
-            gte: dateRange.from,
-            lte: dateRange.to,
-          },
-          // 또는 checkInTime과 checkOutTime이 dateRange와 겹치는지 확인하는 더 복잡한 로직도 가능
-          // 예: OR: [
-          //   { checkInTime: { lte: dateRange.to }, checkOutTime: { gte: dateRange.from } },
-          //   { checkInTime: { gte: dateRange.from, lte: dateRange.to } },
-          // ],
+          AND: [
+            { checkInTime: { lte: adjustedRangeEnd } }, // 조정된 rangeEnd 사용
+            {
+              OR: [
+                { checkOutTime: { gte: rangeStart } },
+                { checkOutTime: null },
+              ],
+            },
+          ],
         },
         orderBy: {
           checkInTime: "desc",
@@ -2317,20 +2325,15 @@ class RealtimeService {
             userId: user.userId,
             nickname: user.nickname,
             image: user.image,
-            role: user.role, // role 추가
+            role: user.role,
           };
           return {
             ...restOfRecord,
-            userNumericId: user.userId,
+            userNumericId: user.userId, // 이 필드가 이미 AttendanceRecordWithUser에 있다면 유지, 없다면 user.userId로 채움
             user: simplifiedUser,
           };
         }
       );
-
-      // 이 부분은 사용자별 조회이므로 로그 메시지를 다르게 할 수 있음
-      // await logService.writeAdminLog(
-      //   `${session.user.nickname}님이 사용자 ${userNumericId}의 근태 기록 조회 (${format(dateRange.from, "yyyy-MM-dd")} - ${format(dateRange.to, "yyyy-MM-dd")})`
-      // );
 
       return {
         success: true,
@@ -2339,9 +2342,6 @@ class RealtimeService {
       };
     } catch (error) {
       console.error("Error fetching attendance records for user:", error);
-      // await logService.writeAdminLog(
-      //   `사용자 ${userNumericId} 근태 기록 조회 중 오류 발생`,
-      // );
       return {
         success: false,
         data: null,

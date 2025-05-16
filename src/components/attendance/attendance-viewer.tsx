@@ -9,8 +9,8 @@ import {
   subDays,
   startOfDay,
   endOfDay,
-  min,
-  max as maxDate,
+  startOfMonth,
+  endOfMonth,
 } from "date-fns";
 import { AttendanceList } from "./attendance-list";
 import { AttendanceStats } from "./attendance-stats";
@@ -31,10 +31,7 @@ export function AttendanceViewer({
 
   const deriveInitialDateRange = (): DateRange | undefined => {
     const today = new Date();
-    if (!initialRecords || initialRecords.length === 0) {
-      return { from: startOfDay(subDays(today, 6)), to: endOfDay(today) };
-    }
-    return { from: startOfDay(subDays(today, 6)), to: endOfDay(today) };
+    return { from: startOfMonth(today), to: endOfMonth(today) };
   };
 
   const [date, setDate] = useState<DateRange | undefined>(
@@ -66,12 +63,6 @@ export function AttendanceViewer({
 
   return (
     <div className="space-y-6">
-      {/* <AttendanceFilter date={date} onDateChange={handleDateChange} /> */}
-      {/* <AttendanceCalendar
-        records={initialRecords}
-        users={initialUsers}
-        currentDateRange={date}
-      /> */}
       <AttendanceList
         records={initialRecords}
         users={initialUsers}

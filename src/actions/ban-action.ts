@@ -1,53 +1,72 @@
 "use server";
 
-import { BanFilters, AddBanData, EditBanData } from "@/service/ban-service";
-import { banService } from "@/service/ban-service";
+import {
+  BanFilters,
+  AddBanData,
+  EditBanData,
+  banService,
+} from "@/service/ban-service";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth-config";
 import { UserRole } from "@prisma/client";
+import { hasAccess } from "@/lib/utils";
 
 export async function getBanListAction(filters: BanFilters) {
   return await banService.getBanList(filters);
 }
 
-export async function addBanAction(data: AddBanData) {
+export async function getBanRecordByUserIdAction(userId: string) {
   const session = await auth();
-  if (
-    !session?.user ||
-    (session.user.role !== UserRole.MASTER &&
-      session.user.role !== UserRole.SUPERMASTER)
-  ) {
+  if (!session?.user || !hasAccess(session.user.role, UserRole.STAFF)) {
     return { success: false, data: null, error: "권한이 없습니다." };
   }
-  const result = await banService.addBan(data);
+  return await banService.getBanRecordByUserId(userId);
+}
+
+export async function banUserViaApiAction(userId: number, reason: string) {
+  const session = await auth();
+  if (!session?.user || !hasAccess(session.user.role, UserRole.MASTER)) {
+    return { success: false, data: null, error: "권한이 없습니다." };
+  }
+  const result = await banService.banUserViaApi(userId, reason);
+  return result;
+}
+
+export async function unbanUserViaApiAction(banId: string) {
+  const session = await auth();
+  if (!session?.user || !hasAccess(session.user.role, UserRole.MASTER)) {
+    return { success: false, data: null, error: "권한이 없습니다." };
+  }
+  const result = await banService.unbanUserViaApi(banId);
+  return result;
+}
+
+export async function addBanDirectlyToDbAction(data: AddBanData) {
+  const session = await auth();
+  if (!session?.user || !hasAccess(session.user.role, UserRole.MASTER)) {
+    return { success: false, data: null, error: "권한이 없습니다." };
+  }
+  const result = await banService.addBanDirectlyToDb(data);
   if (result.success) revalidatePath("/game/ban");
   return result;
 }
 
-export async function editBanAction(data: EditBanData) {
+export async function editBanDirectlyInDbAction(data: EditBanData) {
   const session = await auth();
-  if (
-    !session?.user ||
-    (session.user.role !== UserRole.MASTER &&
-      session.user.role !== UserRole.SUPERMASTER)
-  ) {
+  if (!session?.user || !hasAccess(session.user.role, UserRole.MASTER)) {
     return { success: false, data: null, error: "권한이 없습니다." };
   }
-  const result = await banService.editBan(data);
+  const result = await banService.editBanDirectlyInDb(data);
   if (result.success) revalidatePath("/game/ban");
   return result;
 }
 
-export async function deleteBanAction(id: string) {
+export async function deleteBanDirectlyFromDbAction(id: string) {
   const session = await auth();
-  if (
-    !session?.user ||
-    (session.user.role !== UserRole.MASTER &&
-      session.user.role !== UserRole.SUPERMASTER)
-  ) {
+  if (!session?.user || !hasAccess(session.user.role, UserRole.MASTER)) {
     return { success: false, data: null, error: "권한이 없습니다." };
   }
-  const result = await banService.deleteBan(id);
+  const result = await banService.deleteBanDirectlyFromDb(id);
   if (result.success) revalidatePath("/game/ban");
   return result;
 }
