@@ -176,3 +176,11 @@ export async function setWarningCountAction(userId: number, count: number) {
   const result = await realtimeService.setWarningCount(userId, count);
   return result;
 }
+
+export async function getMyTodayAttendanceAction() {
+  return await realtimeService.getMyTodayAttendance();
+}
+
+export async function getMyAttendanceRecordsAction() {
+  return await realtimeService.getMyAttendanceRecords();
+}

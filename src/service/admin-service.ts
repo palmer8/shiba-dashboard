@@ -19,58 +19,33 @@ import bcrypt from "bcrypt";
 
 class AdminService {
   async getDashboardUsers(params: AdminFilter): Promise<ApiResponse<AdminDto>> {
-    const page = params.page || 1;
-    const take = 20;
-
-    const [accounts, total] = await Promise.all([
-      prisma.user.findMany({
-        skip: (page - 1) * take,
-        take,
-        where: {
-          ...(params.nickname && {
-            nickname: {
-              contains: params.nickname,
-            },
-          }),
-          ...(params.userId && {
-            userId: Number(params.userId),
-          }),
-          ...(params.role && {
-            role: params.role as UserRole,
-          }),
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      }),
-      prisma.user.count({
-        where: {
-          ...(params.nickname && {
-            nickname: {
-              contains: params.nickname,
-            },
-          }),
-          ...(params.userId && {
-            userId: {
-              equals: Number(params.userId),
-            },
-          }),
-          ...(params.role && {
-            role: {
-              equals: params.role as UserRole,
-            },
-          }),
-        },
-      }),
-    ]);
+    // 페이지네이션 제거: 모든 유저를 한 번에 반환
+    const accounts = await prisma.user.findMany({
+      where: {
+        ...(params.nickname && {
+          nickname: {
+            contains: params.nickname,
+          },
+        }),
+        ...(params.userId && {
+          userId: Number(params.userId),
+        }),
+        ...(params.role && {
+          role: params.role as UserRole,
+        }),
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
     return {
       success: true,
       data: {
         items: accounts,
-        page,
-        totalPages: Math.ceil(total / take),
-        totalCount: total,
+        page: 1,
+        totalPages: 1,
+        totalCount: accounts.length,
       },
       error: null,
     };

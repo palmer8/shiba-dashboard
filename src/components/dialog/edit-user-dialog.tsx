@@ -49,9 +49,9 @@ import { EditUserFormValues, editUserSchema } from "@/lib/validations/user";
 
 interface EditUserDialogProps {
   session: any;
-  trigger: React.ReactNode;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  trigger?: React.ReactNode;
 }
 
 export default function EditUserDialog({

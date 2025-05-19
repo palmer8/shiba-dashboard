@@ -40,3 +40,10 @@ export const getUserRelatedLogsAction = async (
   const result = await logService.getUserRelatedLogs(userId, page, filters);
   return result;
 };
+
+export const exportGameLogsByDateRangeAction = async (
+  startDate: string,
+  endDate: string
+) => {
+  return await logService.exportGameLogsByDateRange(startDate, endDate);
+};

@@ -983,6 +983,31 @@ export class LogService {
       };
     }
   }
+
+  async exportGameLogsByDateRange(startDate: string, endDate: string) {
+    // startDate, endDate: 'YYYY-MM-DD'
+    const start = new Date(`${startDate}T00:00:00.000Z`);
+    const end = new Date(`${endDate}T23:59:59.999Z`);
+    try {
+      // DB 쿼리: timestamp >= start AND timestamp <= end
+      const logs = await db.sql.unsafe(
+        `SELECT id, timestamp, level, type, message, metadata FROM game_logs WHERE timestamp >= $1 AND timestamp <= $2 ORDER BY timestamp DESC`,
+        [start, end]
+      );
+      return {
+        success: true,
+        data: logs,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error ? error.message : "CSV 기간 다운로드 실패",
+      };
+    }
+  }
 }
 
 export const logService = new LogService();

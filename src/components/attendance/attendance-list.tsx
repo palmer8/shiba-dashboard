@@ -157,35 +157,57 @@ export function AttendanceList({
           (r) => r.userNumericId === user.userId
         );
 
-        let todayRecordSummary = "미출근";
-        if (dateRange?.to && userRecordsForSummary.length > 0) {
-          const todayIso = format(dateRange.to, "yyyy-MM-dd");
+        let todayRecordSummary: React.ReactNode = (
+          <span className="px-2 py-0.5 rounded bg-destructive/10 text-destructive text-xs font-semibold">
+            미출근
+          </span>
+        );
+        // 항상 오늘 날짜 기준으로 비교
+        const todayIso = format(new Date(), "yyyy-MM-dd");
+        if (userRecordsForSummary.length > 0) {
           const todayUserRecords = userRecordsForSummary.filter(
             (r) =>
               format(new Date(r.checkInTime), "yyyy-MM-dd") === todayIso ||
               (r.checkOutTime &&
                 format(new Date(r.checkOutTime), "yyyy-MM-dd") === todayIso)
           );
-          // 최신 기록을 찾기 전에 날짜/시간으로 정렬하는 것이 더 안전합니다.
-          const latestRecordForToday = todayUserRecords.sort(
-            (a, b) =>
-              new Date(b.checkInTime).getTime() -
-              new Date(a.checkInTime).getTime()
-          )[0];
 
-          if (latestRecordForToday) {
-            const inTime = format(
-              new Date(latestRecordForToday.checkInTime),
-              "HH:mm"
+          // checkin만 있고 checkout 없음
+          const workingRecord = todayUserRecords.find(
+            (r) =>
+              format(new Date(r.checkInTime), "yyyy-MM-dd") === todayIso &&
+              !r.checkOutTime
+          );
+          if (workingRecord) {
+            todayRecordSummary = (
+              <span>
+                <span className="font-bold">
+                  {format(new Date(workingRecord.checkInTime), "HH:mm")} 출근
+                </span>
+                <span className="ml-2 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-semibold">
+                  출근 중
+                </span>
+              </span>
             );
-            if (latestRecordForToday.checkOutTime) {
-              const outTime = format(
-                new Date(latestRecordForToday.checkOutTime),
-                "HH:mm"
+          } else {
+            // checkin, checkout 모두 있는 경우
+            const completedRecord = todayUserRecords.find(
+              (r) =>
+                format(new Date(r.checkInTime), "yyyy-MM-dd") === todayIso &&
+                r.checkOutTime
+            );
+            if (completedRecord) {
+              todayRecordSummary = (
+                <span>
+                  {format(new Date(completedRecord.checkInTime), "HH:mm")} 출근
+                  <span className="mx-1 text-muted-foreground">/</span>
+                  {format(
+                    new Date(completedRecord.checkOutTime!),
+                    "HH:mm"
+                  )}{" "}
+                  퇴근
+                </span>
               );
-              todayRecordSummary = `출근: ${inTime} / 퇴근: ${outTime}`;
-            } else {
-              todayRecordSummary = `출근: ${inTime} (근무중)`;
             }
           }
         }

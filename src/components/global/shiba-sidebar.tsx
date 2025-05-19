@@ -14,8 +14,17 @@ import { NavUser } from "./nav-user";
 import { getUserByIdAction } from "@/actions/user-action";
 import { User, UserRole } from "@prisma/client";
 import { hasAccess } from "@/lib/utils";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { getMyTodayAttendanceAction } from "@/actions/realtime/realtime-action";
+import { format } from "date-fns";
 
 export function ShibaSidebar({
   ...props

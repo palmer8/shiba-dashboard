@@ -23,8 +23,8 @@ export default async function AdminPage({
 
   let data: AdminDto = {
     items: [],
-    page: 0,
-    totalPages: 0,
+    page: 1,
+    totalPages: 1,
     totalCount: 0,
   };
 

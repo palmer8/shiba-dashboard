@@ -89,7 +89,6 @@ export function AdminManagementTable({
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortDirection, setSortDirection] = useState("desc");
-  const [inputPage, setInputPage] = useState(data.page.toString());
   const [selectedAdmin, setSelectedAdmin] = useState<
     AdminDto["items"][number] | null
   >(null);
@@ -99,10 +98,6 @@ export function AdminManagementTable({
     AdminDto["items"][number] | null
   >(null);
   const [showEditAdminDialog, setShowEditAdminDialog] = useState(false);
-
-  useEffect(() => {
-    setInputPage(data.page.toString());
-  }, [data.page]);
 
   const filteredItems = data.items
     .filter((item: AdminDto["items"][number]) => {
@@ -135,23 +130,6 @@ export function AdminManagementTable({
       }
       return 0;
     });
-
-  const handlePageChange = (newPage: number) => {
-    const currentPage = Number(data.page);
-    const totalPages = Number(data.totalPages);
-
-    if (newPage < 1 || newPage > totalPages) return;
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", String(newPage));
-
-    if (searchTerm) params.set("search", searchTerm);
-    if (roleFilter !== "ALL") params.set("role", roleFilter);
-    if (sortBy !== "createdAt") params.set("sortBy", sortBy);
-    if (sortDirection !== "desc") params.set("sortDirection", sortDirection);
-
-    router.push(`?${params.toString()}`);
-  };
 
   const canManagePermissions = (
     sessionRole: UserRole,
@@ -487,51 +465,6 @@ export function AdminManagementTable({
             <Empty description="데이터가 존재하지 않습니다." />
           </div>
         )}
-      </div>
-
-      <div className="flex items-center justify-center gap-2 pt-4 flex-wrap">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(Number(data.page) - 1)}
-          disabled={Number(data.page) <= 1}
-          className="order-1"
-        >
-          이전
-        </Button>
-        <div className="flex items-center gap-1 order-2">
-          <input
-            type="number"
-            value={inputPage}
-            onChange={(e) => setInputPage(e.target.value)}
-            onBlur={(e) => {
-              let newPage = parseInt(e.target.value);
-              if (isNaN(newPage) || newPage < 1) {
-                newPage = 1;
-                setInputPage("1");
-              } else if (newPage > data.totalPages) {
-                newPage = data.totalPages;
-                setInputPage(data.totalPages.toString());
-              }
-              handlePageChange(newPage);
-            }}
-            className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            min={1}
-            max={data.totalPages}
-          />
-          <span className="text-sm text-muted-foreground whitespace-nowrap">
-            / {data.totalPages}
-          </span>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(Number(data.page) + 1)}
-          disabled={Number(data.page) >= Number(data.totalPages)}
-          className="order-3"
-        >
-          다음
-        </Button>
       </div>
 
       <AlertDialog

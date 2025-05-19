@@ -2494,6 +2494,142 @@ class RealtimeService {
     }
   }
   // <<< 새로운 함수 추가 끝 >>>
+
+  // 내 근태 정보(오늘 출근/퇴근 등) 반환
+  async getMyTodayAttendance(): Promise<
+    ApiResponse<AttendanceRecordWithUser | null>
+  > {
+    const session = await auth();
+    if (!session || !session.user) {
+      return { success: false, data: null, error: "로그인이 필요합니다." };
+    }
+    const userNumericId = session.user.userId;
+    const today = new Date();
+    const start = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+    const end = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
+
+    const record = await prisma.attendanceRecord.findFirst({
+      where: {
+        userNumericId,
+        checkInTime: { gte: start, lte: end },
+      },
+      orderBy: { checkInTime: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            userId: true,
+            nickname: true,
+            image: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!record) return { success: true, data: null, error: null };
+
+    return {
+      success: true,
+      data: {
+        ...record,
+        userNumericId: record.user.userId,
+        user: {
+          id: record.user.id,
+          userId: record.user.userId,
+          nickname: record.user.nickname,
+          image: record.user.image,
+          role: record.user.role,
+        },
+      },
+      error: null,
+    };
+  }
+
+  // 내 근태 기록 리스트(최근 2주 등) 반환
+  async getMyAttendanceRecords(): Promise<
+    ApiResponse<AttendanceRecordWithUser[]>
+  > {
+    const session = await auth();
+    if (!session || !session.user) {
+      return { success: false, data: [], error: "로그인이 필요합니다." };
+    }
+    const userNumericId = session.user.userId;
+    const today = new Date();
+    const from = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() - 13,
+      0,
+      0,
+      0,
+      0
+    ); // 최근 2주(14일)
+    const to = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
+
+    const records = await prisma.attendanceRecord.findMany({
+      where: {
+        userNumericId,
+        checkInTime: { gte: from, lte: to },
+      },
+      orderBy: { checkInTime: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            userId: true,
+            nickname: true,
+            image: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    const formattedRecords: AttendanceRecordWithUser[] = records.map(
+      (record) => ({
+        ...record,
+        userNumericId: record.user.userId,
+        user: {
+          id: record.user.id,
+          userId: record.user.userId,
+          nickname: record.user.nickname,
+          image: record.user.image,
+          role: record.user.role,
+        },
+      })
+    );
+
+    return {
+      success: true,
+      data: formattedRecords,
+      error: null,
+    };
+  }
 }
 
 export const realtimeService = new RealtimeService();
