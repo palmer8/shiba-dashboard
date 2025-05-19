@@ -551,7 +551,7 @@ export function UserDataTable({
               mode="range"
               selected={range}
               onSelect={setRange as SelectRangeEventHandler}
-              numberOfMonths={2}
+              numberOfMonths={1}
               className="mx-auto"
             />
             <div className="text-xs text-muted-foreground text-center">
