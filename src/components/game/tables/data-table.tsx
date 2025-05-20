@@ -104,7 +104,7 @@ export function DataTable({ data, queryType, session }: DataTableProps) {
     (newPage: number) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("page", newPage.toString());
-      router.push(`?${params.toString()}`, { scroll: false });
+      router.push(`/log/game?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
   );

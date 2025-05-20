@@ -7,6 +7,7 @@ import { DataTable } from "./tables/data-table";
 import { Session } from "next-auth";
 import { IpTable } from "./tables/ip-table";
 import Empty from "@/components/ui/empty";
+import { VehicleTable } from "./tables/vehicle-table";
 
 interface GameDataTableProps {
   data: any;
@@ -53,7 +54,11 @@ export function GameDataTable({
         <CompanyTable
           data={{
             records: data?.data || [],
-            metadata,
+            metadata: {
+              total: data?.total || 0,
+              page: data?.currentPage || currentPage,
+              totalPages: data?.totalPages || totalPages,
+            },
           }}
           session={session}
         />
@@ -63,20 +68,54 @@ export function GameDataTable({
         <InstagramTable
           data={{
             records: data?.data || [],
-            metadata,
+            metadata: {
+              total: data?.total || 0,
+              page: data?.currentPage || currentPage,
+              totalPages: data?.totalPages || totalPages,
+            },
           }}
           session={session}
         />
       );
     case "IP":
-      return <IpTable data={data.data} session={session} />;
+      return (
+        <IpTable
+          data={{
+            records: data?.data?.records || [],
+            metadata: {
+              total: data?.data?.metadata?.total || 0,
+              page: data?.data?.metadata?.page || currentPage,
+              totalPages: data?.data?.metadata?.totalPages || totalPages,
+            },
+          }}
+          session={session}
+        />
+      );
+    case "VEHICLE":
+      return (
+        <VehicleTable
+          data={{
+            records: data?.data || [],
+            metadata: {
+              total: data?.total || 0,
+              page: data?.currentPage || currentPage,
+              totalPages: data?.totalPages || totalPages,
+            },
+          }}
+          session={session}
+        />
+      );
     default:
       return (
         <DataTable
           queryType={queryType}
           data={{
             records: data?.data || [],
-            metadata,
+            metadata: {
+              total: data?.total || 0,
+              page: data?.currentPage || currentPage,
+              totalPages: data?.totalPages || totalPages,
+            },
           }}
           session={session}
         />

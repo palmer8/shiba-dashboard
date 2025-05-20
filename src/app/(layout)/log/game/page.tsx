@@ -24,7 +24,7 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
 
   const params = await searchParams;
 
-  let data = null;
+  let data: any = null;
   let error = null;
 
   try {
@@ -106,6 +106,11 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
         value,
         page: Number(page),
       });
+    } else if (type === "VEHICLE" && value) {
+      data = await realtimeService.getGameDataByVehicle({
+        value,
+        page: Number(page),
+      });
     }
   } catch (e) {
     error =
@@ -113,6 +118,22 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
         ? e.message
         : "데이터를 불러오는 중 오류가 발생했습니다.";
     console.error("페이지 로드 에러:", e);
+  }
+
+  let finalTotalPages = 1;
+  if (data && typeof data === "object") {
+    if ("totalPages" in data && typeof data.totalPages === "number") {
+      finalTotalPages = data.totalPages;
+    } else if (
+      data.data &&
+      typeof data.data === "object" &&
+      data.data.metadata &&
+      typeof data.data.metadata === "object" &&
+      "totalPages" in data.data.metadata &&
+      typeof data.data.metadata.totalPages === "number"
+    ) {
+      finalTotalPages = data.data.metadata.totalPages;
+    }
   }
 
   return (
@@ -132,7 +153,7 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
       <GameDataTable
         data={data}
         currentPage={Number(params.page) || 1}
-        totalPages={data?.data?.metadata?.totalPages || 1}
+        totalPages={finalTotalPages}
         queryType={params.type as GameDataType}
         session={session}
       />

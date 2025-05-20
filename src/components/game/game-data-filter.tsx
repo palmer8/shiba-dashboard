@@ -101,7 +101,9 @@ export default function GameDataFilter({
 
           // 값이 필요한 경우 검증
           if (
-            !["INSTAGRAM", "NICKNAME", "REGISTRATION"].includes(query.type) &&
+            !["INSTAGRAM", "NICKNAME", "REGISTRATION", "VEHICLE"].includes(
+              query.type
+            ) &&
             !query.value
           ) {
             toast({
@@ -113,11 +115,18 @@ export default function GameDataFilter({
 
           if (query.type === "ITEM_CODE" || query.type === "ITEM_NAME") {
             router.replace(
-              `/log/game?type=${query.type}&itemId=${query.itemId}&value=${query.value}&condition=${query.condition}&page=1`
+              `/log/game?type=${query.type}&itemId=${query.itemId}&value=${query.value}&condition=${query.condition}&page=1`,
+              { scroll: false }
+            );
+          } else if (query.type === "VEHICLE") {
+            router.replace(
+              `/log/game?type=${query.type}&value=${query.value}&page=1`,
+              { scroll: false }
             );
           } else {
             router.replace(
-              `/log/game?type=${query.type}&value=${query.value}&condition=${query.condition}&page=1`
+              `/log/game?type=${query.type}&value=${query.value}&condition=${query.condition}&page=1`,
+              { scroll: false }
             );
           }
         } catch (error) {
@@ -183,6 +192,7 @@ export default function GameDataFilter({
                   <SelectItem value="COMPANY">팩션 공동 계좌 잔고</SelectItem>
                 )}
                 <SelectItem value="IP">IP</SelectItem>
+                <SelectItem value="VEHICLE">차량</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -213,19 +223,26 @@ export default function GameDataFilter({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label>값 입력</Label>
-            <Input
-              placeholder="값 입력"
-              value={query.value}
-              onChange={(e) => setQuery({ ...query, value: e.target.value })}
-              disabled={isSubmitting}
-            />
-          </div>
+          {query.type !== "ITEM_CODE" && query.type !== "ITEM_NAME" && (
+            <div className="space-y-2">
+              <Label>값 입력</Label>
+              <Input
+                placeholder="값 입력"
+                value={query.value}
+                onChange={(e) => setQuery({ ...query, value: e.target.value })}
+                disabled={isSubmitting}
+              />
+            </div>
+          )}
 
-          {!["INSTAGRAM", "NICKNAME", "REGISTRATION", "COMPANY", "IP"].includes(
-            query.type
-          ) && (
+          {![
+            "INSTAGRAM",
+            "NICKNAME",
+            "REGISTRATION",
+            "COMPANY",
+            "IP",
+            "VEHICLE",
+          ].includes(query.type) && (
             <div className="space-y-2">
               <Label>조건 선택</Label>
               <Select

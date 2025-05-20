@@ -14,7 +14,8 @@ export type GameDataType =
   | "NICKNAME"
   | "INSTAGRAM"
   | "COMPANY"
-  | "IP";
+  | "IP"
+  | "VEHICLE";
 
 export type UserLogFilter = {
   message?: string;
@@ -31,7 +32,7 @@ export interface InstagramResult {
   display_name: string;
   username: string;
   phone_number: string;
-  date_joined: string;
+  date_joined: Date;
 }
 
 export interface IpResult {
@@ -45,4 +46,20 @@ export interface CompanyResult {
   id: number;
   name: string;
   capital: number;
+}
+
+export interface BaseQueryResult {
+  id: number;
+  nickname: string;
+  first_join: Date;
+  result: string;
+  type: string;
+}
+
+export interface VehicleQueryResult {
+  id: number;
+  nickname: string;
+  first_join: Date | null;
+  vehicle: string;
+  vehicle_plate: string | null;
 }

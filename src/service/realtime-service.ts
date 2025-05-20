@@ -11,7 +11,11 @@ import { UserRole } from "@prisma/client";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 import { ApiResponse } from "@/types/global.dto";
 import { reportService } from "@/service/report-service";
-import { CompanyResult, InstagramResult } from "@/types/game";
+import {
+  CompanyResult,
+  InstagramResult,
+  VehicleQueryResult,
+} from "@/types/game";
 import { redirect } from "next/navigation";
 import { RealtimeGameUserData } from "@/types/user";
 import { MemoResponse, UserMemo } from "@/types/realtime";
@@ -2629,6 +2633,70 @@ class RealtimeService {
       data: formattedRecords,
       error: null,
     };
+  }
+
+  async getGameDataByVehicle(
+    query: {
+      value: string; // 검색할 차량 모델명
+    } & PaginationParams
+  ): Promise<PaginatedResult<VehicleQueryResult>> {
+    try {
+      const { value, page } = query;
+      const pageSize = 50;
+      const offset = (page - 1) * pageSize;
+
+      const dataQuery = `
+        SELECT
+          uv.user_id as id,
+          SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname,
+          ui.first_join,
+          uv.vehicle,
+          uv.vehicle_plate,
+          COUNT(*) OVER() as total
+        FROM vrp_user_vehicles uv
+        INNER JOIN vrp_users u ON u.id = uv.user_id
+        LEFT JOIN vrp_user_identities ui ON ui.user_id = u.id
+        WHERE uv.vehicle LIKE ?
+        ORDER BY uv.user_id ASC, uv.vehicle ASC
+        LIMIT ? OFFSET ?
+      `;
+
+      const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
+        `%${value}%`,
+        pageSize,
+        offset,
+      ]);
+
+      const total = rows[0]?.total || 0;
+      const totalPages = Math.ceil(total / pageSize);
+
+      await logService.writeAdminLog(
+        `차량 모델 '${value}' 검색 (${page}페이지)`
+      );
+
+      return {
+        data: rows.map(
+          (row: RowDataPacket): VehicleQueryResult => ({
+            id: row.id,
+            nickname: row.nickname,
+            first_join: row.first_join,
+            vehicle: row.vehicle,
+            vehicle_plate: row.vehicle_plate,
+          })
+        ),
+        total,
+        currentPage: page,
+        totalPages,
+        pageSize,
+      };
+    } catch (error) {
+      console.error("차량 데이터 조회 에러:", error);
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : "차량 데이터 조회 중 알 수 없는 오류가 발생했습니다."
+      );
+    }
   }
 }
 
