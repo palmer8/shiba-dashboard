@@ -18,7 +18,7 @@ import {
   Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { useState, useMemo, Fragment, useEffect } from "react";
+import { useState, useMemo, Fragment, useEffect, useRef } from "react";
 import { BlockTicket, RewardRevoke, UserRole } from "@prisma/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -60,9 +60,16 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [rowSelection, setRowSelection] = useState({});
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [data.metadata.page]);
 
   const columns = useMemo<ColumnDef<any>[]>(
@@ -231,7 +238,7 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set("page", page.toString());
-    router.push(`?${params.toString()}`);
+    router.push(`?${params.toString()}`, { scroll: false });
   };
 
   const handleApproveSelected = async () => {
@@ -387,7 +394,7 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
         </div>
       )}
 
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

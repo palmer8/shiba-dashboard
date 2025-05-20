@@ -14,7 +14,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import Empty from "@/components/ui/empty";
 import {
@@ -37,6 +37,7 @@ import { writeAdminLogAction } from "@/actions/log-action";
 import { toast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Session } from "next-auth";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface CompanyTableProps {
   data: {
@@ -55,15 +56,24 @@ interface CompanyTableProps {
 }
 
 export function CompanyTable({ data, session }: CompanyTableProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedCompany, setSelectedCompany] = useState<{
     id: number;
     capital: number;
   } | null>(null);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [data.metadata.page]);
 
   const columns: ColumnDef<any>[] = [
@@ -147,11 +157,14 @@ export function CompanyTable({ data, session }: CompanyTableProps) {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  const handlePageChange = useCallback((newPage: number) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set("page", newPage.toString());
-    window.location.href = `?${params.toString()}`;
-  }, []);
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("page", newPage.toString());
+      router.push(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
 
   if (data.records.length === 0) {
     return (
@@ -199,7 +212,7 @@ export function CompanyTable({ data, session }: CompanyTableProps) {
           CSV 다운로드
         </Button>
       </div>
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

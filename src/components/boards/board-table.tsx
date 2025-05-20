@@ -25,7 +25,7 @@ import {
 } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,6 +65,7 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   const memorizedData = useMemo(() => [...notices, ...data], [notices, data]);
 
@@ -72,7 +73,7 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
     (newPage: number) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("page", newPage.toString());
-      router.push(`/boards?${params.toString()}`);
+      router.push(`/boards?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
   );
@@ -81,6 +82,12 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
 
   useEffect(() => {
     setInputPage((page + 1).toString());
+  }, [page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [page]);
 
   const handleRowExport = useCallback(
@@ -327,7 +334,7 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
 
   return (
     <div className="space-y-4 overflow-x-auto w-full">
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

@@ -14,7 +14,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import Empty from "@/components/ui/empty";
 import { Download } from "lucide-react";
@@ -23,6 +23,7 @@ import { handleDownloadJson2CSV, parseSearchParams } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { writeAdminLogAction } from "@/actions/log-action";
 import { Session } from "next-auth";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface DataTableProps {
   data: {
@@ -43,6 +44,10 @@ interface DataTableProps {
 }
 
 export function DataTable({ data, queryType, session }: DataTableProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tableContainerRef = useRef<HTMLTableElement>(null);
+
   const columns: ColumnDef<any>[] = [
     {
       id: "select",
@@ -95,11 +100,14 @@ export function DataTable({ data, queryType, session }: DataTableProps) {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  const handlePageChange = useCallback((newPage: number) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set("page", newPage.toString());
-    window.location.href = `?${params.toString()}`;
-  }, []);
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("page", newPage.toString());
+      router.push(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
 
   const handleDownloadCSV = async () => {
     const selectedRows = table
@@ -130,6 +138,12 @@ export function DataTable({ data, queryType, session }: DataTableProps) {
     setInputPage(data.metadata.page.toString());
   }, [data.metadata.page]);
 
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
+  }, [data.metadata.page]);
+
   if (data.records.length === 0) {
     return (
       <div className="flex h-[400px] items-center justify-center">
@@ -153,7 +167,7 @@ export function DataTable({ data, queryType, session }: DataTableProps) {
         </Button>
       </div>
 
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

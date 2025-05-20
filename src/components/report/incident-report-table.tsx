@@ -16,7 +16,14 @@ import {
   Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { useMemo, useCallback, Fragment, useState, useEffect } from "react";
+import {
+  useMemo,
+  useCallback,
+  Fragment,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import { formatKoreanDateTime } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -55,9 +62,16 @@ export default function IncidentReportTable({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [data.metadata.page]);
 
   const canEditReport = useCallback(
@@ -265,14 +279,16 @@ export default function IncidentReportTable({
     (newPage: number) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("page", newPage.toString());
-      router.replace(`?${params.toString()}`);
+      router.replace(`?${params.toString()}`, {
+        scroll: false,
+      });
     },
     [router, searchParams]
   );
 
   return (
     <div className="space-y-4">
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

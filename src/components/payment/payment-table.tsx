@@ -14,7 +14,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Fragment, useMemo, useState, useEffect } from "react";
+import { Fragment, useMemo, useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
@@ -36,12 +36,19 @@ interface PaymentTableProps {
 export default function PaymentTable({ data }: PaymentTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   const [columnVisibility, setColumnVisibility] = useState({});
   const [inputPage, setInputPage] = useState(data.page.toString());
 
   useEffect(() => {
     setInputPage(data.page.toString());
+  }, [data.page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [data.page]);
 
   const columns: ColumnDef<Payment>[] = useMemo(
@@ -117,12 +124,12 @@ export default function PaymentTable({ data }: PaymentTableProps) {
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", newPage.toString());
-    router.replace(`?${params.toString()}`);
+    router.replace(`?${params.toString()}`, { scroll: false });
   };
 
   return (
     <>
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

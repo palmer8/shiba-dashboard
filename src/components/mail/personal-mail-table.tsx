@@ -18,7 +18,14 @@ import {
   Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { useState, useMemo, Fragment, useEffect } from "react";
+import {
+  useState,
+  useMemo,
+  Fragment,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getPersonalMailsByIdsOrigin } from "@/actions/mail-action";
 import { AddPersonalMailDialog } from "@/components/dialog/add-personal-mail-dialog";
@@ -61,9 +68,16 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
     content: false,
   });
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [data.metadata.page]);
 
   const columns = useMemo<ColumnDef<PersonalMail>[]>(
@@ -201,11 +215,14 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
     getRowCanExpand: () => true,
   });
 
-  const handlePageChange = (page: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set("page", page.toString());
-    router.push(`?${params.toString()}`);
-  };
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("page", newPage.toString());
+      router.push(`/mail/personal?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
 
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -302,7 +319,7 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
           </Button>
         </div>
       </div>
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

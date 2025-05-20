@@ -17,7 +17,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Groups } from "@prisma/client";
 import { Download } from "lucide-react";
@@ -53,9 +53,16 @@ export function AdminGroupTable({ data, session }: AdminGroupTableProps) {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [data.metadata.page]);
 
   const columns = useMemo<ColumnDef<Groups>[]>(
@@ -153,7 +160,7 @@ export function AdminGroupTable({ data, session }: AdminGroupTableProps) {
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set("page", page.toString());
-    router.push(`?${params.toString()}`);
+    router.push(`?${params.toString()}`, { scroll: false });
   };
 
   const handleCSVDownload = () => {
@@ -184,7 +191,7 @@ export function AdminGroupTable({ data, session }: AdminGroupTableProps) {
         </Button>
       </div>
 
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

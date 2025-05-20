@@ -23,7 +23,7 @@ import {
   Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { ItemQuantityTableData, ItemQuantity } from "@/types/quantity";
 import AddItemQuantityDialog from "@/components/dialog/add-item-quantity-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -85,9 +85,16 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
     null
   );
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [data.metadata.page]);
 
   const columns = useMemo<ColumnDef<ItemQuantity>[]>(
@@ -270,7 +277,7 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
     (page: number) => {
       const params = new URLSearchParams(searchParams);
       params.set("page", page.toString());
-      router.push(`?${params.toString()}`);
+      router.push(`?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
   );
@@ -609,7 +616,7 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
         </div>
       </div>
 
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

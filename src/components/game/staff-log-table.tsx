@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Download } from "lucide-react";
 import Empty from "@/components/ui/empty";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 
 interface StaffLogTableProps {
@@ -20,9 +20,16 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const searchParams = useSearchParams();
   const [inputPage, setInputPage] = useState(data.page.toString());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setInputPage(data.page.toString());
+  }, [data.page]);
+
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
   }, [data.page]);
 
   const createLogId = (log: StaffLog) => {
@@ -52,7 +59,7 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
 
     if (newPage < 1 || newPage > data.totalPages) return;
 
-    router.push(`/log/staff?${params.toString()}`);
+    router.push(`/log/staff?${params.toString()}`, { scroll: false });
   };
 
   const handleDownload = () => {
@@ -147,7 +154,10 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
         </div>
       </div>
 
-      <div className="overflow-y-auto space-y-2 min-h-0">
+      <div
+        className="overflow-y-auto space-y-2 min-h-0"
+        ref={scrollContainerRef}
+      >
         {data.records.map((log) => renderLogCard(log))}
       </div>
 

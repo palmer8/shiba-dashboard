@@ -16,8 +16,16 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
+  Row,
 } from "@tanstack/react-table";
-import { useState, useMemo, Fragment, useEffect } from "react";
+import {
+  useState,
+  useMemo,
+  Fragment,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import { GroupMailTableData, GroupMail } from "@/types/mail";
 import { handleDownloadJson2CSV } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -60,9 +68,16 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
     content: false,
   });
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [data.metadata.page]);
 
   const columns = useMemo<ColumnDef<GroupMail>[]>(
@@ -198,11 +213,14 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
     getRowCanExpand: () => true,
   });
 
-  const handlePageChange = (page: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set("page", page.toString());
-    router.push(`?${params.toString()}`);
-  };
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("page", newPage.toString());
+      router.push(`/mail/group?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
 
   const handleDownloadCSV = async () => {
     const selectedRows = table.getSelectedRowModel().rows;
@@ -250,7 +268,7 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
           추가
         </Button>
       </div>
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

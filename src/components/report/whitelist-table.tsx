@@ -16,7 +16,7 @@ import {
   Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { useMemo, useCallback, useEffect, useState } from "react";
+import { useMemo, useCallback, useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { formatKoreanDateTime } from "@/lib/utils";
 import {
@@ -48,9 +48,16 @@ export default function WhitelistTable({ data }: WhitelistTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [inputPage, setInputPage] = useState(data.page.toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(data.page.toString());
+  }, [data.page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [data.page]);
 
   const columns: ColumnDef<WhitelistIP>[] = useMemo(
@@ -161,14 +168,14 @@ export default function WhitelistTable({ data }: WhitelistTableProps) {
     (newPage: number) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("page", newPage.toString());
-      router.replace(`?${params.toString()}`);
+      router.replace(`?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
   );
 
   return (
     <div className="space-y-4">
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

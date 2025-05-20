@@ -24,7 +24,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { CreditTableData, RewardRevoke } from "@/types/credit";
 import AddCreditDialog from "@/components/dialog/add-credit-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -74,9 +74,16 @@ export function CreditTable({ data, session }: CreditTableProps) {
     null
   );
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [data.metadata.page]);
 
   // columns 정의를 useMemo로 최적화
@@ -579,7 +586,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", newPage.toString());
-    router.push(`?${params.toString()}`);
+    router.push(`?${params.toString()}`, { scroll: false });
   };
 
   return (
@@ -655,7 +662,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
           session={session}
         />
       )}
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

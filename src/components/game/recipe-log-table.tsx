@@ -17,7 +17,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useRef } from "react";
 import Empty from "@/components/ui/empty";
 import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -33,15 +33,22 @@ export function RecipeLogTable({ data }: RecipeLogTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [inputPage, setInputPage] = useState(data.page.toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(data.page.toString());
   }, [data.page]);
 
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
+  }, [data.page]);
+
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set("page", page.toString());
-    router.replace(`?${params.toString()}`);
+    router.replace(`?${params.toString()}`, { scroll: false });
   };
 
   const columns: ColumnDef<RecipeLog>[] = useMemo(
@@ -131,7 +138,7 @@ export function RecipeLogTable({ data }: RecipeLogTableProps) {
           CSV 다운로드
         </Button>
       </div>
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

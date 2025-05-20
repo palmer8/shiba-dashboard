@@ -56,7 +56,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { ChevronRight } from "lucide-react";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { DateRange, SelectRangeEventHandler } from "react-day-picker";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -105,9 +105,16 @@ export function UserDataTable({
   const [range, setRange] = useState<DateRange | undefined>(undefined);
   const [csvLoading, setCsvLoading] = useState(false);
   const [csvError, setCsvError] = useState<string | null>(null);
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(page.toString());
+  }, [page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [page]);
 
   const MetadataCell = useCallback(({ row }: { row: Row<GameLogData> }) => {
@@ -329,7 +336,7 @@ export function UserDataTable({
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", newPage.toString());
-    router.push(`/log/user?${params.toString()}`);
+    router.push(`/log/user?${params.toString()}`, { scroll: false });
   };
 
   const handleExport = async () => {
@@ -430,7 +437,7 @@ export function UserDataTable({
           </Button>
         </div>
       </div>
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

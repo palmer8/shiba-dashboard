@@ -55,7 +55,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { ChevronRight } from "lucide-react";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 
 interface GameLogData {
   id: number;
@@ -93,9 +93,16 @@ export function RealtimeUserDataTable({
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [inputPage, setInputPage] = useState(page.toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(page.toString());
+  }, [page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [page]);
 
   const MetadataCell = useCallback(({ row }: { row: Row<GameLogData> }) => {
@@ -378,7 +385,7 @@ export function RealtimeUserDataTable({
           CSV 다운로드
         </Button>
       </div>
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>

@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import Empty from "@/components/ui/empty";
@@ -46,16 +46,23 @@ export default function BanTable({ data }: BanTableProps) {
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
   const { data: session } = useSession();
   const isMaster = hasAccess(session?.user?.role, UserRole.MASTER);
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(data.metadata.page.toString());
+  }, [data.metadata.page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [data.metadata.page]);
 
   const handlePageChange = useCallback(
     (newPage: number) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("page", newPage.toString());
-      router.replace(`?${params.toString()}`);
+      router.push(`?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
   );
@@ -81,7 +88,7 @@ export default function BanTable({ data }: BanTableProps) {
           <AddBanDialog />
         </div>
       )}
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader>
           <TableRow>
             <TableHead>id</TableHead>

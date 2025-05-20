@@ -16,7 +16,7 @@ import {
 import { CouponGroup, CouponGroupList } from "@/types/coupon";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import { ExpandedCouponRow } from "./expanded-coupon-row";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -67,9 +67,16 @@ export function CouponTable({ data, page, session }: CouponTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [inputPage, setInputPage] = useState((page + 1).toString());
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage((page + 1).toString());
+  }, [page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [page]);
 
   const columns: ColumnDef<CouponGroup>[] = [
@@ -224,7 +231,7 @@ export function CouponTable({ data, page, session }: CouponTableProps) {
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", newPage.toString());
-    router.push(`/coupon?${params.toString()}`);
+    router.push(`/coupon?${params.toString()}`, { scroll: false });
   };
 
   const handleIssueCoupon = async () => {
@@ -292,7 +299,7 @@ export function CouponTable({ data, page, session }: CouponTableProps) {
           추가
         </Button>
       </div>
-      <Table>
+      <Table ref={tableContainerRef}>
         <TableHeader className="z-20">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
