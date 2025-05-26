@@ -587,6 +587,15 @@ export class LogService {
       };
     }
 
+    // 마스터 이상 권한에서 1개 미만 삭제 불가
+    if (ids.length < 1) {
+      return {
+        success: false,
+        error: "삭제할 항목을 최소 1개 이상 선택해주세요",
+        data: null,
+      };
+    }
+
     try {
       const deletedRows = await db.deleteLogsByIds(ids);
 

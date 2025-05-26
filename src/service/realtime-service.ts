@@ -245,22 +245,13 @@ class RealtimeService {
         discordData = await this.getDiscordUserData(discordIdFromDb);
       }
 
-      // 하드밴 여부 조회 (user_id 또는 닉네임)
+      // 하드밴 여부 조회 (user_id만 비교)
       let isIdBan = false;
-      const nickname = gameDataApiResponse?.last_nickname || null;
-      if (nickname) {
-        const [idBanRows] = await pool.execute<RowDataPacket[]>(
-          `SELECT id FROM dokku_hwidban WHERE user_id = ? OR LOWER(name) = LOWER(?) LIMIT 1`,
-          [userId, nickname]
-        );
-        isIdBan = idBanRows.length > 0;
-      } else {
-        const [idBanRows] = await pool.execute<RowDataPacket[]>(
-          `SELECT id FROM dokku_hwidban WHERE user_id = ? LIMIT 1`,
-          [userId]
-        );
-        isIdBan = idBanRows.length > 0;
-      }
+      const [idBanRows] = await pool.execute<RowDataPacket[]>(
+        `SELECT id FROM dokku_hwidban WHERE user_id = ? LIMIT 1`,
+        [userId]
+      );
+      isIdBan = idBanRows.length > 0;
 
       // 데이터 통합
       const enrichedData: RealtimeGameUserData = {
@@ -2316,6 +2307,7 @@ class RealtimeService {
               nickname: true,
               image: true,
               role: true,
+              isPermissive: true,
             },
           },
         },
@@ -2330,6 +2322,7 @@ class RealtimeService {
             nickname: user.nickname,
             image: user.image,
             role: user.role,
+            isPermissive: user.isPermissive,
           };
           return {
             ...restOfRecord,
@@ -2383,6 +2376,7 @@ class RealtimeService {
               nickname: true,
               image: true,
               role: true,
+              isPermissive: true,
             },
           },
         },
@@ -2396,7 +2390,8 @@ class RealtimeService {
             userId: user.userId,
             nickname: user.nickname,
             image: user.image,
-            role: user.role, // role 추가
+            role: user.role,
+            isPermissive: user.isPermissive,
           };
           return {
             ...restOfRecord,
@@ -2542,6 +2537,7 @@ class RealtimeService {
             nickname: true,
             image: true,
             role: true,
+            isPermissive: true,
           },
         },
       },
@@ -2560,6 +2556,7 @@ class RealtimeService {
           nickname: record.user.nickname,
           image: record.user.image,
           role: record.user.role,
+          isPermissive: record.user.isPermissive,
         },
       },
       error: null,
@@ -2609,6 +2606,7 @@ class RealtimeService {
             nickname: true,
             image: true,
             role: true,
+            isPermissive: true,
           },
         },
       },
@@ -2624,6 +2622,7 @@ class RealtimeService {
           nickname: record.user.nickname,
           image: record.user.image,
           role: record.user.role,
+          isPermissive: record.user.isPermissive,
         },
       })
     );
@@ -2633,6 +2632,95 @@ class RealtimeService {
       data: formattedRecords,
       error: null,
     };
+  }
+
+  async getThisWeekAttendanceRecords(): Promise<
+    ApiResponse<AttendanceRecordWithUser[]>
+  > {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "인증이 필요합니다",
+        data: null,
+      };
+    }
+
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      return {
+        success: false,
+        error: "권한이 없습니다",
+        data: null,
+      };
+    }
+
+    try {
+      // 이번주 시작과 끝 계산 (월요일 시작)
+      const now = new Date();
+      const startOfThisWeek = new Date(now);
+      startOfThisWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // 월요일로 설정
+      startOfThisWeek.setHours(0, 0, 0, 0);
+
+      const endOfThisWeek = new Date(startOfThisWeek);
+      endOfThisWeek.setDate(startOfThisWeek.getDate() + 6); // 일요일
+      endOfThisWeek.setHours(23, 59, 59, 999);
+
+      const attendanceRecords = await prisma.attendanceRecord.findMany({
+        where: {
+          checkInTime: {
+            gte: startOfThisWeek,
+            lte: endOfThisWeek,
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              nickname: true,
+              image: true,
+              role: true,
+              userId: true,
+              isPermissive: true,
+            },
+          },
+        },
+        orderBy: {
+          checkInTime: "desc",
+        },
+      });
+
+      const recordsWithUser: AttendanceRecordWithUser[] = attendanceRecords.map(
+        (record) => ({
+          id: record.id,
+          userNumericId: record.userNumericId,
+          checkInTime: record.checkInTime,
+          checkOutTime: record.checkOutTime,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
+          user: {
+            id: record.user.id,
+            nickname: record.user.nickname,
+            image: record.user.image,
+            role: record.user.role,
+            userId: record.user.userId,
+            isPermissive: record.user.isPermissive,
+          },
+        })
+      );
+
+      return {
+        success: true,
+        data: recordsWithUser,
+        error: null,
+      };
+    } catch (error) {
+      console.error("이번주 근태 기록 조회 에러:", error);
+      return {
+        success: false,
+        error: "이번주 근태 기록 조회 중 오류가 발생했습니다",
+        data: null,
+      };
+    }
   }
 
   async getGameDataByVehicle(
@@ -2696,6 +2784,301 @@ class RealtimeService {
           ? error.message
           : "차량 데이터 조회 중 알 수 없는 오류가 발생했습니다."
       );
+    }
+  }
+
+  // vrp_user_ids 관련 함수들
+  async getUserIds(userId: number): Promise<ApiResponse<Array<{
+    identifier: string;
+    user_id: number;
+    banned: number;
+  }>>> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "인증이 필요합니다",
+        data: null,
+      };
+    }
+
+    try {
+      const query = `
+        SELECT identifier, user_id, banned
+        FROM vrp_user_ids
+        WHERE user_id = ?
+        ORDER BY identifier ASC
+      `;
+
+      const [rows] = await pool.execute<RowDataPacket[]>(query, [userId]);
+
+      await logService.writeAdminLog(`유저 ID 목록 조회: ${userId}`);
+
+      return {
+        success: true,
+        data: rows as Array<{
+          identifier: string;
+          user_id: number;
+          banned: number;
+        }>,
+        error: null,
+      };
+    } catch (error) {
+      console.error("유저 ID 목록 조회 에러:", error);
+      return {
+        success: false,
+        error: "유저 ID 목록 조회 중 오류가 발생했습니다",
+        data: null,
+      };
+    }
+  }
+
+  async updateUserIdBanned(
+    identifier: string,
+    banned: number
+  ): Promise<ApiResponse<boolean>> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "인증이 필요합니다",
+        data: null,
+      };
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        error: "권한이 없습니다",
+        data: null,
+      };
+    }
+
+    try {
+      const query = `
+        UPDATE vrp_user_ids
+        SET banned = ?
+        WHERE identifier = ?
+      `;
+
+      const [result] = await pool.execute<ResultSetHeader>(query, [banned, identifier]);
+
+      if (result.affectedRows === 0) {
+        return {
+          success: false,
+          error: "해당 식별자를 찾을 수 없습니다",
+          data: null,
+        };
+      }
+
+      await logService.writeAdminLog(`유저 ID 상태 변경: ${identifier} -> banned: ${banned}`);
+
+      return {
+        success: true,
+        data: true,
+        error: null,
+      };
+    } catch (error) {
+      console.error("유저 ID 상태 변경 에러:", error);
+      return {
+        success: false,
+        error: "유저 ID 상태 변경 중 오류가 발생했습니다",
+        data: null,
+      };
+    }
+  }
+
+  async deleteUserIds(
+    identifiers: string[],
+    userId: number
+  ): Promise<ApiResponse<{ deletedCount: number }>> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "인증이 필요합니다",
+        data: null,
+      };
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        error: "권한이 없습니다",
+        data: null,
+      };
+    }
+
+    try {
+      // 현재 해당 유저의 총 ID 개수 확인
+      const countQuery = `SELECT COUNT(*) as total FROM vrp_user_ids WHERE user_id = ?`;
+      const [countResult] = await pool.execute<RowDataPacket[]>(countQuery, [userId]);
+      const totalCount = countResult[0].total;
+
+      // 삭제하려는 개수가 총 개수와 같거나 많으면 거부 (최소 1개는 남겨야 함)
+      if (identifiers.length >= totalCount) {
+        return {
+          success: false,
+          error: "최소 1개의 식별자는 남겨두어야 합니다",
+          data: null,
+        };
+      }
+
+      const placeholders = identifiers.map(() => '?').join(',');
+      const query = `
+        DELETE FROM vrp_user_ids
+        WHERE identifier IN (${placeholders}) AND user_id = ?
+      `;
+
+      const [result] = await pool.execute<ResultSetHeader>(query, [...identifiers, userId]);
+
+      await logService.writeAdminLog(`유저 ID 삭제: ${identifiers.join(', ')} (${result.affectedRows}개)`);
+
+      return {
+        success: true,
+        data: { deletedCount: result.affectedRows },
+        error: null,
+      };
+    } catch (error) {
+      console.error("유저 ID 삭제 에러:", error);
+      return {
+        success: false,
+        error: "유저 ID 삭제 중 오류가 발생했습니다",
+        data: null,
+      };
+    }
+  }
+
+  async updateUserIdentifier(
+    oldIdentifier: string,
+    newIdentifier: string
+  ): Promise<ApiResponse<boolean>> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "인증이 필요합니다",
+        data: null,
+      };
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        error: "권한이 없습니다",
+        data: null,
+      };
+    }
+
+    try {
+      // 새로운 식별자가 이미 존재하는지 확인
+      const checkQuery = `SELECT COUNT(*) as count FROM vrp_user_ids WHERE identifier = ?`;
+      const [checkResult] = await pool.execute<RowDataPacket[]>(checkQuery, [newIdentifier]);
+      
+      if (checkResult[0].count > 0) {
+        return {
+          success: false,
+          error: "이미 존재하는 식별자입니다",
+          data: null,
+        };
+      }
+
+      const query = `
+        UPDATE vrp_user_ids
+        SET identifier = ?
+        WHERE identifier = ?
+      `;
+
+      const [result] = await pool.execute<ResultSetHeader>(query, [newIdentifier, oldIdentifier]);
+
+      if (result.affectedRows === 0) {
+        return {
+          success: false,
+          error: "해당 식별자를 찾을 수 없습니다",
+          data: null,
+        };
+      }
+
+      await logService.writeAdminLog(`유저 ID 수정: ${oldIdentifier} -> ${newIdentifier}`);
+
+      return {
+        success: true,
+        data: true,
+        error: null,
+      };
+    } catch (error) {
+      console.error("유저 ID 수정 에러:", error);
+      return {
+        success: false,
+        error: "유저 ID 수정 중 오류가 발생했습니다",
+        data: null,
+      };
+    }
+  }
+
+  async addUserIdentifier(
+    userId: number,
+    identifier: string
+  ): Promise<ApiResponse<boolean>> {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "인증이 필요합니다",
+        data: null,
+      };
+    }
+
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
+      return {
+        success: false,
+        error: "권한이 없습니다",
+        data: null,
+      };
+    }
+
+    try {
+      // 식별자가 이미 존재하는지 확인
+      const checkQuery = `SELECT COUNT(*) as count FROM vrp_user_ids WHERE identifier = ?`;
+      const [checkResult] = await pool.execute<RowDataPacket[]>(checkQuery, [identifier]);
+      
+      if (checkResult[0].count > 0) {
+        return {
+          success: false,
+          error: "이미 존재하는 식별자입니다",
+          data: null,
+        };
+      }
+
+      const query = `
+        INSERT INTO vrp_user_ids (user_id, identifier, banned)
+        VALUES (?, ?, 0)
+      `;
+
+      const [result] = await pool.execute<ResultSetHeader>(query, [userId, identifier]);
+
+      if (result.affectedRows === 0) {
+        return {
+          success: false,
+          error: "식별자 추가에 실패했습니다",
+          data: null,
+        };
+      }
+
+      await logService.writeAdminLog(`유저 ID 추가: 유저 ${userId}에게 ${identifier} 추가`);
+
+      return {
+        success: true,
+        data: true,
+        error: null,
+      };
+    } catch (error) {
+      console.error("유저 ID 추가 에러:", error);
+      return {
+        success: false,
+        error: "유저 ID 추가 중 오류가 발생했습니다",
+        data: null,
+      };
     }
   }
 }

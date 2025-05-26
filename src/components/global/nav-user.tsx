@@ -233,55 +233,57 @@ export function NavUser({ session }: NavUserProps) {
         onOpenChange={setDialogOpen}
       />
       <Dialog open={recordsOpen} onOpenChange={setRecordsOpen}>
-        <DialogContent className="max-w-lg w-full">
+        <DialogContent className="max-w-lg w-full max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>내 근태 기록 (최근 2주)</DialogTitle>
           </DialogHeader>
-          {recordsLoading ? (
-            <div className="text-center py-6">로딩 중...</div>
-          ) : recordsError ? (
-            <div className="text-center text-destructive py-6">
-              {recordsError}
-            </div>
-          ) : attendanceRecords.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground">
-              근태 기록이 없습니다.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    <th className="py-1 px-2 text-left">날짜</th>
-                    <th className="py-1 px-2 text-left">출근</th>
-                    <th className="py-1 px-2 text-left">퇴근</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attendanceRecords.map((record) => (
-                    <tr key={record.id} className="border-b last:border-0">
-                      <td className="py-1 px-2 whitespace-nowrap">
-                        {format(
-                          new Date(record.checkInTime),
-                          "yyyy-MM-dd (eee)"
-                        )}
-                      </td>
-                      <td className="py-1 px-2">
-                        {format(new Date(record.checkInTime), "HH:mm")}
-                      </td>
-                      <td className="py-1 px-2">
-                        {record.checkOutTime ? (
-                          format(new Date(record.checkOutTime), "HH:mm")
-                        ) : (
-                          <span className="text-destructive">-</span>
-                        )}
-                      </td>
+          <div className="flex-1 overflow-hidden">
+            {recordsLoading ? (
+              <div className="text-center py-6">로딩 중...</div>
+            ) : recordsError ? (
+              <div className="text-center text-destructive py-6">
+                {recordsError}
+              </div>
+            ) : attendanceRecords.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                근태 기록이 없습니다.
+              </div>
+            ) : (
+              <div className="overflow-auto max-h-[60vh]">
+                <table className="w-full text-xs border-collapse">
+                  <thead className="sticky top-0 bg-background">
+                    <tr className="border-b">
+                      <th className="py-2 px-2 text-left">날짜</th>
+                      <th className="py-2 px-2 text-left">출근</th>
+                      <th className="py-2 px-2 text-left">퇴근</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody>
+                    {attendanceRecords.map((record) => (
+                      <tr key={record.id} className="border-b last:border-0">
+                        <td className="py-2 px-2 whitespace-nowrap">
+                          {format(
+                            new Date(record.checkInTime),
+                            "yyyy-MM-dd (eee)"
+                          )}
+                        </td>
+                        <td className="py-2 px-2">
+                          {format(new Date(record.checkInTime), "HH:mm")}
+                        </td>
+                        <td className="py-2 px-2">
+                          {record.checkOutTime ? (
+                            format(new Date(record.checkOutTime), "HH:mm")
+                          ) : (
+                            <span className="text-destructive">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>

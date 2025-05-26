@@ -184,3 +184,46 @@ export async function getMyTodayAttendanceAction() {
 export async function getMyAttendanceRecordsAction() {
   return await realtimeService.getMyAttendanceRecords();
 }
+
+// vrp_user_ids 관련 액션들
+export async function getUserIdsAction(userId: number) {
+  const result = await realtimeService.getUserIds(userId);
+  return result;
+}
+
+export async function updateUserIdBannedAction(
+  identifier: string,
+  banned: number
+) {
+  const result = await realtimeService.updateUserIdBanned(identifier, banned);
+  return result;
+}
+
+export async function deleteUserIdsAction(
+  identifiers: string[],
+  userId: number
+) {
+  const result = await realtimeService.deleteUserIds(identifiers, userId);
+  return result;
+}
+
+export async function updateUserIdentifierAction(
+  oldIdentifier: string,
+  newIdentifier: string
+) {
+  const result = await realtimeService.updateUserIdentifier(oldIdentifier, newIdentifier);
+  return result;
+}
+
+export async function addUserIdentifierAction(
+  userId: number,
+  identifier: string
+) {
+  const result = await realtimeService.addUserIdentifier(userId, identifier);
+  return result;
+}
+
+export async function getThisWeekAttendanceRecordsAction() {
+  const result = await realtimeService.getThisWeekAttendanceRecords();
+  return result;
+}

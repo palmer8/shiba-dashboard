@@ -43,6 +43,7 @@ import {
   endOfMonth,
   addMonths,
   subMonths,
+  isWithinInterval,
 } from "date-fns"; // 날짜 계산 함수 추가
 import { Button } from "@/components/ui/button"; // 버튼 추가
 import { useState, useEffect, useMemo } from "react";
@@ -157,6 +158,34 @@ export function AttendanceList({
           (r) => r.userNumericId === user.userId
         );
 
+        // 이번주 근무 시간 계산
+        const calculateThisWeekWorkTime = () => {
+          const now = new Date();
+          const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // 월요일 시작
+          const weekEnd = endOfWeek(now, { weekStartsOn: 1 }); // 일요일 끝
+
+          let totalMinutes = 0;
+          userRecordsForSummary.forEach((record) => {
+            if (record.checkInTime && record.checkOutTime) {
+              const checkIn = new Date(record.checkInTime);
+              const checkOut = new Date(record.checkOutTime);
+              
+              // 이번주에 해당하는 근무 기록만 계산
+              if (
+                checkIn && 
+                checkOut && 
+                checkOut > checkIn &&
+                isWithinInterval(checkIn, { start: weekStart, end: weekEnd })
+              ) {
+                totalMinutes += differenceInMinutes(checkOut, checkIn);
+              }
+            }
+          });
+          return totalMinutes;
+        };
+
+        const thisWeekWorkMinutes = calculateThisWeekWorkTime();
+
         let todayRecordSummary: React.ReactNode = (
           <span className="px-2 py-0.5 rounded bg-destructive/10 text-destructive text-xs font-semibold">
             미출근
@@ -245,6 +274,7 @@ export function AttendanceList({
                   <div className="text-xs text-muted-foreground mt-1">
                     <span>권한: {formatRole(user.role as UserRole)}</span>
                     <span className="ml-2">고유번호: {user.userId}</span>
+                    <span className="ml-2">이번주: {formatMinutesToHoursAndMinutes(thisWeekWorkMinutes)}</span>
                   </div>
                 </div>
               </div>

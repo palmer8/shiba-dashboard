@@ -25,6 +25,8 @@ import {
   Save,
   X,
   ChevronDown,
+  Shield,
+  ShieldCheck,
 } from "lucide-react";
 import IncidentReportTable from "@/components/report/incident-report-table";
 import { Session } from "next-auth";
@@ -35,10 +37,23 @@ import {
   updateJailAction,
   createMemoAction,
   updateWarningCountAction,
-  setWarningCountAction,
+  getUserIdsAction,
+  updateUserIdBannedAction,
+  deleteUserIdsAction,
+  updateUserIdentifierAction,
+  addUserIdentifierAction,
 } from "@/actions/realtime/realtime-action";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, Fragment } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import BanPlayerDialog from "@/components/dialog/ban-player-dialog";
 import {
   DropdownMenu,
@@ -64,6 +79,8 @@ import {
   unbanUserViaApiAction,
   getBanRecordByUserIdAction,
 } from "@/actions/ban-action";
+import EditUserIdentifierDialog from "./edit-user-identifier-dialog";
+import AddUserIdentifierDialog from "./add-user-identifier-dialog";
 
 interface RealtimeUserInfoProps {
   data: RealtimeGameUserData;
@@ -103,6 +120,18 @@ export default function RealtimeUserInfo({
   const [isWarningLoading, setIsWarningLoading] = useState(false);
   const [setWarningCountDialogOpen, setSetWarningCountDialogOpen] =
     useState(false);
+  
+  // vrp_user_ids 관련 상태
+  const [userIds, setUserIds] = useState<Array<{
+    identifier: string;
+    user_id: number;
+    banned: number;
+  }>>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [isUserIdsLoading, setIsUserIdsLoading] = useState(false);
+  const [editIdentifierDialogOpen, setEditIdentifierDialogOpen] = useState(false);
+  const [selectedIdentifier, setSelectedIdentifier] = useState<string>("");
+  const [addIdentifierDialogOpen, setAddIdentifierDialogOpen] = useState(false);
 
   const isSupermaster =
     session?.user && hasAccess(session.user.role, UserRole.SUPERMASTER);
@@ -115,6 +144,31 @@ export default function RealtimeUserInfo({
   useEffect(() => {
     setCanNotResolveBanStatus(!isAdmin && Boolean(data.banned));
   }, [data, isAdmin]);
+
+  // 유저 ID 목록 가져오기
+  const fetchUserIds = async () => {
+    setIsUserIdsLoading(true);
+    try {
+      const result = await getUserIdsAction(userId);
+      if (result.success && result.data) {
+        setUserIds(result.data);
+      } else {
+        toast({
+          title: "유저 ID 목록 조회 실패",
+          description: result.error || "목록을 가져올 수 없습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "유저 ID 목록 조회 실패",
+        description: "목록을 가져오는 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUserIdsLoading(false);
+    }
+  };
 
   const handleRevokeSkin = async () => {
     if (!userId) return;
@@ -294,6 +348,174 @@ export default function RealtimeUserInfo({
       });
     } finally {
       setIsWarningLoading(false);
+    }
+  };
+
+  // 유저 ID 상태 변경 핸들러
+  const handleUpdateUserIdBanned = async (identifier: string, banned: number) => {
+    try {
+      const result = await updateUserIdBannedAction(identifier, banned);
+      if (result.success) {
+        toast({
+          title: "상태 변경 성공",
+          description: `${identifier}의 상태가 변경되었습니다.`,
+        });
+        fetchUserIds(); // 목록 새로고침
+      } else {
+        toast({
+          title: "상태 변경 실패",
+          description: result.error || "상태 변경 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "상태 변경 실패",
+        description: "상태 변경 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 유저 ID 삭제 핸들러
+  const handleDeleteUserIds = async () => {
+    if (selectedUserIds.length === 0) {
+      toast({
+        title: "선택된 항목 없음",
+        description: "삭제할 항목을 선택해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedUserIds.length >= userIds.length) {
+      toast({
+        title: "삭제 불가",
+        description: "최소 1개의 식별자는 남겨두어야 합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm(`선택된 ${selectedUserIds.length}개의 식별자를 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const result = await deleteUserIdsAction(selectedUserIds, userId);
+      if (result.success) {
+        toast({
+          title: "삭제 성공",
+          description: `${result.data?.deletedCount}개의 식별자가 삭제되었습니다.`,
+        });
+        setSelectedUserIds([]);
+        fetchUserIds(); // 목록 새로고침
+      } else {
+        toast({
+          title: "삭제 실패",
+          description: result.error || "삭제 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "삭제 실패",
+        description: "삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditIdentifier = (identifier: string) => {
+    setSelectedIdentifier(identifier);
+    setEditIdentifierDialogOpen(true);
+  };
+
+  const handleUpdateIdentifier = async (oldIdentifier: string, newIdentifier: string) => {
+    try {
+      const result = await updateUserIdentifierAction(oldIdentifier, newIdentifier);
+      if (result.success) {
+        toast({
+          title: "식별자 수정 성공",
+          description: "식별자가 성공적으로 수정되었습니다.",
+        });
+        await fetchUserIds(); // 목록 새로고침
+      } else {
+        toast({
+          title: "식별자 수정 실패",
+          description: result.error || "수정 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "식별자 수정 실패",
+        description: "수정 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteSingleIdentifier = async (identifier: string) => {
+    if (userIds.length <= 1) {
+      toast({
+        title: "삭제 불가",
+        description: "최소 1개의 식별자는 남겨두어야 합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm(`식별자 "${identifier}"를 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const result = await deleteUserIdsAction([identifier], userId);
+      if (result.success) {
+        toast({
+          title: "식별자 삭제 성공",
+          description: "식별자가 삭제되었습니다.",
+        });
+        await fetchUserIds(); // 목록 새로고침
+      } else {
+        toast({
+          title: "식별자 삭제 실패",
+          description: result.error || "삭제 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "식별자 삭제 실패",
+        description: "삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddIdentifier = async (identifier: string) => {
+    try {
+      const result = await addUserIdentifierAction(userId, identifier);
+      if (result.success) {
+        toast({
+          title: "식별자 추가 성공",
+          description: "새로운 식별자가 추가되었습니다.",
+        });
+        await fetchUserIds(); // 목록 새로고침
+      } else {
+        toast({
+          title: "식별자 추가 실패",
+          description: result.error || "추가 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "식별자 추가 실패",
+        description: "추가 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -485,7 +707,15 @@ export default function RealtimeUserInfo({
       </div>
 
       {/* Discord 정보를 별도 탭으로 분리 */}
-      <Tabs defaultValue="details" className="space-y-4">
+      <Tabs 
+        defaultValue="details" 
+        className="space-y-4"
+        onValueChange={(value) => {
+          if (value === "ids" && userIds.length === 0) {
+            fetchUserIds();
+          }
+        }}
+      >
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="details">상세 정보</TabsTrigger>
@@ -493,6 +723,7 @@ export default function RealtimeUserInfo({
             <TabsTrigger value="discord">디스코드</TabsTrigger>
             {isAdmin && <TabsTrigger value="admin">관리자 정보</TabsTrigger>}
             <TabsTrigger value="ban">제재 정보</TabsTrigger>
+            <TabsTrigger value="ids">식별자 관리</TabsTrigger>
           </TabsList>
           <Button
             variant="outline"
@@ -1172,6 +1403,161 @@ export default function RealtimeUserInfo({
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="ids">
+            <Card>
+              <CardHeader className="p-4 flex flex-row items-center justify-between">
+                <CardTitle className="text-base">식별자 관리</CardTitle>
+                <div className="flex gap-2">
+                  {isMaster && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAddIdentifierDialogOpen(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        추가
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDeleteUserIds}
+                        disabled={selectedUserIds.length === 0 || selectedUserIds.length >= userIds.length}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        선택 삭제 ({selectedUserIds.length})
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchUserIds}
+                    disabled={isUserIdsLoading}
+                  >
+                    <Undo2 className="h-4 w-4 mr-2" />
+                    {isUserIdsLoading ? "로딩중..." : "새로고침"}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {isUserIdsLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <LoadingSpinner className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : userIds.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {isMaster && (
+                          <TableHead className="w-12">
+                            <Checkbox
+                              checked={selectedUserIds.length === userIds.length}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedUserIds(userIds.map(id => id.identifier));
+                                } else {
+                                  setSelectedUserIds([]);
+                                }
+                              }}
+                            />
+                          </TableHead>
+                        )}
+                        <TableHead>식별자</TableHead>
+                        <TableHead>상태</TableHead>
+                        {isMaster && <TableHead className="w-24">액션</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {userIds.map((userIdData) => (
+                        <TableRow key={userIdData.identifier}>
+                          {isMaster && (
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedUserIds.includes(userIdData.identifier)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedUserIds([...selectedUserIds, userIdData.identifier]);
+                                  } else {
+                                    setSelectedUserIds(selectedUserIds.filter(id => id !== userIdData.identifier));
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                          )}
+                          <TableCell className="font-mono text-sm">
+                            {userIdData.identifier}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={userIdData.banned === 0 ? "outline" : "destructive"}>
+                              {userIdData.banned === 0 ? "정상" : "차단"}
+                            </Badge>
+                          </TableCell>
+                          {isMaster && (
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem
+                                    onClick={() => handleEditIdentifier(userIdData.identifier)}
+                                  >
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    수정
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => 
+                                      handleUpdateUserIdBanned(
+                                        userIdData.identifier, 
+                                        userIdData.banned === 0 ? 1 : 0
+                                      )
+                                    }
+                                  >
+                                    {userIdData.banned === 0 ? (
+                                      <>
+                                        <Shield className="mr-2 h-4 w-4" />
+                                        차단
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ShieldCheck className="mr-2 h-4 w-4" />
+                                        차단 해제
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteSingleIdentifier(userIdData.identifier)}
+                                    className="text-destructive focus:text-destructive"
+                                    disabled={userIds.length <= 1}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    삭제
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    식별자 정보가 없습니다.
+                  </div>
+                )}
+                {userIds.length > 0 && (
+                  <div className="mt-4 text-sm text-muted-foreground">
+                    총 {userIds.length}개의 식별자 • 최소 1개는 유지되어야 합니다
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
       </Tabs>
 
       {data.last_nickname && (
@@ -1279,6 +1665,20 @@ export default function RealtimeUserInfo({
           mutate={mutate}
         />
       )}
+
+      <EditUserIdentifierDialog
+        open={editIdentifierDialogOpen}
+        setOpen={setEditIdentifierDialogOpen}
+        identifier={selectedIdentifier}
+        onUpdate={handleUpdateIdentifier}
+      />
+
+      <AddUserIdentifierDialog
+        open={addIdentifierDialogOpen}
+        setOpen={setAddIdentifierDialogOpen}
+        userId={userId}
+        onAdd={handleAddIdentifier}
+      />
     </>
   );
 }

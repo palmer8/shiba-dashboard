@@ -27,6 +27,9 @@ import {
   min,
   isValid,
   differenceInDays,
+  startOfWeek,
+  endOfWeek,
+  isThisWeek,
 } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
@@ -144,6 +147,34 @@ export function AttendanceStats({
     return totalMinutes;
   }, [filteredRecords]);
 
+  // 이번주 근무 시간 계산
+  const weeklyTotalWorkTime = useMemo(() => {
+    if (!filteredRecords || filteredRecords.length === 0) return 0;
+
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // 월요일 시작
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 }); // 일요일 끝
+
+    let totalMinutes = 0;
+    filteredRecords.forEach((record) => {
+      if (record.checkInTime && record.checkOutTime) {
+        const checkIn = new Date(record.checkInTime);
+        const checkOut = new Date(record.checkOutTime);
+        
+        // 이번주에 해당하는 근무 기록만 계산
+        if (
+          isValid(checkIn) && 
+          isValid(checkOut) && 
+          checkOut > checkIn &&
+          isWithinInterval(checkIn, { start: weekStart, end: weekEnd })
+        ) {
+          totalMinutes += differenceInMinutes(checkOut, checkIn);
+        }
+      }
+    });
+    return totalMinutes;
+  }, [filteredRecords]);
+
   const averageCheckIn = useMemo(() => {
     const checkInTimes = filteredRecords
       .map((r) => new Date(r.checkInTime))
@@ -231,7 +262,7 @@ export function AttendanceStats({
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid gap-6 md:grid-cols-3">
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold">
@@ -239,18 +270,38 @@ export function AttendanceStats({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-around p-6">
+          <div className="flex items-center justify-around p-4">
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary">
+              <div className="text-2xl font-bold text-primary">
                 {averageCheckIn}
               </div>
-              <p className="text-sm text-muted-foreground">평균 출근</p>
+              <p className="text-xs text-muted-foreground">평균 출근</p>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-green-600">
                 {averageCheckOut}
               </div>
-              <p className="text-sm text-muted-foreground">평균 퇴근</p>
+              <p className="text-xs text-muted-foreground">평균 퇴근</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-semibold">
+            이번주 근무 시간
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center p-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {formatMinutesToHoursAndMinutes(weeklyTotalWorkTime)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                ({format(startOfWeek(new Date(), { weekStartsOn: 1 }), "M/d")} ~ {format(endOfWeek(new Date(), { weekStartsOn: 1 }), "M/d")})
+              </p>
             </div>
           </div>
         </CardContent>
@@ -263,13 +314,13 @@ export function AttendanceStats({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center p-6">
+          <div className="flex items-center justify-center p-4">
             <div className="text-center">
-              <div className="text-3xl font-bold">
+              <div className="text-2xl font-bold">
                 {formatMinutesToHoursAndMinutes(monthlyTotalWorkTime)}
               </div>
               {dateRange?.from && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   ({format(dateRange.from, "yyyy년 M월")})
                 </p>
               )}
@@ -278,7 +329,7 @@ export function AttendanceStats({
         </CardContent>
       </Card>
 
-      <Card className="md:col-span-2">
+      <Card className="md:col-span-3">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold">
             {dateRange &&

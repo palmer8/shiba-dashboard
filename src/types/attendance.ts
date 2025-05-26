@@ -63,7 +63,7 @@ export interface AttendanceResponse {
 // API에서 select 하는 필드와 일치해야 함
 export type SelectedUserFields = Pick<
   User,
-  "id" | "userId" | "nickname" | "image" | "role"
+  "id" | "userId" | "nickname" | "image" | "role" | "isPermissive"
 >;
 
 // Prisma의 AttendanceRecord 모델에 선택된 User 필드를 포함
@@ -74,7 +74,7 @@ export type AttendanceRecordWithUser = AttendanceRecord & {
 // 사용자 목록이나 선택 등에 사용될 간소화된 User 타입
 export type SimplifiedUser = Pick<
   User,
-  "id" | "userId" | "nickname" | "image" | "role"
+  "id" | "userId" | "nickname" | "image" | "role" | "isPermissive"
 >;
 
 // 달력 및 타임라인 차트에 사용될 하루의 근무 세그먼트
