@@ -12,9 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ProcessedAdminAttendance } from "@/types/attendance";
 import { format } from "date-fns";
-import { DateRange } from "react-day-picker";
 import {
   getMinutes,
   getHours,
@@ -90,7 +88,7 @@ const CustomTooltipWorkTrend = ({ active, payload, label }: any) => {
         <p className="text-xs text-muted-foreground">
           근무 시간:{" "}
           <span className="font-semibold">
-            {payload[0].value?.toFixed(1) ?? 0}시간
+            {payload[0].value?.toFixed(2) ?? 0}시간
           </span>
         </p>
       </div>
@@ -246,7 +244,7 @@ export function AttendanceStats({
         date: format(day, "MM/dd"),
         workHours:
           totalWorkMinutesToday > 0
-            ? parseFloat((totalWorkMinutesToday / 60).toFixed(1))
+            ? parseFloat((totalWorkMinutesToday / 60).toFixed(2))
             : 0,
       });
     });

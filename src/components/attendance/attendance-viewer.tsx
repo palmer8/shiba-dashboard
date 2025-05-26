@@ -108,7 +108,7 @@ export function AttendanceViewer({
   const formatMinutesToHoursAndMinutes = (totalMinutes: number): string => {
     if (isNaN(totalMinutes) || totalMinutes <= 0) return "0시간";
     const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
+    const minutes = Math.round((totalMinutes % 60) * 100) / 100;
     return `${hours}시간 ${minutes > 0 ? `${minutes}분` : ""}`.trim();
   };
 

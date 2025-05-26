@@ -479,7 +479,7 @@ export function calculateWorkHours(
 // 시간 포맷팅 함수
 export function formatWorkHours(hours: number): string {
   if (isNaN(hours) || hours < 0) return "0시간";
-  return `${hours.toFixed(1)}시간`;
+  return `${hours.toFixed(2)}시간`;
 }
 
 // 시간 위치 계산 (캘린더용)

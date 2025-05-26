@@ -412,7 +412,7 @@ class AdminService {
       return "-";
     }
 
-    return `${hours.toFixed(1)}시간`;
+    return `${hours.toFixed(2)}시간`;
   }
 
   async resetUserPassword(
