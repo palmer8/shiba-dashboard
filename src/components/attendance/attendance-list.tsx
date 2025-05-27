@@ -8,6 +8,7 @@ import {
   isFuture,
   startOfToday,
   min as minDate,
+  addDays,
 } from "date-fns";
 import { ko } from "date-fns/locale"; // 한국어 로케일 추가
 import { DateRange } from "react-day-picker";
@@ -191,9 +192,15 @@ export function AttendanceList({
             미출근
           </span>
         );
-        // 항상 오늘 날짜 기준으로 비교
-        const todayIso = format(new Date(), "yyyy-MM-dd");
+        
+        // 현재 시간과 날짜 정보
+        const now = new Date();
+        const todayIso = format(now, "yyyy-MM-dd");
+        const yesterdayIso = format(addDays(now, -1), "yyyy-MM-dd");
+        const currentHour = now.getHours();
+        
         if (userRecordsForSummary.length > 0) {
+          // 오늘 날짜의 기록 찾기
           const todayUserRecords = userRecordsForSummary.filter(
             (r) =>
               format(new Date(r.checkInTime), "yyyy-MM-dd") === todayIso ||
@@ -201,17 +208,22 @@ export function AttendanceList({
                 format(new Date(r.checkOutTime), "yyyy-MM-dd") === todayIso)
           );
 
-          // checkin만 있고 checkout 없음
-          const workingRecord = todayUserRecords.find(
-            (r) =>
-              format(new Date(r.checkInTime), "yyyy-MM-dd") === todayIso &&
-              !r.checkOutTime
-          );
-          if (workingRecord) {
+          // 12시 이전이면 전날 체크인 기록도 확인 (체크아웃이 없는 경우)
+          let yesterdayWorkingRecord = null;
+          if (currentHour < 12) {
+            yesterdayWorkingRecord = userRecordsForSummary.find(
+              (r) =>
+                format(new Date(r.checkInTime), "yyyy-MM-dd") === yesterdayIso &&
+                !r.checkOutTime
+            );
+          }
+
+          // 1. 전날부터 계속 출근 중인 경우 (12시 이전에만 체크)
+          if (yesterdayWorkingRecord) {
             todayRecordSummary = (
               <span>
                 <span className="font-bold">
-                  {format(new Date(workingRecord.checkInTime), "HH:mm")} 출근
+                  {format(new Date(yesterdayWorkingRecord.checkInTime), "HH:mm")} 출근
                 </span>
                 <span className="ml-2 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-semibold">
                   출근 중
@@ -219,24 +231,43 @@ export function AttendanceList({
               </span>
             );
           } else {
-            // checkin, checkout 모두 있는 경우
-            const completedRecord = todayUserRecords.find(
+            // 2. 오늘 체크인만 있고 체크아웃 없음 (출근 중)
+            const workingRecord = todayUserRecords.find(
               (r) =>
                 format(new Date(r.checkInTime), "yyyy-MM-dd") === todayIso &&
-                r.checkOutTime
+                !r.checkOutTime
             );
-            if (completedRecord) {
+            if (workingRecord) {
               todayRecordSummary = (
                 <span>
-                  {format(new Date(completedRecord.checkInTime), "HH:mm")} 출근
-                  <span className="mx-1 text-muted-foreground">/</span>
-                  {format(
-                    new Date(completedRecord.checkOutTime!),
-                    "HH:mm"
-                  )}{" "}
-                  퇴근
+                  <span className="font-bold">
+                    {format(new Date(workingRecord.checkInTime), "HH:mm")} 출근
+                  </span>
+                  <span className="ml-2 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-semibold">
+                    출근 중
+                  </span>
                 </span>
               );
+            } else {
+              // 3. 오늘 체크인, 체크아웃 모두 있는 경우 (완료된 근무)
+              const completedRecord = todayUserRecords.find(
+                (r) =>
+                  format(new Date(r.checkInTime), "yyyy-MM-dd") === todayIso &&
+                  r.checkOutTime
+              );
+              if (completedRecord) {
+                todayRecordSummary = (
+                  <span>
+                    {format(new Date(completedRecord.checkInTime), "HH:mm")} 출근
+                    <span className="mx-1 text-muted-foreground">/</span>
+                    {format(
+                      new Date(completedRecord.checkOutTime!),
+                      "HH:mm"
+                    )}{" "}
+                    퇴근
+                  </span>
+                );
+              }
             }
           }
         }

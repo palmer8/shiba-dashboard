@@ -2791,7 +2791,7 @@ class RealtimeService {
   async getUserIds(userId: number): Promise<ApiResponse<Array<{
     identifier: string;
     user_id: number;
-    banned: number;
+    banned: number | null;
   }>>> {
     const session = await auth();
     if (!session?.user) {
@@ -2819,7 +2819,7 @@ class RealtimeService {
         data: rows as Array<{
           identifier: string;
           user_id: number;
-          banned: number;
+          banned: number | null;
         }>,
         error: null,
       };

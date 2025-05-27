@@ -125,7 +125,7 @@ export default function RealtimeUserInfo({
   const [userIds, setUserIds] = useState<Array<{
     identifier: string;
     user_id: number;
-    banned: number;
+    banned: number | null;
   }>>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isUserIdsLoading, setIsUserIdsLoading] = useState(false);
@@ -1490,8 +1490,8 @@ export default function RealtimeUserInfo({
                             {userIdData.identifier}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={userIdData.banned === 0 ? "outline" : "destructive"}>
-                              {userIdData.banned === 0 ? "정상" : "차단"}
+                            <Badge variant={userIdData.banned === 0 || userIdData.banned === null ? "outline" : "destructive"}>
+                              {userIdData.banned === 0 || userIdData.banned === null ? "정상" : "차단"}
                             </Badge>
                           </TableCell>
                           {isMaster && (
@@ -1513,11 +1513,11 @@ export default function RealtimeUserInfo({
                                     onClick={() => 
                                       handleUpdateUserIdBanned(
                                         userIdData.identifier, 
-                                        userIdData.banned === 0 ? 1 : 0
+                                        (userIdData.banned === 0 || userIdData.banned === null) ? 1 : 0
                                       )
                                     }
                                   >
-                                    {userIdData.banned === 0 ? (
+                                    {(userIdData.banned === 0 || userIdData.banned === null) ? (
                                       <>
                                         <Shield className="mr-2 h-4 w-4" />
                                         차단
