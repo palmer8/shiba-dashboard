@@ -123,7 +123,7 @@ export function AdminGroupTable({ data, session }: AdminGroupTableProps) {
                 setIsLoading(false);
               }
             }}
-            disabled={!hasAccess(session?.user?.role, UserRole.SUPERMASTER)}
+            disabled={!hasAccess(session?.user!.role, UserRole.SUPERMASTER)}
           >
             <SelectTrigger>
               <SelectValue />

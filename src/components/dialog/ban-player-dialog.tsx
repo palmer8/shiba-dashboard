@@ -197,7 +197,7 @@ export default function BanPlayerDialog({
                             }
                           />
                           {hasAccess(
-                            session.user?.role,
+                            session.user!.role,
                             UserRole.INGAME_ADMIN
                           ) && (
                             <div className="flex items-center space-x-2">

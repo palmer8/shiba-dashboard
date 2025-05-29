@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { UserRole } from "@generated/postgresql";
+import { UserRole } from "@prisma/client";
 import NextAuth, { DefaultSession, User } from "next-auth";
 import { JWT } from "next-auth/jwt";
 

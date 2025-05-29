@@ -46,8 +46,11 @@ const ICONS: { [key: string]: LucideIcon } = {
 export function NavLinks({ session }: { session: Session | null }) {
   const userRole = session?.user?.role;
   const filteredLinks = Object.entries(ROLE_LINKS).filter(([_, value]) =>
-    value.role.includes(userRole)
+    value.role.includes(userRole!)
   );
+
+  console.log(userRole, session);
+  
 
   return (
     <SidebarGroup>
@@ -71,7 +74,7 @@ export function NavLinks({ session }: { session: Session | null }) {
               <CollapsibleContent>
                 <SidebarMenuSub>
                   {item.routes
-                    .filter((route) => route.role.includes(userRole))
+                    .filter((route) => route.role.includes(userRole!))
                     .map((route) => (
                       <SidebarMenuSubItem key={route.href}>
                         <SidebarMenuSubButton asChild>

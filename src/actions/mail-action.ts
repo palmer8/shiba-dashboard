@@ -1,90 +1,196 @@
 "use server";
 
-import { GroupMailValues } from "@/lib/validations/mail";
-import { PersonalMailValues } from "@/lib/validations/mail";
-import { mailService } from "@/service/mail-service";
 import { revalidatePath } from "next/cache";
-import { parsePersonalMailCSV } from "@/lib/utils";
+import {
+  getPersonalMails,
+  createPersonalMail,
+  deletePersonalMail,
+  getGroupMailReserves,
+  createGroupMailReserve,
+  updateGroupMailReserve,
+  deleteGroupMailReserve,
+  getGroupMailReserveLogs,
+} from "@/service/mail-service";
+import {
+  personalMailCreateSchema,
+  groupMailReserveCreateSchema,
+  groupMailReserveEditSchema,
+  PersonalMailCreateValues,
+  GroupMailReserveCreateValues,
+  GroupMailReserveEditValues,
+} from "@/lib/validations/mail";
+import {
+  PersonalMailFilter,
+  GroupMailReserveFilter,
+  GroupMailReserveLogFilter,
+  MailApiResponse,
+} from "@/types/mail";
 
-export async function getGroupMailsByIdsOrigin(ids: string[]) {
-  const result = await mailService.getGroupMailsByIds(ids);
-  return result;
-}
-
-export async function createGroupMailAction(data: GroupMailValues) {
-  const result = await mailService.createGroupMail(data);
-  revalidatePath("/game/group-mail");
-  return result;
-}
-
-export async function updateGroupMailAction(
-  id: string,
-  data: Partial<GroupMailValues>
+// 개인 우편 액션들
+export async function getPersonalMailsAction(
+  page: number = 0,
+  filter: PersonalMailFilter
 ) {
-  const result = await mailService.updateGroupMail(id, data);
-  revalidatePath("/game/group-mail");
-  return result;
-}
-
-export async function deleteGroupMailAction(id: string) {
-  const result = await mailService.deleteGroupMail(id);
-  revalidatePath("/game/group-mail");
-  return result;
-}
-
-export async function createPersonalMailAction(data: PersonalMailValues) {
-  const result = await mailService.createPersonalMail(data);
-  revalidatePath("/game/personal-mail");
-  return result;
-}
-
-export async function updatePersonalMailAction(
-  id: string,
-  data: Partial<PersonalMailValues>
-) {
-  const result = await mailService.updatePersonalMail(id, data);
-  revalidatePath("/game/personal-mail");
-  return result;
-}
-
-export async function deletePersonalMailAction(id: string) {
-  const result = await mailService.deletePersonalMail(id);
-  revalidatePath("/game/personal-mail");
-  return result;
-}
-
-export async function getPersonalMailsByIdsOrigin(ids: string[]) {
-  const result = await mailService.getPersonalMailsByIdsOrigin(ids);
-  return result;
-}
-
-export async function uploadPersonalMailCSVAction(formData: FormData) {
   try {
-    const file = formData.get("file") as File;
-    if (!file) {
-      return {
-        success: false,
-        data: null,
-        error: "파일이 선택되지 않았습니다.",
-      };
-    }
-
-    const fileContent = await file.text();
-    const records = parsePersonalMailCSV(fileContent);
-    const result = await mailService.createPersonalMailsFromCSV(records);
-    if (result.success) {
-      revalidatePath("/game/personal-mail");
-    }
-    return result;
+    const result = await getPersonalMails(page, filter);
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
   } catch (error) {
     return {
       success: false,
-      message: "CSV 파일 처리 중 오류가 발생했습니다.",
       data: null,
-      error:
-        error instanceof Error
-          ? error.message
-          : "알 수 없는 에러가 발생하였습니다",
+      error: error instanceof Error ? error.message : "개인 우편 조회 실패",
+    };
+  }
+}
+
+export async function createPersonalMailAction(values: PersonalMailCreateValues) {
+  try {
+    const validatedData = personalMailCreateSchema.parse(values);
+    const result = await createPersonalMail(validatedData);
+    
+    revalidatePath("/game/mail");
+    
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "개인 우편 생성 실패",
+    };
+  }
+}
+
+export async function deletePersonalMailAction(id: number) {
+  try {
+    await deletePersonalMail(id);
+    
+    revalidatePath("/game/mail");
+    
+    return {
+      success: true,
+      data: null,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "개인 우편 삭제 실패",
+    };
+  }
+}
+
+// 단체 우편 예약 액션들
+export async function getGroupMailReservesAction(
+  page: number = 0,
+  filter: GroupMailReserveFilter
+) {
+  try {
+    const result = await getGroupMailReserves(page, filter);
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "단체 우편 예약 조회 실패",
+    };
+  }
+}
+
+export async function createGroupMailReserveAction(values: GroupMailReserveCreateValues) {
+  try {
+    const validatedData = groupMailReserveCreateSchema.parse(values);
+    const result = await createGroupMailReserve(validatedData);
+    
+    revalidatePath("/game/group-mail");
+    
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "단체 우편 예약 생성 실패",
+    };
+  }
+}
+
+export async function updateGroupMailReserveAction(
+  id: number,
+  values: GroupMailReserveEditValues
+) {
+  try {
+    const validatedData = groupMailReserveEditSchema.parse(values);
+    const result = await updateGroupMailReserve(id, validatedData);
+    
+    revalidatePath("/game/group-mail");
+    
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "단체 우편 예약 수정 실패",
+    };
+  }
+}
+
+export async function deleteGroupMailReserveAction(id: number) {
+  try {
+    await deleteGroupMailReserve(id);
+    
+    revalidatePath("/game/group-mail");
+    
+    return {
+      success: true,
+      data: null,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "단체 우편 예약 삭제 실패",
+    };
+  }
+}
+
+// 단체 우편 수령 로그 액션
+export async function getGroupMailReserveLogsAction(
+  page: number = 1,
+  filter: GroupMailReserveLogFilter
+) {
+  try {
+    const result = await getGroupMailReserveLogs(page, filter);
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "단체 우편 수령 로그 조회 실패",
     };
   }
 }

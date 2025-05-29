@@ -32,20 +32,12 @@ export interface GroupMailTableData {
 }
 
 export interface PersonalMail {
-  id: string;
-  reason: string;
-  content: string;
-  userId: number;
-  rewards: GroupMailReward[];
-  needItems: GroupMailReward[];
-  registrantId: string | null;
-  registrant?: {
-    nickname: string;
-    userId: number;
-    id: string;
-  };
-  createdAt: Date;
-  updatedAt: Date;
+  id: number;
+  user_id: number;
+  need_items: Record<string, number>;
+  reward_items: Record<string, number>;
+  created_at: Date;
+  nickname?: string;
 }
 
 export interface PersonalMailTableData {
@@ -55,4 +47,92 @@ export interface PersonalMailTableData {
     page: number;
     totalPages: number;
   };
+}
+
+export interface GroupMailReserve {
+  id: number;
+  title: string;
+  content: string;
+  start_time: Date;
+  end_time: Date;
+  rewards: Record<string, number>;
+}
+
+export interface GroupMailReserveLog {
+  event_id: number;
+  user_id: number;
+  claimed_at: Date;
+  nickname?: string;
+}
+
+export interface PersonalMailList {
+  mails: PersonalMail[];
+  metadata: {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+
+export interface GroupMailReserveList {
+  reserves: GroupMailReserve[];
+  metadata: {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+
+export interface GroupMailReserveLogList {
+  logs: GroupMailReserveLog[];
+  metadata: {
+    total: number;
+    page: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+
+export interface GroupMailLogTableData {
+  records: GroupMailReserveLog[];
+  metadata: {
+    total: number;
+    page: number;
+    totalPages: number;
+  };
+}
+
+export interface PersonalMailFilter {
+  userId?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface GroupMailReserveFilter {
+  title?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface GroupMailReserveLogFilter {
+  eventId?: number;
+  userId?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface MailItem {
+  itemCode: string;
+  count: number;
+}
+
+export interface MailApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
 }

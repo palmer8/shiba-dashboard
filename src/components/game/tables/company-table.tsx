@@ -23,7 +23,6 @@ import {
   hasAccess,
   parseSearchParams,
 } from "@/lib/utils";
-import { useSession } from "next-auth/react";
 import { UserRole } from "@prisma/client";
 import { MoreHorizontal, Edit2, Download } from "lucide-react";
 import {
@@ -120,7 +119,7 @@ export function CompanyTable({ data, session }: CompanyTableProps) {
     {
       id: "actions",
       cell: ({ row }) => {
-        const canModify = hasAccess(session?.user?.role, UserRole.SUPERMASTER);
+        const canModify = hasAccess(session?.user!.role, UserRole.SUPERMASTER);
 
         if (!canModify) return null;
 

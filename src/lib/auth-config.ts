@@ -3,7 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/db/prisma";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { Adapter } from "next-auth/adapters";
-import bcrypt from "bcrypt";
+import * as bcrypt from "bcrypt";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 2 },
@@ -20,7 +20,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials || !credentials.name || !credentials.password) {
+        if (!credentials?.name || !credentials?.password) {
           return null;
         }
 
@@ -30,36 +30,52 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
+        if (!user) {
+          return null;
+        }
+
         const validPassword = await bcrypt.compare(
           credentials.password as string,
-          user?.hashedPassword || ""
+          user.hashedPassword || ""
         );
 
         if (!validPassword) {
           return null;
         }
 
-        return user;
+        // NextAuth User 타입에 맞게 변환
+        return {
+          id: user.id,
+          name: user.name || user.nickname,
+          email: user.email,
+          image: user.image,
+          nickname: user.nickname,
+          role: user.role,
+          isPermissive: user.isPermissive,
+          userId: user.userId,
+        };
       },
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async session({ session, token }) {
-      session.user.id = token.sub as string;
-      session.user.nickname = token.nickname;
-      session.user.role = token.role;
-      session.user.isPermissive = token.isPermissive;
-      session.user.userId = token.userId;
+      const customUser = session.user as any;
+      customUser.id = token.sub as string;
+      customUser.nickname = token.nickname;
+      customUser.role = token.role;
+      customUser.isPermissive = token.isPermissive;
+      customUser.userId = token.userId;
       return session;
     },
     async jwt({ token, user }) {
       if (user && user.id) {
+        const customUser = user as any;
         token.id = user.id;
-        token.nickname = user.nickname;
-        token.role = user.role;
-        token.isPermissive = user.isPermissive;
-        token.userId = user.userId;
+        token.nickname = customUser.nickname;
+        token.role = customUser.role;
+        token.isPermissive = customUser.isPermissive;
+        token.userId = customUser.userId;
       }
       return token;
     },

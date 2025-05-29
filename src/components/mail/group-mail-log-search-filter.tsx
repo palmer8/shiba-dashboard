@@ -8,13 +8,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { DateRange } from "react-day-picker";
 import { RotateCcw } from "lucide-react";
-import { PersonalMailFilter } from "@/types/mail";
+import { GroupMailReserveLogFilter } from "@/types/mail";
 
-export function PersonalMailSearchFilter({
-  filters,
-}: {
-  filters: PersonalMailFilter;
-}) {
+interface GroupMailLogSearchFilterProps {
+  filters: GroupMailReserveLogFilter;
+}
+
+export function GroupMailLogSearchFilter({ filters }: GroupMailLogSearchFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -30,6 +30,7 @@ export function PersonalMailSearchFilter({
   };
   
   const [localFilter, setLocalFilter] = useState({
+    eventId: filters.eventId?.toString() || "",
     userId: filters.userId?.toString() || "",
   });
   
@@ -51,6 +52,13 @@ export function PersonalMailSearchFilter({
     // 페이지를 1로 리셋
     params.set("page", "1");
 
+    // 이벤트 ID 필터 적용
+    if (localFilter.eventId) {
+      params.set("eventId", localFilter.eventId);
+    } else {
+      params.delete("eventId");
+    }
+
     // 유저 ID 필터 적용
     if (localFilter.userId) {
       params.set("userId", localFilter.userId);
@@ -67,21 +75,33 @@ export function PersonalMailSearchFilter({
       params.delete("endDate");
     }
 
-    router.replace(`/mail?${params.toString()}`);
+    router.replace(`/game/mail/group-log?${params.toString()}`);
   }, [localFilter, dateRange, router, searchParams]);
 
   const handleReset = useCallback(() => {
     setLocalFilter({
+      eventId: "",
       userId: "",
     });
     setDateRange(undefined);
     
-    router.replace("/mail");
+    router.replace("/game/mail/group-log");
   }, [router]);
 
   return (
     <>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="space-y-2">
+          <Label htmlFor="eventId">이벤트 ID</Label>
+          <Input
+            id="eventId"
+            type="number"
+            placeholder="이벤트 ID 입력"
+            value={localFilter.eventId}
+            onChange={(e) => handleFilterChange("eventId", e.target.value)}
+          />
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="userId">유저 ID</Label>
           <Input
@@ -94,7 +114,7 @@ export function PersonalMailSearchFilter({
         </div>
 
         <div className="space-y-2">
-          <Label>날짜 범위</Label>
+          <Label>수령일 범위</Label>
           <DatePickerWithRange
             date={dateRange}
             onSelect={setDateRange}
@@ -111,4 +131,4 @@ export function PersonalMailSearchFilter({
       </div>
     </>
   );
-}
+} 

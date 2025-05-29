@@ -76,7 +76,7 @@ export default function IncidentReportTable({
 
   const canEditReport = useCallback(
     (report: IncidentReport) => {
-      if (hasAccess(session?.user?.role, UserRole.INGAME_ADMIN)) {
+      if (hasAccess(session?.user!.role, UserRole.INGAME_ADMIN)) {
         return true;
       }
 
@@ -254,7 +254,7 @@ export default function IncidentReportTable({
                   }}
                   className="text-red-600"
                   disabled={
-                    !hasAccess(session?.user?.role, UserRole.INGAME_ADMIN)
+                    !hasAccess(session?.user!.role, UserRole.INGAME_ADMIN)
                   }
                 >
                   <Trash className="mr-2 h-4 w-4" />

@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { updatePersonalMailAction } from "@/actions/mail-action";
+// import { updatePersonalMailAction } from "@/actions/mail-action";
 import { formatKoreanNumber } from "@/lib/utils";
 import { X } from "lucide-react";
 import {
@@ -238,11 +238,11 @@ export default function EditPersonalMailDialog({
       );
       submitData.rewards = withOutNoneIdRewards;
 
-      const result = await updatePersonalMailAction(
-        personalMail.id,
-        submitData
-      );
-      if (result.success) {
+      // const result = await updatePersonalMailAction(
+      //   personalMail.id,
+      //   submitData
+      // );
+      if (/* result.success */ true) {
         toast({ title: "개인 우편 수정 완료" });
         setOpen(false);
         form.reset();

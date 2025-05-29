@@ -2,7 +2,7 @@ import { GlobalTitle } from "@/components/global/global-title";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { GroupMailTable } from "@/components/mail/group-mail-table";
 import { GroupMailSearchFilter } from "@/components/mail/group-mail-search-filter";
-import { mailService } from "@/service/mail-service";
+import { getGroupMailReserves } from "@/service/mail-service";
 import { GroupMailTableData } from "@/types/mail";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
@@ -14,8 +14,7 @@ interface PageProps {
     page?: string;
     startDate?: string;
     endDate?: string;
-    reason?: string;
-    userId?: string;
+    title?: string;
   }>;
 }
 
@@ -23,32 +22,46 @@ export default async function GameGroupMailPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session || !session.user) return redirect("/login");
   if (session.user && !session.user.isPermissive) return redirect("/pending");
-  if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/404");
+  if (!hasAccess(session.user.role, UserRole.STAFF)) return redirect("/404");
 
   const params = await searchParams;
-  const page = Number(params.page) || 1;
+  const page = params.page ? parseInt(params.page) - 1 : 0; // 0-based 페이징
 
-  const result = await mailService.getGroupMails(page, {
+  const result = await getGroupMailReserves(page, {
     startDate: params.startDate,
     endDate: params.endDate,
-    reason: params.reason,
-    userId: Number(params.userId) || undefined,
+    title: params.title,
   });
 
-  const tableData: GroupMailTableData = result.data ?? {
-    records: [],
+  // GroupMailReserveList를 GroupMailTableData 형태로 변환
+  const tableData: GroupMailTableData = {
+    records: result.reserves.map(reserve => ({
+      id: reserve.id.toString(),
+      reason: reserve.title, // title을 reason으로 매핑
+      content: reserve.content,
+      rewards: Object.entries(reserve.rewards).map(([itemId, amount]) => ({
+        type: "ITEM" as const,
+        itemId,
+        itemName: itemId, // 아이템 이름은 아이템 ID와 동일하게 처리
+        amount: amount.toString(),
+      })),
+      startDate: reserve.start_time,
+      endDate: reserve.end_time,
+      registrantId: null,
+      createdAt: reserve.start_time, // start_time을 createdAt으로 사용
+      updatedAt: reserve.start_time, // start_time을 updatedAt으로 사용
+    })),
     metadata: {
-      total: 0,
-      page: 1,
-      totalPages: 1,
+      total: result.metadata.totalCount,
+      page: result.metadata.currentPage + 1, // 1-based로 변환
+      totalPages: result.metadata.totalPages,
     },
   };
 
   const filterParams = {
     startDate: params.startDate,
     endDate: params.endDate,
-    reason: params.reason,
-    userId: params.userId,
+    title: params.title,
   };
 
   return (

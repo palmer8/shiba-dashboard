@@ -244,7 +244,7 @@ export function RealtimeUserDataTable({
         id: "actions",
         cell: ({ row }) => {
           const log = row.original;
-          if (!hasAccess(session.user?.role, UserRole.SUPERMASTER)) return null;
+          if (!hasAccess(session.user!.role, UserRole.SUPERMASTER)) return null;
 
           return (
             <DropdownMenu>

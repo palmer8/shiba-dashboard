@@ -1,492 +1,578 @@
-import prisma from "@/db/prisma";
 import { auth } from "@/lib/auth-config";
-import { GroupMailValues, PersonalMailValues } from "@/lib/validations/mail";
-import {
-  GroupMailFilter,
-  PersonalMailFilter,
-} from "@/types/filters/mail-filter";
-import { ApiResponse } from "@/types/global.dto";
-import {
-  GroupMailReward,
-  GroupMailTableData,
-  PersonalMailTableData,
-} from "@/types/mail";
-import { Prisma, GroupMail, PersonalMail } from "@prisma/client";
-import { redirect } from "next/navigation";
+import { hasAccess } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
+import pool from "@/db/mysql";
 import { logService } from "./log-service";
+import {
+  PersonalMail,
+  GroupMailReserve,
+  GroupMailReserveLog,
+  PersonalMailList,
+  GroupMailReserveList,
+  GroupMailReserveLogList,
+  PersonalMailFilter,
+  GroupMailReserveFilter,
+  GroupMailReserveLogFilter,
+} from "@/types/mail";
+import {
+  PersonalMailCreateValues,
+  GroupMailReserveCreateValues,
+  GroupMailReserveEditValues,
+} from "@/lib/validations/mail";
+import { RowDataPacket, ResultSetHeader } from "mysql2";
 
-const ITEMS_PER_PAGE = 50;
-
-class MailService {
-  async getGroupMails(
-    page: number,
-    filter: GroupMailFilter
-  ): Promise<ApiResponse<GroupMailTableData>> {
-    try {
-      const session = await auth();
-      if (!session?.user) return redirect("/login");
-
-      const where: Prisma.GroupMailWhereInput = {};
-
-      if (filter.reason) {
-        where.reason = {
-          contains: filter.reason,
-        };
-      }
-
-      if (filter.userId) {
-        where.registrant = {
-          userId: filter.userId,
-        };
-      }
-
-      if (filter.startDate && filter.endDate) {
-        where.startDate = {
-          gte: new Date(filter.startDate),
-        };
-        where.endDate = {
-          lte: new Date(filter.endDate),
-        };
-      } else if (filter.startDate) {
-        where.startDate = { gte: new Date(filter.startDate) };
-      } else if (filter.endDate) {
-        where.endDate = { lte: new Date(filter.endDate) };
-      }
-
-      const [records, total] = await Promise.all([
-        prisma.groupMail.findMany({
-          where,
-          skip: (page - 1) * ITEMS_PER_PAGE,
-          take: ITEMS_PER_PAGE,
-          orderBy: { createdAt: "desc" },
-          include: {
-            registrant: {
-              select: {
-                nickname: true,
-                userId: true,
-                id: true,
-              },
-            },
-          },
-        }),
-        prisma.groupMail.count({ where }),
-      ]);
-
-      return {
-        success: true,
-        data: {
-          records: records.map((record) => ({
-            ...record,
-            registrant: record.registrant || undefined,
-            rewards: record.rewards as GroupMailReward[],
-          })),
-          metadata: {
-            total,
-            page,
-            totalPages: Math.ceil(total / ITEMS_PER_PAGE),
-          },
-        },
-        error: null,
-      };
-    } catch (error) {
-      console.error("Get group mails error:", error);
-      return {
-        success: false,
-        error: "단체 우편 내역 조회 실패",
-        data: null,
-      };
-    }
-  }
-
-  async createGroupMail(
-    data: GroupMailValues
-  ): Promise<ApiResponse<GroupMail>> {
+// 개인 우편 목록 조회
+export async function getPersonalMails(
+  page: number = 0,
+  filter: PersonalMailFilter
+): Promise<PersonalMailList> {
+  try {
     const session = await auth();
-    if (!session?.user) return redirect("/login");
-
-    try {
-      const newGroupMail = await prisma.groupMail.create({
-        data: {
-          reason: data.reason,
-          content: data.content,
-          rewards: data.rewards as GroupMailReward[],
-          startDate: data.startDate,
-          endDate: data.endDate,
-          registrantId: session.user.id,
-        },
-      });
-
-      await logService.writeAdminLog(
-        `단체 우편 생성 : ${newGroupMail.content}`
-      );
-
-      return {
-        success: true,
-        data: newGroupMail,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Create group mail error:", error);
-      return {
-        success: false,
-        error: "단체 우편 생성 실패",
-        data: null,
-      };
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
     }
-  }
 
-  async updateGroupMail(id: string, data: Partial<GroupMailValues>) {
-    try {
-      const session = await auth();
-      if (!session?.user) return redirect("/login");
-
-      const updatedMail = await prisma.groupMail.update({
-        where: { id },
-        data: {
-          reason: data.reason,
-          content: data.content,
-          rewards: data.rewards as GroupMailReward[],
-          startDate: data.startDate,
-          endDate: data.endDate,
-        },
-      });
-
-      await logService.writeAdminLog(`단체 우편 수정 : ${updatedMail.content}`);
-
-      return {
-        success: true,
-        data: updatedMail,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Update group mail error:", error);
-      return {
-        success: false,
-        error: "단체 우편 수정 실패",
-        data: null,
-      };
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
     }
-  }
 
-  async deleteGroupMail(id: string): Promise<ApiResponse<null>> {
-    const session = await auth();
-    if (!session?.user) return redirect("/login");
+    const limit = 50;
+    const offset = page * limit;
 
-    try {
-      await prisma.groupMail.delete({
-        where: { id },
-      });
+    // 필터 조건 구성
+    let whereClause = "WHERE 1=1";
+    const params: any[] = [];
 
-      await logService.writeAdminLog(`단체 우편 삭제 : ${id}`);
-
-      return {
-        success: true,
-        data: null,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Delete group mail error:", error);
-      return {
-        success: false,
-        data: null,
-        error: "단체 우편 삭제 실패",
-      };
+    if (filter.userId) {
+      whereClause += " AND m.user_id = ?";
+      params.push(filter.userId);
     }
-  }
 
-  async getPersonalMails(
-    page: number,
-    filter: PersonalMailFilter
-  ): Promise<ApiResponse<PersonalMailTableData>> {
-    try {
-      const session = await auth();
-      if (!session?.user) return redirect("/login");
-
-      const where: Prisma.PersonalMailWhereInput = {};
-
-      if (filter.reason) {
-        where.reason = {
-          contains: filter.reason,
-        };
-      }
-
-      if (filter.userId) {
-        where.registrant = {
-          userId: filter.userId,
-        };
-      }
-
-      if (filter.startDate && filter.endDate) {
-        where.createdAt = {
-          gte: new Date(filter.startDate),
-          lte: new Date(filter.endDate),
-        };
-      }
-
-      const [records, total] = await Promise.all([
-        prisma.personalMail.findMany({
-          where,
-          skip: (page - 1) * ITEMS_PER_PAGE,
-          take: ITEMS_PER_PAGE,
-          orderBy: { createdAt: "desc" },
-          include: {
-            registrant: {
-              select: {
-                nickname: true,
-                userId: true,
-                id: true,
-              },
-            },
-          },
-        }),
-        prisma.personalMail.count({ where }),
-      ]);
-
-      return {
-        success: true,
-        data: {
-          records: records.map((record) => ({
-            ...record,
-            registrant: record.registrant || undefined,
-            rewards: record.rewards as GroupMailReward[],
-            needItems: record.needItems as GroupMailReward[],
-          })),
-          metadata: {
-            total,
-            page,
-            totalPages: Math.ceil(total / ITEMS_PER_PAGE),
-          },
-        },
-        error: null,
-      };
-    } catch (error) {
-      console.error("Get personal mails error:", error);
-      return {
-        success: false,
-        error: "개인 우편 내역 조회 실패",
-        data: null,
-      };
+    if (filter.startDate && filter.endDate) {
+      const filterStartDate = new Date(filter.startDate);
+      filterStartDate.setHours(0, 0, 0, 0);
+      
+      const filterEndDate = new Date(filter.endDate);
+      filterEndDate.setHours(23, 59, 59, 999);
+      
+      whereClause += " AND m.created_at >= ? AND m.created_at <= ?";
+      params.push(filterStartDate, filterEndDate);
     }
-  }
 
-  async createPersonalMail(data: PersonalMailValues) {
-    const session = await auth();
-    if (!session?.user) return redirect("/login");
+    // 총 개수 조회
+    const countQuery = `SELECT COUNT(*) as total FROM dokku_mail m ${whereClause}`;
+    const [countResult] = await pool.execute(countQuery, params);
+    const totalCount = (countResult as RowDataPacket[])[0].total;
 
-    try {
-      const newPersonalMail = await prisma.personalMail.create({
-        data: {
-          reason: data.reason,
-          needItems: data.needItems as GroupMailReward[],
-          content: data.content,
-          rewards: data.rewards as GroupMailReward[],
-          userId: Number(data.userId),
-          registrantId: session.user.id,
-        },
-      });
+    // 개인 우편 목록 조회 (닉네임 포함)
+    const query = `
+      SELECT 
+        m.*,
+        SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname
+      FROM dokku_mail m
+      LEFT JOIN vrp_users u ON m.user_id = u.id
+      ${whereClause}
+      ORDER BY m.created_at DESC
+      LIMIT ? OFFSET ?
+    `;
 
-      await logService.writeAdminLog(
-        `개인 우편 생성 : ${newPersonalMail.content}`
-      );
+    const [rows] = await pool.execute(query, [...params, limit, offset]);
+    const mails = (rows as RowDataPacket[]).map((row) => ({
+      id: row.id,
+      user_id: row.user_id,
+      need_items: JSON.parse(row.need_items || "{}"),
+      reward_items: JSON.parse(row.reward_items || "{}"),
+      created_at: new Date(row.created_at),
+      nickname: row.nickname,
+    }));
 
-      return {
-        success: true,
-        data: newPersonalMail,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Create personal mail error:", error);
-      return {
-        success: false,
-        error: "개인 우편 생성 실패",
-        data: null,
-      };
-    }
-  }
+    const totalPages = Math.ceil(totalCount / limit);
 
-  async updatePersonalMail(id: string, data: Partial<PersonalMailValues>) {
-    try {
-      const session = await auth();
-      if (!session?.user) return redirect("/login");
-
-      const updatedMail = await prisma.personalMail.update({
-        where: { id },
-        data: {
-          reason: data.reason,
-          content: data.content,
-          rewards: data.rewards as GroupMailReward[],
-          needItems: data.needItems as GroupMailReward[],
-          userId: Number(data.userId),
-        },
-      });
-
-      await logService.writeAdminLog(`개인 우편 수정 : ${updatedMail.content}`);
-
-      return {
-        success: true,
-        data: updatedMail,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Update personal mail error:", error);
-      return {
-        success: false,
-        error: "개인 우편 수정 실패",
-        data: null,
-      };
-    }
-  }
-
-  async deletePersonalMail(id: string) {
-    try {
-      const session = await auth();
-      if (!session?.user) return redirect("/login");
-
-      await prisma.personalMail.delete({
-        where: { id },
-      });
-
-      await logService.writeAdminLog(`개인 우편 삭제 : ${id}`);
-
-      return {
-        success: true,
-        data: null,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Delete personal mail error:", error);
-      return {
-        success: false,
-        error: "개인 우편 삭제 실패",
-        data: null,
-      };
-    }
-  }
-
-  async getGroupMailsByIds(ids: string[]) {
-    const session = await auth();
-    if (!session?.user) return redirect("/login");
-
-    const records = await prisma.groupMail.findMany({
-      where: { id: { in: ids } },
-    });
-    if (records.length) {
-      return {
-        success: true,
-        data: records,
-        error: null,
-      };
-    }
     return {
-      success: false,
-      error: "선택된 단체 우편 내역이 존재하지 않습니다",
-      data: null,
+      mails,
+      metadata: {
+        currentPage: page,
+        totalPages,
+        totalCount,
+        hasNext: page < totalPages - 1,
+        hasPrev: page > 0,
+      },
     };
-  }
-
-  async getGroupMailsByIdsOrigin(
-    ids: string[]
-  ): Promise<ApiResponse<GroupMail[]>> {
-    const session = await auth();
-    if (!session?.user) return redirect("/login");
-
-    try {
-      const records = await prisma.groupMail.findMany({
-        where: {
-          id: { in: ids },
-        },
-      });
-
-      return {
-        success: true,
-        data: records,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Get group mails by IDs error:", error);
-      return {
-        success: false,
-        error: "선택된 단체 우편 내역 조회 실패",
-        data: null,
-      };
-    }
-  }
-
-  async getPersonalMailsByIdsOrigin(
-    ids: string[]
-  ): Promise<ApiResponse<PersonalMail[]>> {
-    const session = await auth();
-    if (!session?.user) return redirect("/login");
-
-    try {
-      const records = await prisma.personalMail.findMany({
-        where: {
-          id: { in: ids },
-        },
-      });
-
-      return {
-        success: true,
-        data: records,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Get personal mails by IDs error:", error);
-      return {
-        success: false,
-        error: "선택된 개인 우편 내역 조회 실패",
-        data: null,
-      };
-    }
-  }
-
-  async createPersonalMailsFromCSV(records: any[]) {
-    const session = await auth();
-    if (!session?.user) return redirect("/login");
-
-    try {
-      // 데이터 유효성 검사
-      const validRecords = records.filter(
-        (record) =>
-          record.reason?.trim() &&
-          record.content?.trim() &&
-          !isNaN(record.userId) &&
-          record.userId > 0
-      );
-
-      if (validRecords.length === 0) {
-        return {
-          success: false,
-          error: "유효한 데이터가 없습니다.",
-          data: null,
-        };
-      }
-
-      const createdMails = await prisma.personalMail.createMany({
-        data: validRecords.map((record) => ({
-          reason: record.reason.trim(),
-          content: record.content.trim(),
-          rewards: record.rewards || [],
-          needItems: record.needItems || [],
-          userId: record.userId,
-          registrantId: session.user!.id,
-        })),
-      });
-
-      return {
-        success: true,
-        data: createdMails,
-        error: null,
-      };
-    } catch (error) {
-      console.error("Create personal mails from CSV error:", error);
-      return {
-        success: false,
-        error: "CSV 파일로부터 개인 우편 생성 실패",
-        data: null,
-      };
-    }
+  } catch (error) {
+    console.error("Get personal mails error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "개인 우편 목록 조회 중 오류가 발생했습니다."
+    );
   }
 }
 
-export const mailService = new MailService();
+// 개인 우편 생성
+export async function createPersonalMail(values: PersonalMailCreateValues): Promise<PersonalMail> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
+    // need_items와 reward_items를 JSON 형태로 변환
+    const needItems: Record<string, number> = {};
+    values.need_items.forEach((item) => {
+      needItems[item.itemCode] = item.count;
+    });
+
+    const rewardItems: Record<string, number> = {};
+    values.reward_items.forEach((item) => {
+      rewardItems[item.itemCode] = item.count;
+    });
+
+    // 개인 우편 생성
+    const insertQuery = `
+      INSERT INTO dokku_mail (user_id, need_items, reward_items)
+      VALUES (?, ?, ?)
+    `;
+
+    const [result] = await pool.execute(insertQuery, [
+      values.user_id,
+      JSON.stringify(needItems),
+      JSON.stringify(rewardItems),
+    ]);
+
+    const mailId = (result as ResultSetHeader).insertId;
+
+    // 생성된 우편 조회
+    const [mailRows] = await pool.execute(
+      `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
+       FROM dokku_mail m 
+       LEFT JOIN vrp_users u ON m.user_id = u.id 
+       WHERE m.id = ?`,
+      [mailId]
+    );
+    const mail = (mailRows as RowDataPacket[])[0];
+
+    await logService.writeAdminLog(`개인 우편 생성: 유저 ID ${values.user_id}`);
+
+    return {
+      id: mail.id,
+      user_id: mail.user_id,
+      need_items: JSON.parse(mail.need_items),
+      reward_items: JSON.parse(mail.reward_items),
+      created_at: new Date(mail.created_at),
+      nickname: mail.nickname,
+    };
+  } catch (error) {
+    console.error("Create personal mail error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "개인 우편 생성 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 개인 우편 삭제
+export async function deletePersonalMail(id: number): Promise<void> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
+    // 우편 정보 조회 (로그용)
+    const [mailRows] = await pool.execute(
+      "SELECT user_id FROM dokku_mail WHERE id = ?",
+      [id]
+    );
+    const mail = (mailRows as RowDataPacket[])[0];
+
+    if (!mail) {
+      throw new Error("존재하지 않는 우편입니다.");
+    }
+
+    await pool.execute("DELETE FROM dokku_mail WHERE id = ?", [id]);
+
+    await logService.writeAdminLog(`개인 우편 삭제: ID ${id}, 유저 ID ${mail.user_id}`);
+  } catch (error) {
+    console.error("Delete personal mail error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "개인 우편 삭제 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 단체 우편 예약 목록 조회
+export async function getGroupMailReserves(
+  page: number = 0,
+  filter: GroupMailReserveFilter
+): Promise<GroupMailReserveList> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
+    const limit = 50;
+    const offset = page * limit;
+
+    // 필터 조건 구성
+    let whereClause = "WHERE 1=1";
+    const params: any[] = [];
+
+    if (filter.title) {
+      whereClause += " AND title LIKE ?";
+      params.push(`%${filter.title}%`);
+    }
+
+    if (filter.startDate && filter.endDate) {
+      const filterStartDate = new Date(filter.startDate);
+      filterStartDate.setHours(0, 0, 0, 0);
+      
+      const filterEndDate = new Date(filter.endDate);
+      filterEndDate.setHours(23, 59, 59, 999);
+      
+      whereClause += " AND start_time >= ? AND start_time <= ?";
+      params.push(filterStartDate, filterEndDate);
+    }
+
+    // 총 개수 조회
+    const countQuery = `SELECT COUNT(*) as total FROM dokku_mail_reserve ${whereClause}`;
+    const [countResult] = await pool.execute(countQuery, params);
+    const totalCount = (countResult as RowDataPacket[])[0].total;
+
+    // 단체 우편 예약 목록 조회
+    const query = `
+      SELECT * FROM dokku_mail_reserve
+      ${whereClause}
+      ORDER BY start_time DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    const [rows] = await pool.execute(query, [...params, limit, offset]);
+    const reserves = (rows as RowDataPacket[]).map((row) => ({
+      id: row.id,
+      title: row.title,
+      content: row.content,
+      start_time: new Date(row.start_time),
+      end_time: new Date(row.end_time),
+      rewards: JSON.parse(row.rewards || "{}"),
+    }));
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return {
+      reserves,
+      metadata: {
+        currentPage: page,
+        totalPages,
+        totalCount,
+        hasNext: page < totalPages - 1,
+        hasPrev: page > 0,
+      },
+    };
+  } catch (error) {
+    console.error("Get group mail reserves error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "단체 우편 예약 목록 조회 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 단체 우편 예약 생성
+export async function createGroupMailReserve(values: GroupMailReserveCreateValues): Promise<GroupMailReserve> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
+    // rewards를 JSON 형태로 변환
+    const rewards: Record<string, number> = {};
+    values.rewards.forEach((item) => {
+      rewards[item.itemCode] = item.count;
+    });
+
+    // 단체 우편 예약 생성
+    const insertQuery = `
+      INSERT INTO dokku_mail_reserve (title, content, start_time, end_time, rewards)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+
+    const [result] = await pool.execute(insertQuery, [
+      values.title,
+      values.content,
+      values.start_time,
+      values.end_time,
+      JSON.stringify(rewards),
+    ]);
+
+    const reserveId = (result as ResultSetHeader).insertId;
+
+    // 생성된 예약 조회
+    const [reserveRows] = await pool.execute(
+      "SELECT * FROM dokku_mail_reserve WHERE id = ?",
+      [reserveId]
+    );
+    const reserve = (reserveRows as RowDataPacket[])[0];
+
+    // API 호출
+    await callMailReserveLoadAPI();
+
+    await logService.writeAdminLog(`단체 우편 예약 생성: ${values.title}`);
+
+    return {
+      id: reserve.id,
+      title: reserve.title,
+      content: reserve.content,
+      start_time: new Date(reserve.start_time),
+      end_time: new Date(reserve.end_time),
+      rewards: JSON.parse(reserve.rewards),
+    };
+  } catch (error) {
+    console.error("Create group mail reserve error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "단체 우편 예약 생성 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 단체 우편 예약 수정
+export async function updateGroupMailReserve(
+  id: number,
+  values: GroupMailReserveEditValues
+): Promise<GroupMailReserve> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
+    // rewards를 JSON 형태로 변환
+    const rewards: Record<string, number> = {};
+    values.rewards.forEach((item) => {
+      rewards[item.itemCode] = item.count;
+    });
+
+    const updateQuery = `
+      UPDATE dokku_mail_reserve 
+      SET title = ?, content = ?, start_time = ?, end_time = ?, rewards = ?
+      WHERE id = ?
+    `;
+
+    await pool.execute(updateQuery, [
+      values.title,
+      values.content,
+      values.start_time,
+      values.end_time,
+      JSON.stringify(rewards),
+      id,
+    ]);
+
+    // 수정된 예약 조회
+    const [reserveRows] = await pool.execute(
+      "SELECT * FROM dokku_mail_reserve WHERE id = ?",
+      [id]
+    );
+    const reserve = (reserveRows as RowDataPacket[])[0];
+
+    // API 호출
+    await callMailReserveLoadAPI();
+
+    await logService.writeAdminLog(`단체 우편 예약 수정: ${values.title}`);
+
+    return {
+      id: reserve.id,
+      title: reserve.title,
+      content: reserve.content,
+      start_time: new Date(reserve.start_time),
+      end_time: new Date(reserve.end_time),
+      rewards: JSON.parse(reserve.rewards),
+    };
+  } catch (error) {
+    console.error("Update group mail reserve error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "단체 우편 예약 수정 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 단체 우편 예약 삭제
+export async function deleteGroupMailReserve(id: number): Promise<void> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
+    // 예약 정보 조회 (로그용)
+    const [reserveRows] = await pool.execute(
+      "SELECT title FROM dokku_mail_reserve WHERE id = ?",
+      [id]
+    );
+    const reserve = (reserveRows as RowDataPacket[])[0];
+
+    if (!reserve) {
+      throw new Error("존재하지 않는 예약입니다.");
+    }
+
+    await pool.execute("DELETE FROM dokku_mail_reserve WHERE id = ?", [id]);
+
+    // API 호출
+    await callMailReserveLoadAPI();
+
+    await logService.writeAdminLog(`단체 우편 예약 삭제: ${reserve.title}`);
+  } catch (error) {
+    console.error("Delete group mail reserve error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "단체 우편 예약 삭제 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 단체 우편 수령 로그 조회
+export async function getGroupMailReserveLogs(
+  page: number = 1,
+  filter: GroupMailReserveLogFilter
+): Promise<GroupMailReserveLogList> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
+    const limit = 50;
+    const offset = (page - 1) * limit;
+
+    // 필터 조건 구성
+    let whereClause = "WHERE 1=1";
+    const params: any[] = [];
+
+    if (filter.eventId) {
+      whereClause += " AND l.event_id = ?";
+      params.push(filter.eventId);
+    }
+
+    if (filter.userId) {
+      whereClause += " AND l.user_id = ?";
+      params.push(filter.userId);
+    }
+
+    if (filter.startDate && filter.endDate) {
+      const filterStartDate = new Date(filter.startDate);
+      filterStartDate.setHours(0, 0, 0, 0);
+      
+      const filterEndDate = new Date(filter.endDate);
+      filterEndDate.setHours(23, 59, 59, 999);
+      
+      whereClause += " AND l.claimed_at >= ? AND l.claimed_at <= ?";
+      params.push(filterStartDate, filterEndDate);
+    }
+
+    // 총 개수 조회
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM dokku_mail_reserve_log l
+      ${whereClause}
+    `;
+    const [countResult] = await pool.execute(countQuery, params);
+    const total = (countResult as RowDataPacket[])[0].total;
+
+    // 로그 목록 조회 (닉네임 포함)
+    const query = `
+      SELECT 
+        l.*,
+        SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname
+      FROM dokku_mail_reserve_log l
+      LEFT JOIN vrp_users u ON l.user_id = u.id
+      ${whereClause}
+      ORDER BY l.claimed_at DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    const [rows] = await pool.execute(query, [...params, limit, offset]);
+    const logs = (rows as RowDataPacket[]).map((row) => ({
+      event_id: row.event_id,
+      user_id: row.user_id,
+      claimed_at: new Date(row.claimed_at),
+      nickname: row.nickname,
+    }));
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      logs,
+      metadata: {
+        total,
+        page,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    };
+  } catch (error) {
+    console.error("Get group mail reserve logs error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "단체 우편 수령 로그 조회 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 메일 예약 로드 API 호출
+async function callMailReserveLoadAPI(): Promise<void> {
+  try {
+    const response = await fetch(`${process.env.GAME_API_URL}/DokkuApi/load`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action: 'MailReserve' }),
+    });
+
+    if (!response.ok) {
+      console.error('Mail reserve load API call failed:', response.status);
+    }
+  } catch (error) {
+    console.error('Mail reserve load API call error:', error);
+    // API 호출 실패는 메일 시스템 동작에 치명적이지 않으므로 에러를 던지지 않음
+  }
+} 

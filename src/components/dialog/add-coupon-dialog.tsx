@@ -1,31 +1,24 @@
 "use client";
 
-import { z } from "zod";
+import { useState, useEffect } from "react";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { toast } from "@/hooks/use-toast";
-import { createCouponGroupAction } from "@/actions/coupon-action";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -33,10 +26,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ItemComboBox } from "@/components/global/item-combo-box";
+import { toast } from "@/hooks/use-toast";
+import { createCouponAction } from "@/actions/coupon-action";
+import {
+  couponCreateSchema,
+  CouponCreateValues,
+} from "@/lib/validations/coupon";
+import { Plus, Trash2, RefreshCw } from "lucide-react";
 import { generateCouponCode } from "@/lib/utils";
-import { X } from "lucide-react";
-import { couponGroupSchema, CouponGroupValues } from "@/lib/validations/coupon";
+import { ItemComboBox } from "@/components/global/item-combo-box";
 
 interface AddCouponDialogProps {
   open: boolean;
@@ -47,351 +45,334 @@ export default function AddCouponDialog({
   open,
   setOpen,
 }: AddCouponDialogProps) {
-  const form = useForm<CouponGroupValues>({
-    resolver: zodResolver(couponGroupSchema),
+  const [isLoading, setIsLoading] = useState(false);
+
+  const form = useForm<CouponCreateValues>({
+    resolver: zodResolver(couponCreateSchema),
     defaultValues: {
-      groupName: "",
-      groupReason: "",
-      groupType: "COMMON",
+      name: "",
+      type: "일반",
       code: "",
-      startDate: undefined,
-      endDate: undefined,
-      usageLimit: 1,
-      quantity: 0,
-      rewards: [],
+      quantity: 1,
+      maxcount: undefined,
+      start_time: "",
+      end_time: "",
+      reward_items: [{ itemCode: "", itemName: "", count: 1 }],
     },
   });
 
-  const handleSubmit = form.handleSubmit(async (data) => {
-    try {
-      const result = await createCouponGroupAction(data);
-      if (result) {
-        toast({
-          title: "쿠폰 그룹 생성 완료",
-        });
-        setOpen(false);
-        form.reset();
-      }
-    } catch (error) {
-      toast({
-        title: "쿠폰 그룹 생성 실패",
-        description: "잠시 후 다시 시도해주세요",
-        variant: "destructive",
-      });
-    }
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "reward_items",
   });
 
-  const handleGroupTypeChange = (value: string) => {
-    if (value === "PUBLIC") {
-      form.setValue("code", generateCouponCode());
-      form.setValue("quantity", 0);
+  const watchType = form.watch("type");
+
+  // 퍼블릭 쿠폰 선택 시 랜덤 코드 자동 생성
+  useEffect(() => {
+    if (watchType === "퍼블릭") {
+      const randomCode = generateCouponCode();
+      form.setValue("code", randomCode);
     } else {
       form.setValue("code", "");
     }
-    form.setValue("groupType", value);
+  }, [watchType, form]);
+
+  // 랜덤 코드 재생성 함수
+  const generateNewCode = () => {
+    const newCode = generateCouponCode();
+    form.setValue("code", newCode);
   };
 
-  const handleRewardUpdate = (
-    index: number,
-    field: "id" | "name" | "count",
-    value: { id: string; name: string } | number
-  ) => {
-    const currentRewards = form.getValues("rewards");
-    const updatedRewards = currentRewards.map((reward, i) => {
-      if (i === index) {
-        if (field === "id") {
-          const itemValue = value as { id: string; name: string };
-          return {
-            ...reward,
-            id: itemValue.id,
-            name: itemValue.name,
-            count: reward.count,
-          };
-        }
-        return { ...reward, [field]: value };
+  const onSubmit = async (values: CouponCreateValues) => {
+    setIsLoading(true);
+    try {
+      const result = await createCouponAction(values);
+      if (result.success) {
+        toast({
+          title: "쿠폰 생성 완료",
+          description: `${values.name} 쿠폰이 생성되었습니다.`,
+        });
+        form.reset();
+        setOpen(false);
+      } else {
+        toast({
+          title: "쿠폰 생성 실패",
+          description: result.error || "잠시 후 다시 시도해주세요",
+          variant: "destructive",
+        });
       }
-      return reward;
-    });
-    form.setValue("rewards", updatedRewards);
+    } catch (error) {
+      toast({
+        title: "쿠폰 생성 실패",
+        description: "잠시 후 다시 시도해주세요",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleRemoveReward = (index: number) => {
-    const currentRewards = form.getValues("rewards");
-    form.setValue(
-      "rewards",
-      currentRewards.filter((_, i) => i !== index)
-    );
-  };
-
-  const handleDateChange = (field: "startDate" | "endDate", value: string) => {
-    const date = value ? new Date(value) : null;
-    form.setValue(field, date as Date);
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      form.reset();
+    }
+    setOpen(newOpen);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[70vh] overflow-x-hidden overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>쿠폰 그룹 추가</DialogTitle>
-          <DialogDescription>
-            쿠폰을 관리하기 위한 그룹을 추가합니다.
-          </DialogDescription>
+          <DialogTitle>쿠폰 추가</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <FormField
-              name="groupName"
-              control={form.control}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>쿠폰 그룹</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="그룹명을 입력하세요" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              name="groupReason"
-              control={form.control}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>발급 사유</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="발급 사유를 입력하세요" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              name="groupType"
-              control={form.control}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>쿠폰 유형</FormLabel>
-                  <Select
-                    onValueChange={handleGroupTypeChange}
-                    value={field.value}
-                    defaultValue="COMMON"
-                  >
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* 기본 정보 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>쿠폰명 *</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="쿠폰 유형을 선택하세요" />
-                      </SelectTrigger>
+                      <Input placeholder="쿠폰명을 입력하세요" {...field} />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="COMMON">일반</SelectItem>
-                      <SelectItem value="PUBLIC">퍼블릭</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              name="code"
-              control={form.control}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>쿠폰 번호</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      disabled={true}
-                      maxLength={8}
-                      placeholder={
-                        form.getValues("groupType") === "PUBLIC"
-                          ? "자동 생성됩니다"
-                          : "일반 쿠폰은 코드를 입력할 수 없습니다"
-                      }
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid gap-2">
-              <FormLabel>유효 기간</FormLabel>
-              <div className="grid gap-2">
-                <div className="flex items-center gap-2">
-                  <FormField
-                    name="startDate"
-                    control={form.control}
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormControl>
-                          <Input
-                            type="datetime-local"
-                            value={
-                              field.value
-                                ? new Date(field.value)
-                                    .toISOString()
-                                    .slice(0, 16)
-                                : ""
-                            }
-                            onChange={(e) =>
-                              handleDateChange("startDate", e.target.value)
-                            }
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <span className="mt-2">~</span>
-                  <FormField
-                    name="endDate"
-                    control={form.control}
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormControl>
-                          <Input
-                            type="datetime-local"
-                            value={
-                              field.value
-                                ? new Date(field.value)
-                                    .toISOString()
-                                    .slice(0, 16)
-                                : ""
-                            }
-                            onChange={(e) =>
-                              handleDateChange("endDate", e.target.value)
-                            }
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>쿠폰 타입 *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="쿠폰 타입 선택" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="일반">일반</SelectItem>
+                        <SelectItem value="퍼블릭">퍼블릭</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
-            <FormField
-              name="quantity"
-              control={form.control}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>발급 수</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={form.watch("groupType") === "PUBLIC" ? 0 : 1}
-                      {...field}
-                      disabled={form.watch("groupType") === "PUBLIC"}
-                      value={field.value}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      placeholder="발급 수를 입력하세요"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
-            <FormField
-              name="usageLimit"
-              control={form.control}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>사용 횟수</FormLabel>
-                  <FormDescription>
-                    계정당 사용 가능한 횟수를 입력하세요
-                  </FormDescription>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={1}
-                      {...field}
-                      value={field.value}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      placeholder="사용 횟수를 입력하세요"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* 타입별 설정 */}
+            {watchType === "일반" && (
+              <FormField
+                control={form.control}
+                name="quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>발급 수량 *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="발급할 쿠폰 수량"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
-            <FormField
-              name="rewards"
-              control={form.control}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>보상 설정</FormLabel>
-                  <FormControl>
-                    <div className="grid gap-2">
-                      {field.value.map((reward, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <ItemComboBox
-                            value={reward.id}
-                            onChange={(value) =>
-                              handleRewardUpdate(index, "id", value)
-                            }
-                          />
-                          <Input
-                            type="number"
-                            min={1}
-                            value={reward.count}
-                            onChange={(e) =>
-                              handleRewardUpdate(
-                                index,
-                                "count",
-                                Number(e.target.value)
-                              )
-                            }
-                            placeholder="수량"
-                            className="w-24"
+            {watchType === "퍼블릭" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>쿠폰 코드 *</FormLabel>
+                      <FormControl>
+                        <div className="flex gap-2">
+                          <Input 
+                            placeholder="쿠폰 코드" 
+                            {...field}
+                            className="font-mono"
                           />
                           <Button
                             type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveReward(index)}
+                            variant="outline"
+                            size="sm"
+                            onClick={generateNewCode}
+                            className="px-3"
                           >
-                            <X className="h-4 w-4" />
+                            <RefreshCw className="h-4 w-4" />
                           </Button>
                         </div>
-                      ))}
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          const currentRewards = form.getValues("rewards");
-                          form.setValue("rewards", [
-                            ...currentRewards,
-                            { id: "", name: "", count: 1 },
-                          ]);
-                        }}
-                      >
-                        아이템 추가
-                      </Button>
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="maxcount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>사용 제한 횟수</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="무제한은 비워두세요"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value ? Number(e.target.value) : undefined
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
 
-            <DialogFooter className="gap-2">
-              <DialogClose asChild>
-                <Button type="button" variant="secondary">
-                  취소
+            {/* 유효기간 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="start_time"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>시작일시 *</FormLabel>
+                    <FormControl>
+                      <Input type="datetime-local" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="end_time"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>종료일시 *</FormLabel>
+                    <FormControl>
+                      <Input type="datetime-local" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* 보상 아이템 */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium">보상 아이템</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    append({ itemCode: "", itemName: "", count: 1 })
+                  }
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  아이템 추가
                 </Button>
-              </DialogClose>
+              </div>
+              
+              <div className="space-y-3">
+                {fields.map((field, index) => (
+                  <div key={field.id} className="p-4 border rounded-lg bg-muted/30">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                      <FormField
+                        control={form.control}
+                        name={`reward_items.${index}.itemCode`}
+                        render={({ field }) => (
+                          <FormItem className="md:col-span-2">
+                            <FormLabel>아이템 선택</FormLabel>
+                            <FormControl>
+                              <ItemComboBox
+                                value={field.value}
+                                onChange={(value) => {
+                                  form.setValue(`reward_items.${index}.itemCode`, value.id);
+                                  form.setValue(`reward_items.${index}.itemName`, value.name || "");
+                                }}
+                                placeholder="아이템을 검색하세요"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`reward_items.${index}.count`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>수량</FormLabel>
+                            <div className="flex gap-2">
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  placeholder="수량"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(Number(e.target.value))
+                                  }
+                                />
+                              </FormControl>
+                              {fields.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => remove(index)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    {form.watch(`reward_items.${index}.itemName`) && (
+                      <div className="mt-2 text-sm text-muted-foreground">
+                        선택된 아이템: {form.watch(`reward_items.${index}.itemName`)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 버튼 */}
+            <div className="flex justify-end gap-2 pt-4 border-t">
               <Button
-                type="submit"
-                disabled={
-                  form.formState.isSubmitting || !form.formState.isValid
-                }
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={isLoading}
               >
-                추가
+                취소
               </Button>
-            </DialogFooter>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "생성 중..." : "생성"}
+              </Button>
+            </div>
           </form>
         </Form>
       </DialogContent>

@@ -45,7 +45,7 @@ export default function BanTable({ data }: BanTableProps) {
   const searchParams = useSearchParams();
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
   const { data: session } = useSession();
-  const isMaster = hasAccess(session?.user?.role, UserRole.MASTER);
+  const isMaster = session?.user && hasAccess(session.user.role, UserRole.MASTER);
   const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {

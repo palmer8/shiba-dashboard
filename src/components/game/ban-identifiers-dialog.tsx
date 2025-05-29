@@ -38,7 +38,7 @@ export default function BanIdentifiersDialog({
   const [editableIdentifiers, setEditableIdentifiers] = useState<string[]>([]);
   const [newIdentifier, setNewIdentifier] = useState("");
   const { data: session } = useSession();
-  const isMaster = hasAccess(session?.user?.role, UserRole.MASTER);
+  const isMaster = session?.user && hasAccess(session.user.role, UserRole.MASTER);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {

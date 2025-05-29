@@ -14,53 +14,39 @@ interface ExpandedMailRowProps {
 }
 
 export function ExpandedMailRow({ row }: ExpandedMailRowProps) {
-  const getRewardTypeLabel = (type: string) => {
-    const typeMap: Record<string, string> = {
-      ITEM: "아이템",
-      MONEY: "현금",
-      BANK: "계좌",
-    };
-    return typeMap[type];
-  };
-
   return (
     <div className="space-y-4 p-4 bg-muted/50">
       <div className="space-y-2">
-        <h4 className="font-bold text-lg">내용</h4>
-        <div className="text-sm whitespace-pre-wrap">{row.content}</div>
+        <h4 className="font-bold text-lg">우편 정보</h4>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="font-medium">유저 ID:</span> {row.user_id}
+          </div>
+          <div>
+            <span className="font-medium">닉네임:</span> {row.nickname || "알 수 없음"}
+          </div>
+          <div>
+            <span className="font-medium">생성일:</span> {new Date(row.created_at).toLocaleString('ko-KR')}
+          </div>
+        </div>
       </div>
 
-      {row.rewards && row.rewards.length > 0 && (
+      {Object.keys(row.reward_items).length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-bold text-lg">보상 목록</h4>
+          <h4 className="font-bold text-lg">보상 아이템</h4>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[150px]">보상 유형</TableHead>
-                <TableHead>아이템 정보</TableHead>
-                <TableHead className="text-right">수량/금액</TableHead>
+                <TableHead>아이템 코드</TableHead>
+                <TableHead className="text-right">수량</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {row.rewards.map((reward, index) => (
-                <TableRow key={index}>
-                  <TableCell>{getRewardTypeLabel(reward.type)}</TableCell>
-                  <TableCell>
-                    {reward.type === "ITEM" ? (
-                      <div className="flex flex-col">
-                        <span>ID: {reward.itemId}</span>
-                        <span className="text-muted-foreground">
-                          {reward.itemName}
-                        </span>
-                      </div>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
+              {Object.entries(row.reward_items).map(([itemCode, count]) => (
+                <TableRow key={itemCode}>
+                  <TableCell>{itemCode}</TableCell>
                   <TableCell className="text-right">
-                    {reward.type === "ITEM"
-                      ? `${formatKoreanNumber(parseInt(reward.amount))}개`
-                      : `${formatKoreanNumber(parseInt(reward.amount))}원`}
+                    {formatKoreanNumber(count)}개
                   </TableCell>
                 </TableRow>
               ))}
@@ -69,37 +55,22 @@ export function ExpandedMailRow({ row }: ExpandedMailRowProps) {
         </div>
       )}
 
-      {row.needItems && row.needItems.length > 0 && (
+      {Object.keys(row.need_items).length > 0 && (
         <div className="space-y-2">
-          <h4 className="font-bold text-lg">필요 아이템 목록</h4>
+          <h4 className="font-bold text-lg">필요 아이템</h4>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[150px]">아이템 유형</TableHead>
-                <TableHead>아이템 정보</TableHead>
-                <TableHead className="text-right">수량/금액</TableHead>
+                <TableHead>아이템 코드</TableHead>
+                <TableHead className="text-right">수량</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {row.needItems.map((item, index) => (
-                <TableRow key={index}>
-                  <TableCell>{getRewardTypeLabel(item.type)}</TableCell>
-                  <TableCell>
-                    {item.type === "ITEM" ? (
-                      <div className="flex flex-col">
-                        <span>ID: {item.itemId}</span>
-                        <span className="text-muted-foreground">
-                          {item.itemName}
-                        </span>
-                      </div>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
+              {Object.entries(row.need_items).map(([itemCode, count]) => (
+                <TableRow key={itemCode}>
+                  <TableCell>{itemCode}</TableCell>
                   <TableCell className="text-right">
-                    {item.type === "ITEM"
-                      ? `${formatKoreanNumber(parseInt(item.amount))}개`
-                      : `${formatKoreanNumber(parseInt(item.amount))}원`}
+                    {formatKoreanNumber(count)}개
                   </TableCell>
                 </TableRow>
               ))}

@@ -184,7 +184,7 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
         header: "",
         cell: ({ row }: { row: Row<RewardRevoke> }) => {
           return (
-            hasAccess(session?.user?.role, UserRole.MASTER) && (
+            hasAccess(session?.user!.role, UserRole.MASTER) && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost">

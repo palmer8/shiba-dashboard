@@ -27,7 +27,7 @@ import {
   useRef,
 } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getPersonalMailsByIdsOrigin } from "@/actions/mail-action";
+// import { getPersonalMailsByIdsOrigin } from "@/actions/mail-action";
 import { AddPersonalMailDialog } from "@/components/dialog/add-personal-mail-dialog";
 import { PersonalMail, PersonalMailTableData } from "@/types/mail";
 import { deletePersonalMailAction } from "@/actions/mail-action";
@@ -42,12 +42,10 @@ import { toast } from "@/hooks/use-toast";
 import { ExpandedMailRow } from "@/components/mail/expanded-mail-row";
 import EditPersonalMailDialog from "@/components/dialog/edit-personal-mail-dialog";
 import { Input } from "@/components/ui/input";
-import { uploadPersonalMailCSVAction } from "@/actions/mail-action";
 import Empty from "@/components/ui/empty";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { Session } from "next-auth";
-import { writeAdminLogAction } from "@/actions/log-action";
 
 interface PersonalMailTableProps {
   data: PersonalMailTableData;
@@ -123,11 +121,13 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         ),
       },
       {
-        accessorKey: "rewards",
+        accessorKey: "reward_items",
         header: "보상",
         cell: ({ row }) => (
           <div className="max-w-[200px] truncate">
-            {JSON.stringify(row.getValue("rewards"))}
+            {Object.entries(row.original.reward_items).map(([itemCode, count]) => 
+              `${itemCode}: ${count}개`
+            ).join(", ") || "없음"}
           </div>
         ),
       },
@@ -135,23 +135,22 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         accessorKey: "nickname",
         header: "작성자",
         cell: ({ row }) => (
-          <div>{row.original.registrant?.nickname || "알 수 없음"}</div>
+          <div>{row.original.nickname || "알 수 없음"}</div>
         ),
       },
       {
-        accessorKey: "createdAt",
+        accessorKey: "created_at",
         header: "등록일",
         cell: ({ row }) => (
-          <div>{formatKoreanDateTime(row.getValue("createdAt"))}</div>
+          <div>{formatKoreanDateTime(row.getValue("created_at"))}</div>
         ),
       },
       {
         id: "actions",
         cell: ({ row }) => {
           const mail = row.original;
-          const canModify =
-            mail.registrantId === session?.user?.id ||
-            hasAccess(session?.user?.role, UserRole.SUPERMASTER);
+          // 개인 우편은 모든 관리자가 수정/삭제 가능
+          const canModify = hasAccess(session?.user!.role, UserRole.STAFF);
 
           if (!canModify) return null;
 
@@ -172,7 +171,7 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
                   <Edit2 className="mr-2 h-4 w-4" />
                   <span>수정</span>
                 </DropdownMenuItem>
-                {hasAccess(session?.user?.role, UserRole.SUPERMASTER) && (
+                {hasAccess(session?.user!.role, UserRole.SUPERMASTER) && (
                   <DropdownMenuItem
                     onClick={async () => {
                       if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
@@ -219,7 +218,7 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
     (newPage: number) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("page", newPage.toString());
-      router.push(`/mail/personal?${params.toString()}`, { scroll: false });
+      router.push(`/game/mail?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
   );
@@ -227,60 +226,54 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    try {
-      const file = event.target.files?.[0];
-      if (!file) return;
-
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const result = await uploadPersonalMailCSVAction(formData);
-
-      if (result.success && result.data) {
-        await writeAdminLogAction(`개인 우편 CSV 업로드`);
-        toast({
-          title: "CSV 업로드 성공",
-          description: `${result.data.count}개의 개인 우편이 생성되었습니다.`,
-        });
-      } else {
-        toast({
-          title: "CSV 업로드 실패",
-          description: result.error,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "CSV 업로드 실패",
-        description: "파일 처리 중 오류가 발생했습니다.",
-        variant: "destructive",
-      });
-    }
+    // TODO: CSV 업로드 기능 구현 필요
+    toast({
+      title: "기능 준비 중",
+      description: "CSV 업로드 기능을 준비 중입니다.",
+    });
   };
 
   const handleCSVDownload = async () => {
     const selectedRows = table.getSelectedRowModel().rows;
-    const csvData = await getPersonalMailsByIdsOrigin(
-      selectedRows.map((row) => row.original.id)
-    );
-    if (csvData.success) {
+    if (selectedRows.length === 0) {
+      toast({
+        title: "선택된 항목 없음",
+        description: "다운로드할 항목을 선택해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const csvData = selectedRows.map((row) => {
+        const mail = row.original;
+        return {
+          ID: mail.id,
+          유저ID: mail.user_id,
+          닉네임: mail.nickname || "알 수 없음",
+          필요아이템: Object.entries(mail.need_items).map(([itemCode, count]) => 
+            `${itemCode}: ${count}개`
+          ).join(", ") || "없음",
+          보상아이템: Object.entries(mail.reward_items).map(([itemCode, count]) => 
+            `${itemCode}: ${count}개`
+          ).join(", ") || "없음",
+          등록일: formatKoreanDateTime(mail.created_at),
+        };
+      });
+
       handleDownloadJson2CSV({
-        data: csvData.data || [],
-        fileName: `personal_mails.csv`,
+        data: csvData,
+        fileName: "개인우편",
       });
-      await writeAdminLogAction(
-        `개인 우편 CSV 다운로드 : ${selectedRows
-          .map((row) => row.original.content)
-          .join(", ")}`
-      );
+
       toast({
-        title: "CSV 다운로드 성공",
-        description: "해당 항목을 성공적으로 제거했습니다.",
+        title: "다운로드 완료",
+        description: "CSV 파일이 성공적으로 다운로드되었습니다.",
       });
-    } else {
+    } catch (error) {
       toast({
-        title: "CSV 다운로드 실패",
-        description: csvData.error || "잠시 후에 다시 시도해주세요",
+        title: "다운로드 실패",
+        description: "CSV 다운로드 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }

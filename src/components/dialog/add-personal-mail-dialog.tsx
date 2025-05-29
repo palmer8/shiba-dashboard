@@ -167,22 +167,36 @@ export function AddPersonalMailDialog({
 
   const handleSubmit = form.handleSubmit(async (data) => {
     try {
-      const submitData = { ...data };
+      // UI 데이터를 API 형식으로 변환
+      const apiData = {
+        user_id: parseInt(data.userId),
+        need_items: (data.needItems || [])
+          .filter(item => item.type === "ITEM")
+          .filter(item => (item as any).itemId)
+          .map(item => ({
+            itemCode: (item as any).itemId,
+            count: parseInt(item.amount) || 1,
+          })),
+        reward_items: data.rewards
+          .filter(reward => reward.type === "ITEM")
+          .filter(reward => (reward as any).itemId)
+          .map(reward => ({
+            itemCode: (reward as any).itemId,
+            count: parseInt(reward.amount) || 1,
+          }))
+      };
 
-      const withOutNoneIdNeedItem = submitData.needItems?.filter(
-        (item) => item.type === "ITEM" && item.itemId !== ""
-      );
-      submitData.needItems = withOutNoneIdNeedItem;
-      const withOutNoneIdRewards = submitData.rewards?.filter(
-        (reward) => reward.type === "ITEM" && reward.itemId !== ""
-      );
-      submitData.rewards = withOutNoneIdRewards;
-
-      const result = await createPersonalMailAction(submitData);
+      const result = await createPersonalMailAction(apiData);
       if (result.success) {
         toast({ title: "개인 우편 생성 완료" });
         setOpen(false);
         form.reset();
+      } else {
+        toast({
+          title: "개인 우편 생성 실패",
+          description: result.error || "잠시 후 다시 시도해주세요",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       toast({

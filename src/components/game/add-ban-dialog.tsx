@@ -43,7 +43,7 @@ type AddBanFormData = z.infer<typeof addBanSchema>;
 export default function AddBanDialog() {
   const [open, setOpen] = useState(false);
   const { data: session } = useSession();
-  const isMaster = hasAccess(session?.user?.role, UserRole.MASTER);
+  const isMaster = session?.user && hasAccess(session.user.role, UserRole.MASTER);
   const form = useForm<AddBanFormData>({
     resolver: zodResolver(addBanSchema),
     defaultValues: {

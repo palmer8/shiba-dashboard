@@ -30,8 +30,7 @@ import { GroupMailTableData, GroupMail } from "@/types/mail";
 import { handleDownloadJson2CSV } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  deleteGroupMailAction,
-  getGroupMailsByIdsOrigin,
+  deleteGroupMailReserveAction,
 } from "@/actions/mail-action";
 import { AddGroupMailDialog } from "@/components/dialog/add-group-mail-dialog";
 import { ExpandedGroupMailRow } from "@/components/mail/expanded-group-mail-row";
@@ -105,14 +104,14 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
       },
       {
         accessorKey: "reason",
-        header: "사유",
+        header: "제목",
         cell: ({ row }) => <div>{row.getValue("reason")}</div>,
       },
       {
         accessorKey: "content",
-        header: "내용",
+        header: "사유",
         cell: ({ row }) => (
-          <div className="max-w-[400px] truncate">{row.getValue("reason")}</div>
+          <div className="max-w-[400px] truncate">{row.getValue("content")}</div>
         ),
       },
       {
@@ -175,8 +174,8 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
                 <DropdownMenuItem
                   onClick={async () => {
                     if (confirm("정말로 이 항목을 삭제하시겠습니까?")) {
-                      const result = await deleteGroupMailAction(
-                        row.original.id
+                      const result = await deleteGroupMailReserveAction(
+                        parseInt(row.original.id)
                       );
                       if (result.success) {
                         toast({
@@ -217,34 +216,50 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
     (newPage: number) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("page", newPage.toString());
-      router.push(`/mail/group?${params.toString()}`, { scroll: false });
+      router.push(`/game/group-mail?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
   );
 
   const handleDownloadCSV = async () => {
     const selectedRows = table.getSelectedRowModel().rows;
-    if (!selectedRows.length) return;
+    if (selectedRows.length === 0) {
+      toast({
+        title: "선택된 항목 없음",
+        description: "다운로드할 항목을 선택해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const selectedIds = selectedRows.map((row) => row.original.id);
-    const result = await getGroupMailsByIdsOrigin(selectedIds);
-    if (result.success) {
+    try {
+      const csvData = selectedRows.map((row) => {
+        const mail = row.original;
+        return {
+          ID: mail.id,
+          제목: mail.reason,
+          사유: mail.content,
+          보상: JSON.stringify(mail.rewards),
+          시작일: formatKoreanDateTime(mail.startDate),
+          종료일: formatKoreanDateTime(mail.endDate),
+          작성자: mail.registrant?.nickname || "알 수 없음",
+          등록일: formatKoreanDateTime(mail.createdAt),
+        };
+      });
+
       handleDownloadJson2CSV({
-        data: result.data || [],
-        fileName: `group-mail-list.csv`,
+        data: csvData,
+        fileName: "단체우편",
       });
-      await writeAdminLogAction(
-        `단체 우편 CSV 다운로드 : ${selectedRows
-          .map((row) => row.original.reason)
-          .join(", ")}`
-      );
+
       toast({
-        title: "CSV 다운로드 성공",
+        title: "다운로드 완료",
+        description: "CSV 파일이 성공적으로 다운로드되었습니다.",
       });
-    } else {
+    } catch (error) {
       toast({
-        title: "CSV 다운로드 실패",
-        description: result.error || "알 수 없는 에러가 발생하였습니다.",
+        title: "다운로드 실패",
+        description: "CSV 다운로드 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }

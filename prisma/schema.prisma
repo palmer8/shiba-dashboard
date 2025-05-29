@@ -190,52 +190,7 @@ model PersonalMail {
   @@map("personal_mail")
 }
 
-model CouponGroup {
-  id          String            @id @default(uuid())
-  groupName   String            @unique @map("group_name")
-  groupType   CouponGroupType   @default(COMMON) @map("group_type")
-  rewards     Json              @default("[]")
-  code        String?           @map("coupon_code") @db.VarChar(10)
-  isIssued    Boolean           @default(false) @map("is_issued")
-  usageLimit  Int?              @default(1) @map("usage_limit")
-  groupReason String            @map("group_reason")
-  groupStatus CouponGroupStatus @default(INACTIVE) @map("group_status")
-  quantity    Int
-  startDate   DateTime          @map("start_date")
-  endDate     DateTime          @map("end_date")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
-  coupons     Coupon[]
 
-  @@map("coupon_group")
-}
-
-model Coupon {
-  id            String       @id @default(uuid())
-  rewards       Json         @default("[]")
-  isUsed        Boolean      @default(false) @map("is_used")
-  code          String?      @map("coupon_code") @db.VarChar(10)
-  couponGroupId String?      @map("coupon_group_id")
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
-  couponGroup   CouponGroup? @relation(fields: [couponGroupId], references: [id], onDelete: Cascade)
-  couponLogs    CouponLog[]
-
-  @@map("coupon")
-}
-
-model CouponLog {
-  id        String   @id @default(uuid())
-  userId    Int      @map("user_id")
-  nickname  String
-  couponId  String?  @map("coupon_id")
-  usedAt    DateTime @default(now()) @map("used_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  coupon    Coupon?  @relation(fields: [couponId], references: [id])
-
-  @@map("coupon_log")
-}
 
 model ItemQuantity {
   id           String     @id @default(uuid())

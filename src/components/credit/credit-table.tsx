@@ -201,7 +201,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
           const canModify =
             (credit.status === "PENDING" &&
               credit.registrantId === session?.user?.id) ||
-            hasAccess(session?.user?.role, UserRole.MASTER);
+            hasAccess(session?.user!.role, UserRole.MASTER);
 
           if (!canModify) return null;
 
@@ -227,7 +227,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
                   <Edit2 className="mr-2 h-4 w-4" />
                   <span>수정</span>
                 </DropdownMenuItem>
-                {hasAccess(session?.user?.role, UserRole.SUPERMASTER) && (
+                {hasAccess(session?.user!.role, UserRole.SUPERMASTER) && (
                   <DropdownMenuItem
                     onClick={async (e) => {
                       e.preventDefault();
@@ -592,7 +592,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {isPending && hasAccess(session?.user?.role, "MASTER") && (
+        {isPending && hasAccess(session?.user!.role, "MASTER") && (
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"

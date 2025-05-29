@@ -176,7 +176,7 @@ export default function GameDataFilter({
                 <SelectItem value="ITEM_NAME">아이템 이름</SelectItem>
                 <SelectItem value="NICKNAME">닉네임</SelectItem>
                 <SelectItem value="INSTAGRAM">인스타그램 계정</SelectItem>
-                {hasAccess(session.user?.role, UserRole.SUPERMASTER) && (
+                {hasAccess(session.user!.role, UserRole.SUPERMASTER) && (
                   <>
                     <SelectItem value="CURRENT_CASH">보유 캐시</SelectItem>
                     <SelectItem value="ACCUMULATED_CASH">누적 캐시</SelectItem>
@@ -188,7 +188,7 @@ export default function GameDataFilter({
                 <SelectItem value="BANK">계좌</SelectItem>
                 <SelectItem value="MILEAGE">마일리지</SelectItem>
                 <SelectItem value="REGISTRATION">차량번호</SelectItem>
-                {hasAccess(session.user?.role, UserRole.INGAME_ADMIN) && (
+                {hasAccess(session.user!.role, UserRole.INGAME_ADMIN) && (
                   <SelectItem value="COMPANY">팩션 공동 계좌 잔고</SelectItem>
                 )}
                 <SelectItem value="IP">IP</SelectItem>

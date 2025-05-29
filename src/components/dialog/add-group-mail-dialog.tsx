@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createGroupMailAction } from "@/actions/mail-action";
+import { createGroupMailReserveAction } from "@/actions/mail-action";
 import { formatKoreanNumber } from "@/lib/utils";
 import { X } from "lucide-react";
 import { GroupMailValues, GroupMailSchema } from "@/lib/validations/mail";
@@ -95,16 +95,31 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
 
   const handleSubmit = form.handleSubmit(async (data) => {
     try {
-      const submitData = { ...data };
-      const withOutNoneIdRewards = submitData.rewards?.filter(
-        (reward) => reward.type === "ITEM" && reward.itemId !== ""
-      );
-      submitData.rewards = withOutNoneIdRewards;
-      const result = await createGroupMailAction(submitData);
+      // UI 데이터를 API 형식으로 변환
+      const apiData = {
+        title: data.reason, // reason을 title로 매핑
+        content: data.content,
+        start_time: data.startDate.toISOString(),
+        end_time: data.endDate.toISOString(),
+        rewards: data.rewards
+          .filter(reward => reward.type === "ITEM" && reward.itemId)
+          .map(reward => ({
+            itemCode: reward.itemId!,
+            count: parseInt(reward.amount) || 1,
+          }))
+      };
+      
+      const result = await createGroupMailReserveAction(apiData);
       if (result.success) {
         toast({ title: "단체 우편 생성 완료" });
         setOpen(false);
         form.reset();
+      } else {
+        toast({
+          title: "단체 우편 생성 실패",
+          description: result.error || "잠시 후 다시 시도해주세요",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       toast({
@@ -146,9 +161,9 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>발급 사유</FormLabel>
+                  <FormLabel>제목</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="사유를 작성해주세요" />
+                    <Input {...field} placeholder="제목을 작성해주세요" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -160,12 +175,12 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>내용</FormLabel>
+                  <FormLabel>사유</FormLabel>
                   <FormControl>
                     <Textarea
                       {...field}
-                      placeholder="내용을 작성해주세요"
-                      className="min-h-[150px] resize-none"
+                      placeholder="단체 우편 발송 사유를 작성해주세요"
+                      className="min-h-[120px] resize-none"
                     />
                   </FormControl>
                   <FormMessage />
