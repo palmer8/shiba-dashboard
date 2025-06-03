@@ -223,7 +223,6 @@ export default function GameDataFilter({
             </div>
           )}
 
-          {query.type !== "ITEM_CODE" && query.type !== "ITEM_NAME" && (
             <div className="space-y-2">
               <Label>값 입력</Label>
               <Input
@@ -233,7 +232,6 @@ export default function GameDataFilter({
                 disabled={isSubmitting}
               />
             </div>
-          )}
 
           {![
             "INSTAGRAM",
