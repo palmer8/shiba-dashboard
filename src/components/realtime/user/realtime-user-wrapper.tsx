@@ -16,11 +16,13 @@ import RealtimeUserLogs from "./realtime-user-logs";
 interface RealtimeUserWrapperProps {
   session: Session;
   isAdmin: boolean;
+  isMaster: boolean;
 }
 
 export default function RealtimeUserWrapper({
   session,
   isAdmin,
+  isMaster,
 }: RealtimeUserWrapperProps) {
   const [userId, setUserId] = useState<number | null>(null);
 
@@ -93,7 +95,7 @@ export default function RealtimeUserWrapper({
             }}
             mutate={mutate}
             userId={userId!}
-            isAdmin={isAdmin}
+            isMaster={isMaster}
             session={session}
           />
         </TabsContent>

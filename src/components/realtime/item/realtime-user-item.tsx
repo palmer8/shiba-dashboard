@@ -51,7 +51,7 @@ interface RealtimeUserItemProps {
     vehicles: Record<string, string>;
   };
   userId: number;
-  isAdmin: boolean;
+  isMaster: boolean;
   session: Session;
   mutate: () => Promise<any>;
 }
@@ -59,11 +59,9 @@ interface RealtimeUserItemProps {
 export default function RealtimeUserItem({
   data,
   userId,
-  isAdmin,
-  session,
+  isMaster,
   mutate,
 }: RealtimeUserItemProps) {
-  console.log(data);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{
@@ -330,7 +328,7 @@ export default function RealtimeUserItem({
                       <ItemNameCell name={item.name} id={item.id} />
                     </TableCell>
                     <TableCell className="text-right">
-                      {isAdmin ? (
+                      {isMaster ? (
                         editingItem === item.id ? (
                           <Input
                             type="number"
@@ -382,7 +380,7 @@ export default function RealtimeUserItem({
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
                   <TableHead>무기</TableHead>
-                  {isAdmin && <TableHead className="w-[60px]"></TableHead>}
+                  {isMaster && <TableHead className="w-[60px]"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -395,7 +393,7 @@ export default function RealtimeUserItem({
                         ammo={weapon.ammo}
                       />
                     </TableCell>
-                    {isAdmin && (
+                    {isMaster && (
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -432,7 +430,7 @@ export default function RealtimeUserItem({
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
                   <TableHead>차량</TableHead>
-                  {isAdmin && <TableHead className="w-[60px]"></TableHead>}
+                  {isMaster && <TableHead className="w-[60px]"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -441,7 +439,7 @@ export default function RealtimeUserItem({
                     <TableCell>
                       <ItemNameCell name={vehicle.name} id={vehicle.id} />
                     </TableCell>
-                    {isAdmin && (
+                    {isMaster && (
                       <TableCell>
                         <Button
                           variant="ghost"

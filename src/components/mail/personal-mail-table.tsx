@@ -29,7 +29,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 // import { getPersonalMailsByIdsOrigin } from "@/actions/mail-action";
 import { AddPersonalMailDialog } from "@/components/dialog/add-personal-mail-dialog";
-import { PersonalMail, PersonalMailTableData } from "@/types/mail";
+import { PersonalMailDisplay, PersonalMailTableData } from "@/types/mail";
 import { deletePersonalMailAction } from "@/actions/mail-action";
 import {
   DropdownMenu,
@@ -58,12 +58,12 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
   const [open, setOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPersonalMail, setSelectedPersonalMail] =
-    useState<PersonalMail | null>(null);
+    useState<PersonalMailDisplay | null>(null);
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
   >({
     rewards: false,
-    content: false,
+    content: true,
   });
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
   const tableContainerRef = useRef<HTMLTableElement>(null);
@@ -78,7 +78,7 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
     }
   }, [data.metadata.page]);
 
-  const columns = useMemo<ColumnDef<PersonalMail>[]>(
+  const columns = useMemo<ColumnDef<PersonalMailDisplay>[]>(
     () => [
       {
         id: "select",
@@ -102,14 +102,14 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         enableHiding: false,
       },
       {
-        accessorKey: "userId",
+        accessorKey: "user_id",
         header: "고유번호",
-        cell: ({ row }) => <div>{row.getValue("userId")}</div>,
+        cell: ({ row }) => <div>{row.getValue("user_id")}</div>,
       },
       {
-        accessorKey: "reason",
-        header: "사유",
-        cell: ({ row }) => <div>{row.getValue("reason")}</div>,
+        accessorKey: "title",
+        header: "제목",
+        cell: ({ row }) => <div>{row.getValue("title")}</div>,
       },
       {
         accessorKey: "content",
@@ -125,8 +125,8 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         header: "보상",
         cell: ({ row }) => (
           <div className="max-w-[200px] truncate">
-            {Object.entries(row.original.reward_items).map(([itemCode, count]) => 
-              `${itemCode}: ${count}개`
+            {Object.entries(row.original.reward_items).map(([itemCode, itemInfo]) => 
+              `${itemInfo.name}: ${itemInfo.amount}개`
             ).join(", ") || "없음"}
           </div>
         ),
@@ -250,12 +250,14 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         return {
           ID: mail.id,
           유저ID: mail.user_id,
+          제목: mail.title,
+          내용: mail.content,
           닉네임: mail.nickname || "알 수 없음",
-          필요아이템: Object.entries(mail.need_items).map(([itemCode, count]) => 
-            `${itemCode}: ${count}개`
+          필요아이템: Object.entries(mail.need_items).map(([itemCode, itemInfo]) => 
+            `${itemInfo.name}(${itemCode}): ${itemInfo.amount}개`
           ).join(", ") || "없음",
-          보상아이템: Object.entries(mail.reward_items).map(([itemCode, count]) => 
-            `${itemCode}: ${count}개`
+          보상아이템: Object.entries(mail.reward_items).map(([itemCode, itemInfo]) => 
+            `${itemInfo.name}(${itemCode}): ${itemInfo.amount}개`
           ).join(", ") || "없음",
           등록일: formatKoreanDateTime(mail.created_at),
         };

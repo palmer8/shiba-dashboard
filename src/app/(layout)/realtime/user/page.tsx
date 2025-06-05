@@ -13,6 +13,7 @@ export default async function RealtimeUserPage() {
   if (!session.user.isPermissive) return redirect("/pending");
 
   const isAdmin = hasAccess(session.user.role, UserRole.INGAME_ADMIN);
+  const isMaster = hasAccess(session.user.role, UserRole.MASTER);
 
   return (
     <main className="max-w-full w-full overflow-x-auto">
@@ -21,7 +22,11 @@ export default async function RealtimeUserPage() {
         title="유저 정보"
         description="유저 정보 메뉴에서 고유번호를 통해 유저를 조회하고 관리하세요."
       />
-      <RealtimeUserWrapper isAdmin={isAdmin} session={session} />
+      <RealtimeUserWrapper
+        isAdmin={isAdmin}
+        isMaster={isMaster}
+        session={session}
+      />
     </main>
   );
 }

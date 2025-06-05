@@ -46,8 +46,6 @@ const onUpload = async (file: File): Promise<string> => {
       throw new Error("Invalid upload response");
     }
 
-    console.log(data); // 디버깅용 로그 제거 또는 주석 처리
-
     toast({ title: "이미지 업로드 완료" });
     return data.url;
   } catch (error) {

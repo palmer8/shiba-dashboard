@@ -126,8 +126,6 @@ export default function ChangeUserIdDialog({
 
   if (!isSupermaster) return null;
 
-  console.log(isOnline);
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-[400px]">

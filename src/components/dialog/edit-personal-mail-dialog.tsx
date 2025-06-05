@@ -61,7 +61,7 @@ export default function EditPersonalMailDialog({
     resolver: zodResolver(EditPersonalMailSchema),
     defaultValues: {
       userId: personalMail?.userId?.toString() || "",
-      reason: personalMail?.reason || "",
+      title: personalMail?.title || "",
       content: personalMail?.content || "",
       nickname: "",
       rewards:
@@ -88,7 +88,7 @@ export default function EditPersonalMailDialog({
     if (personalMail) {
       form.reset({
         userId: personalMail.userId?.toString() || "",
-        reason: personalMail.reason || "",
+        title: personalMail.title || "",
         content: personalMail.content || "",
         nickname: nickname || "",
         rewards:
@@ -313,13 +313,13 @@ export default function EditPersonalMailDialog({
             />
 
             <FormField
-              name="reason"
+              name="title"
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>발급 사유</FormLabel>
+                  <FormLabel>제목</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="사유를 작성해주세요" />
+                    <Input {...field} placeholder="제목을 입력해주세요" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

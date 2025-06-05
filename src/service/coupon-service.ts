@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth-config";
 import { hasAccess, generateCouponCode } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import pool from "@/db/mysql";
+import prisma from "@/db/prisma";
 import { logService } from "./log-service";
 import {
   Coupon,
@@ -18,6 +19,52 @@ import {
 } from "@/types/coupon";
 import { CouponCreateValues, CouponEditValues } from "@/lib/validations/coupon";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
+
+// 아이템 정보 매핑 함수
+async function mapItemNamesToRewards(rewards: Record<string, number>): Promise<Record<string, { name: string; amount: number }>> {
+  try {
+    const itemIds = Object.keys(rewards);
+    if (itemIds.length === 0) return {};
+
+    // Prisma를 사용해서 아이템 정보 조회
+    const items = await prisma.items.findMany({
+      where: {
+        itemId: {
+          in: itemIds,
+        },
+      },
+      select: {
+        itemId: true,
+        itemName: true,
+      },
+    });
+
+    // 아이템 ID -> 이름 매핑 생성
+    const itemNameMap = new Map(items.map(item => [item.itemId, item.itemName]));
+
+    // 보상 아이템에 이름 정보 추가
+    const mappedRewards: Record<string, { name: string; amount: number }> = {};
+    Object.entries(rewards).forEach(([itemId, amount]) => {
+      mappedRewards[itemId] = {
+        name: itemNameMap.get(itemId) || itemId, // 이름이 없으면 ID 사용
+        amount: amount,
+      };
+    });
+
+    return mappedRewards;
+  } catch (error) {
+    console.error("Error mapping item names:", error);
+    // 에러 발생 시 기존 형태로 반환
+    const fallbackRewards: Record<string, { name: string; amount: number }> = {};
+    Object.entries(rewards).forEach(([itemId, amount]) => {
+      fallbackRewards[itemId] = {
+        name: itemId,
+        amount: amount,
+      };
+    });
+    return fallbackRewards;
+  }
+}
 
 // 쿠폰 목록 조회
 export async function getCouponList(
@@ -86,20 +133,28 @@ export async function getCouponList(
     `;
 
     const [rows] = await pool.execute(query, [...params, limit, offset]);
-    const coupons = (rows as RowDataPacket[]).map((row) => ({
-      id: row.id,
-      name: row.name,
-      type: COUPON_TYPE_REVERSE_MAP[row.type as CouponDbType], // 영문을 한글로 변환
-      reward_items: JSON.parse(row.reward_items || "{}"),
-      maxcount: row.maxcount,
-      start_time: new Date(row.start_time),
-      end_time: new Date(row.end_time),
-      created_at: new Date(row.created_at),
-      _count: {
-        codes: row.total_codes,
-        usedCodes: row.used_codes,
-      },
-    })) as CouponDisplay[];
+    
+    // 쿠폰 데이터 변환 및 아이템 이름 매핑
+    const coupons: CouponDisplay[] = [];
+    for (const row of rows as RowDataPacket[]) {
+      const rewardItems = JSON.parse(row.reward_items || "{}");
+      const mappedRewards = await mapItemNamesToRewards(rewardItems);
+      
+      coupons.push({
+        id: row.id,
+        name: row.name,
+        type: COUPON_TYPE_REVERSE_MAP[row.type as CouponDbType], // 영문을 한글로 변환
+        reward_items: mappedRewards,
+        maxcount: row.maxcount,
+        start_time: new Date(row.start_time),
+        end_time: new Date(row.end_time),
+        created_at: new Date(row.created_at),
+        _count: {
+          codes: row.total_codes,
+          usedCodes: row.used_codes,
+        },
+      });
+    }
 
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -517,25 +572,37 @@ export async function getCouponLogs(
     `;
 
     const [rows] = await pool.execute(query, [...params, limit, offset]);
-    const records = (rows as RowDataPacket[]).map((row) => ({
-      coupon_idx: row.coupon_idx,
-      coupon_code: row.coupon_code,
-      user_id: row.user_id,
-      time: new Date(row.time),
-      coupon: row.coupon_name
-        ? {
-            id: row.coupon_idx,
-            name: row.coupon_name,
-            type: COUPON_TYPE_REVERSE_MAP[row.coupon_type as CouponDbType], // 영문을 한글로 변환
-            reward_items: JSON.parse(row.reward_items || "{}"),
-            maxcount: row.maxcount,
-            start_time: new Date(row.start_time),
-            end_time: new Date(row.end_time),
-            created_at: new Date(row.coupon_created_at),
-          }
-        : undefined,
-      nickname: row.nickname,
-    }));
+    
+    // 레코드 매핑 및 아이템 이름 변환
+    const records = [];
+    for (const row of rows as RowDataPacket[]) {
+      let coupon: CouponDisplay | undefined = undefined;
+      
+      if (row.coupon_name) {
+        const rewardItems = JSON.parse(row.reward_items || "{}");
+        const mappedRewards = await mapItemNamesToRewards(rewardItems);
+        
+        coupon = {
+          id: row.coupon_idx,
+          name: row.coupon_name,
+          type: COUPON_TYPE_REVERSE_MAP[row.coupon_type as CouponDbType], // 영문을 한글로 변환
+          reward_items: mappedRewards,
+          maxcount: row.maxcount,
+          start_time: new Date(row.start_time),
+          end_time: new Date(row.end_time),
+          created_at: new Date(row.coupon_created_at),
+        };
+      }
+      
+      records.push({
+        coupon_idx: row.coupon_idx,
+        coupon_code: row.coupon_code,
+        user_id: row.user_id,
+        time: new Date(row.time),
+        coupon,
+        nickname: row.nickname,
+      });
+    }
 
     const totalPages = Math.ceil(total / limit);
 

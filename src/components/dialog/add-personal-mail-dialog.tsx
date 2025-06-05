@@ -57,7 +57,7 @@ export function AddPersonalMailDialog({
     resolver: zodResolver(PersonalMailSchema),
     defaultValues: {
       userId: "",
-      reason: "",
+      title: "",
       content: "",
       nickname: "",
       rewards: [],
@@ -264,13 +264,13 @@ export function AddPersonalMailDialog({
             />
 
             <FormField
-              name="reason"
+              name="title"
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>발급 사유</FormLabel>
+                  <FormLabel>제목</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="사유를 작성해주세요" />
+                    <Input {...field} placeholder="제목을 입력해주세요" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

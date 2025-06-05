@@ -13,7 +13,7 @@ interface PageProps {
     page?: string;
     startDate?: string;
     endDate?: string;
-    eventId?: string;
+    reserveId?: string;
     userId?: string;
   }>;
 }
@@ -32,7 +32,7 @@ export default async function GameGroupMailLogPage({
   const filterParams = {
     startDate: params.startDate,
     endDate: params.endDate,
-    eventId: params.eventId ? parseInt(params.eventId) : undefined,
+    reserveId: params.reserveId ? parseInt(params.reserveId) : undefined,
     userId: params.userId ? parseInt(params.userId) : undefined,
   };
 

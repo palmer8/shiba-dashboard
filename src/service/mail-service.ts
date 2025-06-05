@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth-config";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import pool from "@/db/mysql";
+import prisma from "@/db/prisma";
 import { logService } from "./log-service";
 import {
   PersonalMail,
@@ -20,6 +21,52 @@ import {
   GroupMailReserveEditValues,
 } from "@/lib/validations/mail";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
+
+// 아이템 정보 매핑 함수 (쿠폰 서비스와 동일)
+async function mapItemNamesToRewards(rewards: Record<string, number>): Promise<Record<string, { name: string; amount: number }>> {
+  try {
+    const itemIds = Object.keys(rewards);
+    if (itemIds.length === 0) return {};
+
+    // Prisma를 사용해서 아이템 정보 조회
+    const items = await prisma.items.findMany({
+      where: {
+        itemId: {
+          in: itemIds,
+        },
+      },
+      select: {
+        itemId: true,
+        itemName: true,
+      },
+    });
+
+    // 아이템 ID -> 이름 매핑 생성
+    const itemNameMap = new Map(items.map(item => [item.itemId, item.itemName]));
+
+    // 보상 아이템에 이름 정보 추가
+    const mappedRewards: Record<string, { name: string; amount: number }> = {};
+    Object.entries(rewards).forEach(([itemId, amount]) => {
+      mappedRewards[itemId] = {
+        name: itemNameMap.get(itemId) || itemId, // 이름이 없으면 ID 사용
+        amount: amount,
+      };
+    });
+
+    return mappedRewards;
+  } catch (error) {
+    console.error("Error mapping item names:", error);
+    // 에러 발생 시 기존 형태로 반환
+    const fallbackRewards: Record<string, { name: string; amount: number }> = {};
+    Object.entries(rewards).forEach(([itemId, amount]) => {
+      fallbackRewards[itemId] = {
+        name: itemId,
+        amount: amount,
+      };
+    });
+    return fallbackRewards;
+  }
+}
 
 // 개인 우편 목록 조회
 export async function getPersonalMails(
@@ -77,14 +124,27 @@ export async function getPersonalMails(
     `;
 
     const [rows] = await pool.execute(query, [...params, limit, offset]);
-    const mails = (rows as RowDataPacket[]).map((row) => ({
-      id: row.id,
-      user_id: row.user_id,
-      need_items: JSON.parse(row.need_items || "{}"),
-      reward_items: JSON.parse(row.reward_items || "{}"),
-      created_at: new Date(row.created_at),
-      nickname: row.nickname,
-    }));
+    
+    // 우편 데이터 변환 및 아이템 이름 매핑
+    const mails = [];
+    for (const row of rows as RowDataPacket[]) {
+      const needItems = JSON.parse(row.need_items || "{}");
+      const rewardItems = JSON.parse(row.reward_items || "{}");
+      
+      const mappedNeedItems = await mapItemNamesToRewards(needItems);
+      const mappedRewardItems = await mapItemNamesToRewards(rewardItems);
+      
+      mails.push({
+        id: row.id,
+        user_id: row.user_id,
+        title: row.title || "",
+        content: row.content || "",
+        need_items: mappedNeedItems,
+        reward_items: mappedRewardItems,
+        created_at: new Date(row.created_at),
+        nickname: row.nickname,
+      });
+    }
 
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -160,6 +220,8 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
     return {
       id: mail.id,
       user_id: mail.user_id,
+      title: mail.title || "",
+      content: mail.content || "",
       need_items: JSON.parse(mail.need_items),
       reward_items: JSON.parse(mail.reward_items),
       created_at: new Date(mail.created_at),
@@ -485,9 +547,9 @@ export async function getGroupMailReserveLogs(
     let whereClause = "WHERE 1=1";
     const params: any[] = [];
 
-    if (filter.eventId) {
-      whereClause += " AND l.event_id = ?";
-      params.push(filter.eventId);
+    if (filter.reserveId) {
+      whereClause += " AND l.reserve_id = ?";
+      params.push(filter.reserveId);
     }
 
     if (filter.userId) {
@@ -529,7 +591,7 @@ export async function getGroupMailReserveLogs(
 
     const [rows] = await pool.execute(query, [...params, limit, offset]);
     const logs = (rows as RowDataPacket[]).map((row) => ({
-      event_id: row.event_id,
+      reserve_id: row.reserve_id,
       user_id: row.user_id,
       claimed_at: new Date(row.claimed_at),
       nickname: row.nickname,

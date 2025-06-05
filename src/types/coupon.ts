@@ -32,8 +32,9 @@ export interface Coupon {
 }
 
 // UI에서 사용할 쿠폰 타입 (한글 표시용)
-export interface CouponDisplay extends Omit<Coupon, 'type'> {
+export interface CouponDisplay extends Omit<Coupon, 'type' | 'reward_items'> {
   type: CouponDisplayType;
+  reward_items: Record<string, { name: string; amount: number }>;
 }
 
 // 쿠폰 코드 타입 (dokku_coupon_code 테이블)

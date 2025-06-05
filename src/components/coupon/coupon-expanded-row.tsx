@@ -156,13 +156,14 @@ export function CouponExpandedRow({ coupon }: CouponExpandedRowProps) {
       <div className="space-y-3">
         <h4 className="font-semibold text-base">보상 아이템</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {Object.entries(coupon.reward_items).map(([itemCode, count]) => (
+          {Object.entries(coupon.reward_items).map(([itemCode, itemInfo]) => (
             <div
               key={itemCode}
               className="p-3 bg-muted/50 rounded-lg border"
             >
-              <div className="text-sm font-medium">{itemCode}</div>
-              <div className="text-sm text-muted-foreground">수량: {count.toLocaleString()}개</div>
+              <div className="text-sm font-medium">{itemInfo.name}</div>
+              <div className="text-xs text-muted-foreground font-mono">{itemCode}</div>
+              <div className="text-sm text-muted-foreground">수량: {itemInfo.amount.toLocaleString()}개</div>
             </div>
           ))}
         </div>

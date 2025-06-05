@@ -7,10 +7,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatKoreanNumber } from "@/lib/utils";
-import { PersonalMail } from "@/types/mail";
+import { PersonalMailDisplay } from "@/types/mail";
 
 interface ExpandedMailRowProps {
-  row: PersonalMail;
+  row: PersonalMailDisplay;
 }
 
 export function ExpandedMailRow({ row }: ExpandedMailRowProps) {
@@ -26,8 +26,18 @@ export function ExpandedMailRow({ row }: ExpandedMailRowProps) {
             <span className="font-medium">닉네임:</span> {row.nickname || "알 수 없음"}
           </div>
           <div>
+            <span className="font-medium">제목:</span> {row.title}
+          </div>
+          <div>
             <span className="font-medium">생성일:</span> {new Date(row.created_at).toLocaleString('ko-KR')}
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="font-bold text-lg">내용</h4>
+        <div className="text-sm whitespace-pre-wrap p-3 bg-muted/30 rounded-lg">
+          {row.content}
         </div>
       </div>
 
@@ -37,16 +47,18 @@ export function ExpandedMailRow({ row }: ExpandedMailRowProps) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>아이템명</TableHead>
                 <TableHead>아이템 코드</TableHead>
                 <TableHead className="text-right">수량</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Object.entries(row.reward_items).map(([itemCode, count]) => (
+              {Object.entries(row.reward_items).map(([itemCode, itemInfo]) => (
                 <TableRow key={itemCode}>
-                  <TableCell>{itemCode}</TableCell>
+                  <TableCell className="font-medium">{itemInfo.name}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground font-mono">{itemCode}</TableCell>
                   <TableCell className="text-right">
-                    {formatKoreanNumber(count)}개
+                    {formatKoreanNumber(itemInfo.amount)}개
                   </TableCell>
                 </TableRow>
               ))}
@@ -61,16 +73,18 @@ export function ExpandedMailRow({ row }: ExpandedMailRowProps) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>아이템명</TableHead>
                 <TableHead>아이템 코드</TableHead>
                 <TableHead className="text-right">수량</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Object.entries(row.need_items).map(([itemCode, count]) => (
+              {Object.entries(row.need_items).map(([itemCode, itemInfo]) => (
                 <TableRow key={itemCode}>
-                  <TableCell>{itemCode}</TableCell>
+                  <TableCell className="font-medium">{itemInfo.name}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground font-mono">{itemCode}</TableCell>
                   <TableCell className="text-right">
-                    {formatKoreanNumber(count)}개
+                    {formatKoreanNumber(itemInfo.amount)}개
                   </TableCell>
                 </TableRow>
               ))}

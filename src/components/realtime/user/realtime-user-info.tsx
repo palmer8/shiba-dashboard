@@ -97,8 +97,6 @@ export default function RealtimeUserInfo({
   session,
   mutate,
 }: RealtimeUserInfoProps) {
-  console.log(data);
-
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [banDialogOpen, setBanDialogOpen] = useState(false);

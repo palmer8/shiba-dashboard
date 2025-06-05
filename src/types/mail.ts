@@ -34,14 +34,28 @@ export interface GroupMailTableData {
 export interface PersonalMail {
   id: number;
   user_id: number;
+  title: string;
+  content: string;
   need_items: Record<string, number>;
   reward_items: Record<string, number>;
   created_at: Date;
   nickname?: string;
 }
 
+// UI 표시용 PersonalMail 타입 (아이템 이름 포함)
+export interface PersonalMailDisplay {
+  id: number;
+  user_id: number;
+  title: string;
+  content: string;
+  need_items: Record<string, { name: string; amount: number }>;
+  reward_items: Record<string, { name: string; amount: number }>;
+  created_at: Date;
+  nickname?: string;
+}
+
 export interface PersonalMailTableData {
-  records: PersonalMail[];
+  records: PersonalMailDisplay[];
   metadata: {
     total: number;
     page: number;
@@ -59,14 +73,14 @@ export interface GroupMailReserve {
 }
 
 export interface GroupMailReserveLog {
-  event_id: number;
+  reserve_id: number;
   user_id: number;
   claimed_at: Date;
   nickname?: string;
 }
 
 export interface PersonalMailList {
-  mails: PersonalMail[];
+  mails: PersonalMailDisplay[];
   metadata: {
     currentPage: number;
     totalPages: number;
@@ -120,7 +134,7 @@ export interface GroupMailReserveFilter {
 }
 
 export interface GroupMailReserveLogFilter {
-  eventId?: number;
+  reserveId?: number;
   userId?: number;
   startDate?: string;
   endDate?: string;

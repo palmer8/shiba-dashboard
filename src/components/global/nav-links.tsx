@@ -49,9 +49,6 @@ export function NavLinks({ session }: { session: Session | null }) {
     value.role.includes(userRole!)
   );
 
-  console.log(userRole, session);
-  
-
   return (
     <SidebarGroup>
       <SidebarGroupLabel>메뉴</SidebarGroupLabel>
