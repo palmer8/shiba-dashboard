@@ -61,10 +61,10 @@ export default function EditCouponDialog({
   // 쿠폰 데이터로 폼 초기화
   useEffect(() => {
     if (coupon && open) {
-      const rewardItems = Object.entries(coupon.reward_items).map(([itemCode, count]) => ({
+      const rewardItems = Object.entries(coupon.reward_items).map(([itemCode, itemInfo]) => ({
         itemCode,
-        itemName: itemCode, // 아이템 이름은 코드와 동일하게 설정 (실제로는 아이템 마스터에서 가져와야 함)
-        count,
+        itemName: itemInfo.name, // 아이템 이름 사용
+        count: itemInfo.amount, // amount 값 사용
       }));
 
       form.reset({
@@ -72,7 +72,7 @@ export default function EditCouponDialog({
         maxcount: coupon.maxcount || undefined,
         start_time: new Date(coupon.start_time).toISOString().slice(0, 16),
         end_time: new Date(coupon.end_time).toISOString().slice(0, 16),
-        reward_items: rewardItems.length > 0 ? rewardItems : [{ itemCode: "", itemName: "", count: 1 }],
+        reward_items: rewardItems,
       });
     }
   }, [coupon, open, form]);
