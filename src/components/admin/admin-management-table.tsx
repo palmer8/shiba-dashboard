@@ -349,23 +349,27 @@ export function AdminManagementTable({
                               <DropdownMenuSeparator />
                             )}
                           <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <DropdownMenuItem
-                                onSelect={(e) => e.preventDefault()}
-                                className="text-destructive"
-                                disabled={
-                                  session.user.id === admin.id ||
-                                  (session.user.role !== UserRole.SUPERMASTER &&
-                                    isSameOrHigherRole(
-                                      session.user.role as UserRole,
-                                      admin.role as UserRole
-                                    ))
-                                }
-                              >
-                                <Trash className="mr-2 h-4 w-4" />
-                                <span>탈퇴</span>
-                              </DropdownMenuItem>
-                            </AlertDialogTrigger>
+                            {
+                              session.user.role === "SUPERMASTER" && (
+                                <AlertDialogTrigger asChild>
+                                <DropdownMenuItem
+                                  onSelect={(e) => e.preventDefault()}
+                                  className="text-destructive"
+                                  disabled={
+                                    session.user.id === admin.id ||
+                                    (session.user.role !== UserRole.SUPERMASTER &&
+                                      isSameOrHigherRole(
+                                        session.user.role as UserRole,
+                                        admin.role as UserRole
+                                      ))
+                                  }
+                                >
+                                  <Trash className="mr-2 h-4 w-4" />
+                                  <span>탈퇴</span>
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>   
+                              )
+                            }
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>

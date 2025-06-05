@@ -6,11 +6,30 @@ import { revalidatePath } from "next/cache";
 import { CouponApiResponse } from "@/types/coupon";
 import { CouponFilter } from "@/types/coupon";
 
+// Date 객체를 MySQL datetime 형식으로 변환하는 함수
+function formatDateForMySQL(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 export async function createCouponAction(
   values: CouponCreateValues
 ): Promise<CouponApiResponse> {
   try {
-    const result = await couponService.createCoupon(values);
+    // Date 객체를 MySQL datetime 형식으로 변환
+    const processedValues = {
+      ...values,
+      start_time: formatDateForMySQL(values.start_time),
+      end_time: formatDateForMySQL(values.end_time),
+    };
+    
+    const result = await couponService.createCoupon(processedValues as any);
     revalidatePath("/coupon");
     return { success: true, data: result };
   } catch (error) {
@@ -27,7 +46,14 @@ export async function updateCouponAction(
   values: CouponEditValues
 ): Promise<CouponApiResponse> {
   try {
-    const result = await couponService.updateCoupon(id, values);
+    // Date 객체를 MySQL datetime 형식으로 변환
+    const processedValues = {
+      ...values,
+      start_time: formatDateForMySQL(values.start_time),
+      end_time: formatDateForMySQL(values.end_time),
+    };
+    
+    const result = await couponService.updateCoupon(id, processedValues as any);
     revalidatePath("/coupon");
     return { success: true, data: result };
   } catch (error) {

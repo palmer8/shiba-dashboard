@@ -37,14 +37,14 @@ export const couponCreateSchema = z
       .min(1, "사용 제한은 1 이상이어야 합니다")
       .max(999999, "사용 제한이 너무 큽니다")
       .optional(), // 퍼블릭 쿠폰용
-    start_time: z
-      .string()
-      .min(1, "시작일시는 필수입니다")
-      .refine((val) => !isNaN(Date.parse(val)), "올바른 날짜 형식이 아닙니다"),
-    end_time: z
-      .string()
-      .min(1, "종료일시는 필수입니다")
-      .refine((val) => !isNaN(Date.parse(val)), "올바른 날짜 형식이 아닙니다"),
+    start_time: z.date({
+      required_error: "시작일시는 필수입니다",
+      invalid_type_error: "올바른 날짜를 선택해주세요",
+    }),
+    end_time: z.date({
+      required_error: "종료일시는 필수입니다",
+      invalid_type_error: "올바른 날짜를 선택해주세요",
+    }),
     reward_items: z
       .array(rewardItemSchema)
       .min(1, "최소 1개의 보상 아이템이 필요합니다")
@@ -52,9 +52,7 @@ export const couponCreateSchema = z
   })
   .refine(
     (data) => {
-      const start = new Date(data.start_time);
-      const end = new Date(data.end_time);
-      return start < end;
+      return data.start_time < data.end_time;
     },
     {
       message: "종료일시는 시작일시보다 늦어야 합니다",
@@ -100,14 +98,14 @@ export const couponEditSchema = z
       .min(1, "사용 제한은 1 이상이어야 합니다")
       .max(999999, "사용 제한이 너무 큽니다")
       .optional(),
-    start_time: z
-      .string()
-      .min(1, "시작일시는 필수입니다")
-      .refine((val) => !isNaN(Date.parse(val)), "올바른 날짜 형식이 아닙니다"),
-    end_time: z
-      .string()
-      .min(1, "종료일시는 필수입니다")
-      .refine((val) => !isNaN(Date.parse(val)), "올바른 날짜 형식이 아닙니다"),
+    start_time: z.date({
+      required_error: "시작일시는 필수입니다",
+      invalid_type_error: "올바른 날짜를 선택해주세요",
+    }),
+    end_time: z.date({
+      required_error: "종료일시는 필수입니다",
+      invalid_type_error: "올바른 날짜를 선택해주세요",
+    }),
     reward_items: z
       .array(rewardItemSchema)
       .min(1, "최소 1개의 보상 아이템이 필요합니다")
@@ -115,9 +113,7 @@ export const couponEditSchema = z
   })
   .refine(
     (data) => {
-      const start = new Date(data.start_time);
-      const end = new Date(data.end_time);
-      return start < end;
+      return data.start_time < data.end_time;
     },
     {
       message: "종료일시는 시작일시보다 늦어야 합니다",

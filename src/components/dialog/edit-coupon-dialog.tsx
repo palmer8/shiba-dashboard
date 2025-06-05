@@ -28,6 +28,7 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import { CouponDisplay } from "@/types/coupon";
 import { ItemComboBox } from "@/components/global/item-combo-box";
+import { DateTimePicker24h } from "@/components/ui/datetime-picker";
 
 interface EditCouponDialogProps {
   open: boolean;
@@ -47,8 +48,8 @@ export default function EditCouponDialog({
     defaultValues: {
       name: "",
       maxcount: undefined,
-      start_time: "",
-      end_time: "",
+      start_time: new Date(),
+      end_time: new Date(),
       reward_items: [{ itemCode: "", itemName: "", count: 1 }],
     },
   });
@@ -70,8 +71,8 @@ export default function EditCouponDialog({
       form.reset({
         name: coupon.name,
         maxcount: coupon.maxcount || undefined,
-        start_time: new Date(coupon.start_time).toISOString().slice(0, 16),
-        end_time: new Date(coupon.end_time).toISOString().slice(0, 16),
+        start_time: new Date(coupon.start_time),
+        end_time: new Date(coupon.end_time),
         reward_items: rewardItems,
       });
     }
@@ -170,7 +171,12 @@ export default function EditCouponDialog({
                   <FormItem>
                     <FormLabel>시작일시 *</FormLabel>
                     <FormControl>
-                      <Input type="datetime-local" {...field} />
+                      <DateTimePicker24h
+                        date={field.value}
+                        onSelect={(date) => {
+                          field.onChange(date || new Date());
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -183,7 +189,12 @@ export default function EditCouponDialog({
                   <FormItem>
                     <FormLabel>종료일시 *</FormLabel>
                     <FormControl>
-                      <Input type="datetime-local" {...field} />
+                      <DateTimePicker24h
+                        date={field.value}
+                        onSelect={(date) => {
+                          field.onChange(date || new Date());
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -346,6 +346,10 @@ class UserService {
       const deletedUser = await prisma.user.delete({ where: { id } });
       const { hashedPassword, ...userWithoutPassword } = deletedUser;
 
+      await logService.writeAdminLog(
+        `${session.user.nickname}(${session.user.userId})님이 ${user.nickname}(${user.userId})님을 탈퇴시켰습니다.`
+      );
+
       return {
         success: true,
         error: null,

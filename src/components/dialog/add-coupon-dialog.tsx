@@ -35,6 +35,7 @@ import {
 import { Plus, Trash2, RefreshCw } from "lucide-react";
 import { generateCouponCode } from "@/lib/utils";
 import { ItemComboBox } from "@/components/global/item-combo-box";
+import { DateTimePicker24h } from "@/components/ui/datetime-picker";
 
 interface AddCouponDialogProps {
   open: boolean;
@@ -55,8 +56,8 @@ export default function AddCouponDialog({
       code: "",
       quantity: 1,
       maxcount: undefined,
-      start_time: "",
-      end_time: "",
+      start_time: new Date(),
+      end_time: new Date(),
       reward_items: [{ itemCode: "", itemName: "", count: 1 }],
     },
   });
@@ -252,7 +253,12 @@ export default function AddCouponDialog({
                   <FormItem>
                     <FormLabel>시작일시 *</FormLabel>
                     <FormControl>
-                      <Input type="datetime-local" {...field} />
+                      <DateTimePicker24h
+                        date={field.value}
+                        onSelect={(date) => {
+                          field.onChange(date || new Date());
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -265,7 +271,12 @@ export default function AddCouponDialog({
                   <FormItem>
                     <FormLabel>종료일시 *</FormLabel>
                     <FormControl>
-                      <Input type="datetime-local" {...field} />
+                      <DateTimePicker24h
+                        date={field.value}
+                        onSelect={(date) => {
+                          field.onChange(date || new Date());
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
