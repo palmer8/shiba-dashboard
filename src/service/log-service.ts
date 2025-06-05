@@ -18,7 +18,6 @@ import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { ApiResponse } from "@/types/global.dto";
 import { RowDataPacket } from "mysql2";
-import { sql } from "drizzle-orm";
 
 interface GameLog {
   type: string;
@@ -1009,6 +1008,61 @@ export class LogService {
         error: null,
       };
     } catch (error) {
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error ? error.message : "CSV 기간 다운로드 실패",
+      };
+    }
+  }
+
+  async exportAdminLogsByDateRange(startDate: string, endDate: string) {
+    // startDate, endDate: 'YYYY-MM-DD'
+    const start = new Date(`${startDate}T00:00:00.000Z`);
+    const end = new Date(`${endDate}T23:59:59.999Z`);
+    
+    try {
+      const logs = await prisma.accountUsingQuerylog.findMany({
+        where: {
+          createdAt: {
+            gte: start,
+            lte: end,
+          },
+        },
+        include: {
+          registrant: {
+            select: {
+              userId: true,
+              nickname: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      // 데이터 변환
+      const transformedLogs = logs.map(({ registrant, ...record }) => ({
+        id: record.id,
+        content: record.content,
+        registrantId: record.registrantId,
+        registrantUserId: registrant?.userId || null,
+        registrantNickname: registrant?.nickname || null,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+      }));
+
+      await this.writeAdminLog(
+        `운영툴 로그 CSV 기간 다운로드 (${startDate} ~ ${endDate})`
+      );
+
+      return {
+        success: true,
+        data: transformedLogs,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Export admin logs by date range error:", error);
       return {
         success: false,
         data: null,

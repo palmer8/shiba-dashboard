@@ -18,13 +18,22 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useMemo, useEffect, useState, useRef } from "react";
+import { useMemo, useEffect, useState, useRef, useCallback } from "react";
 import Empty from "@/components/ui/empty";
 import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getAccountUsingLogsByIdsAction } from "@/actions/log-action";
+import { getAccountUsingLogsByIdsAction, exportAdminLogsByDateRangeAction } from "@/actions/log-action";
 import { toast } from "@/hooks/use-toast";
 import { Download } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { DateRange, SelectRangeEventHandler } from "react-day-picker";
 
 interface AdminLogTableProps {
   data: AdminLogListResponse;
@@ -35,6 +44,12 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
   const searchParams = useSearchParams();
   const [inputPage, setInputPage] = useState(data.page.toString());
   const tableContainerRef = useRef<HTMLTableElement>(null);
+  
+  // CSV 기간 다운로드 상태
+  const [modalOpen, setModalOpen] = useState(false);
+  const [range, setRange] = useState<DateRange | undefined>(undefined);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
 
   useEffect(() => {
     setInputPage(data.page.toString());
@@ -143,6 +158,38 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
     }
   };
 
+  const handleCsvDownload = useCallback(async () => {
+    if (!range || !range.from || !range.to) return;
+    
+    setCsvLoading(true);
+    setCsvError(null);
+    
+    const startDate = range.from.toISOString().slice(0, 10);
+    const endDate = range.to.toISOString().slice(0, 10);
+    
+    const result = await exportAdminLogsByDateRangeAction(startDate, endDate);
+    
+    setCsvLoading(false);
+    
+    if (result.success) {
+      handleDownloadJson2CSV({
+        data: result.data ?? [],
+        fileName: `admin-logs-${startDate}_to_${endDate}`,
+      });
+      setModalOpen(false);
+      toast({
+        title: "운영툴 로그 CSV 파일을 다운로드하였습니다.",
+      });
+    } else {
+      setCsvError(result.error || "다운로드 실패");
+      toast({
+        title: "운영툴 로그 CSV 파일 다운로드에 실패했습니다.",
+        description: "잠시 후에 다시 시도해주세요.",
+        variant: "destructive",
+      });
+    }
+  }, [range]);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end items-center gap-2">
@@ -155,6 +202,15 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
         >
           <Download className="h-4 w-4" />
           CSV 다운로드
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setModalOpen(true)}
+          className="gap-2"
+        >
+          <Download className="h-4 w-4" />
+          CSV 기간 다운로드
         </Button>
       </div>
       <Table ref={tableContainerRef}>
@@ -236,6 +292,39 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
           다음
         </Button>
       </div>
+
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md w-full">
+          <DialogHeader>
+            <DialogTitle>CSV 기간 다운로드</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <Calendar
+              mode="range"
+              selected={range}
+              onSelect={setRange as SelectRangeEventHandler}
+              numberOfMonths={1}
+              className="mx-auto"
+            />
+            <div className="text-xs text-muted-foreground text-center">
+              시작일과 종료일을 선택하세요. (시간은 무시됩니다)
+            </div>
+            {csvError && (
+              <div className="text-center text-destructive text-xs">
+                {csvError}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleCsvDownload}
+              disabled={!range?.from || !range?.to || csvLoading}
+            >
+              {csvLoading ? "다운로드 중..." : "다운로드"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -47,3 +47,10 @@ export const exportGameLogsByDateRangeAction = async (
 ) => {
   return await logService.exportGameLogsByDateRange(startDate, endDate);
 };
+
+export const exportAdminLogsByDateRangeAction = async (
+  startDate: string,
+  endDate: string
+) => {
+  return await logService.exportAdminLogsByDateRange(startDate, endDate);
+};
