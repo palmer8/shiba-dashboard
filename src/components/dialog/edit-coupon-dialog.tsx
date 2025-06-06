@@ -146,14 +146,17 @@ export default function EditCouponDialog({
                     <FormLabel>사용 제한 횟수</FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
+                        type="text"
                         placeholder="무제한은 비워두세요"
                         {...field}
-                        onChange={(e) =>
-                          field.onChange(
-                            e.target.value ? Number(e.target.value) : undefined
-                          )
-                        }
+                        onChange={(e) => {
+                          const value = e.target.value.trim();
+                          if (value === "") {
+                            field.onChange(undefined);
+                          } else if (/^\d+$/.test(value)) {
+                            field.onChange(Number(value));
+                          }
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
