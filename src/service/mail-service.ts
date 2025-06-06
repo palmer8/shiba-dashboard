@@ -193,12 +193,14 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
 
     // 개인 우편 생성
     const insertQuery = `
-      INSERT INTO dokku_mail (user_id, need_items, reward_items)
-      VALUES (?, ?, ?)
+      INSERT INTO dokku_mail (user_id, title, content, need_items, reward_items)
+      VALUES (?, ?, ?, ?, ?)
     `;
 
     const [result] = await pool.execute(insertQuery, [
       values.user_id,
+      values.title || "",
+      values.content || "",
       JSON.stringify(needItems),
       JSON.stringify(rewardItems),
     ]);
@@ -233,6 +235,87 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
       error instanceof Error
         ? error.message
         : "개인 우편 생성 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 개인 우편 수정
+export async function updatePersonalMail(id: number, values: PersonalMailCreateValues): Promise<PersonalMail> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
+    // 기존 우편 존재 확인
+    const [existingRows] = await pool.execute(
+      "SELECT id FROM dokku_mail WHERE id = ?",
+      [id]
+    );
+    
+    if ((existingRows as RowDataPacket[]).length === 0) {
+      throw new Error("존재하지 않는 우편입니다.");
+    }
+
+    // need_items와 reward_items를 JSON 형태로 변환
+    const needItems: Record<string, number> = {};
+    values.need_items.forEach((item) => {
+      needItems[item.itemCode] = item.count;
+    });
+
+    const rewardItems: Record<string, number> = {};
+    values.reward_items.forEach((item) => {
+      rewardItems[item.itemCode] = item.count;
+    });
+
+    // 개인 우편 수정
+    const updateQuery = `
+      UPDATE dokku_mail 
+      SET user_id = ?, title = ?, content = ?, need_items = ?, reward_items = ?
+      WHERE id = ?
+    `;
+
+    await pool.execute(updateQuery, [
+      values.user_id,
+      values.title || "",
+      values.content || "",
+      JSON.stringify(needItems),
+      JSON.stringify(rewardItems),
+      id,
+    ]);
+
+    // 수정된 우편 조회
+    const [mailRows] = await pool.execute(
+      `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
+       FROM dokku_mail m 
+       LEFT JOIN vrp_users u ON m.user_id = u.id 
+       WHERE m.id = ?`,
+      [id]
+    );
+    const mail = (mailRows as RowDataPacket[])[0];
+
+    await logService.writeAdminLog(`개인 우편 수정: ID ${id}, 유저 ID ${values.user_id}`);
+
+    return {
+      id: mail.id,
+      user_id: mail.user_id,
+      title: mail.title || "",
+      content: mail.content || "",
+      need_items: JSON.parse(mail.need_items),
+      reward_items: JSON.parse(mail.reward_items),
+      created_at: new Date(mail.created_at),
+      nickname: mail.nickname,
+    };
+  } catch (error) {
+    console.error("Update personal mail error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "개인 우편 수정 중 오류가 발생했습니다."
     );
   }
 }
@@ -380,11 +463,15 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
       VALUES (?, ?, ?, ?, ?)
     `;
 
+    // ISO 문자열을 MySQL DATETIME 형식으로 변환
+    const startDateTime = new Date(values.start_time).toISOString().slice(0, 19).replace('T', ' ');
+    const endDateTime = new Date(values.end_time).toISOString().slice(0, 19).replace('T', ' ');
+
     const [result] = await pool.execute(insertQuery, [
       values.title,
       values.content,
-      values.start_time,
-      values.end_time,
+      startDateTime,
+      endDateTime,
       JSON.stringify(rewards),
     ]);
 
@@ -447,11 +534,15 @@ export async function updateGroupMailReserve(
       WHERE id = ?
     `;
 
+    // ISO 문자열을 MySQL DATETIME 형식으로 변환
+    const startDateTime = new Date(values.start_time).toISOString().slice(0, 19).replace('T', ' ');
+    const endDateTime = new Date(values.end_time).toISOString().slice(0, 19).replace('T', ' ');
+
     await pool.execute(updateQuery, [
       values.title,
       values.content,
-      values.start_time,
-      values.end_time,
+      startDateTime,
+      endDateTime,
       JSON.stringify(rewards),
       id,
     ]);

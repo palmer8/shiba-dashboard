@@ -386,15 +386,6 @@ export default function RealtimeUserInfo({
       return;
     }
 
-    if (selectedUserIds.length >= userIds.length) {
-      toast({
-        title: "삭제 불가",
-        description: "최소 1개의 식별자는 남겨두어야 합니다.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!confirm(`선택된 ${selectedUserIds.length}개의 식별자를 삭제하시겠습니까?`)) {
       return;
     }
@@ -455,15 +446,6 @@ export default function RealtimeUserInfo({
   };
 
   const handleDeleteSingleIdentifier = async (identifier: string) => {
-    if (userIds.length <= 1) {
-      toast({
-        title: "삭제 불가",
-        description: "최소 1개의 식별자는 남겨두어야 합니다.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!confirm(`식별자 "${identifier}"를 삭제하시겠습니까?`)) {
       return;
     }
@@ -1530,7 +1512,6 @@ export default function RealtimeUserInfo({
                                   <DropdownMenuItem
                                     onClick={() => handleDeleteSingleIdentifier(userIdData.identifier)}
                                     className="text-destructive focus:text-destructive"
-                                    disabled={userIds.length <= 1}
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
                                     삭제
@@ -1546,11 +1527,6 @@ export default function RealtimeUserInfo({
                 ) : (
                   <div className="text-center text-muted-foreground py-8">
                     식별자 정보가 없습니다.
-                  </div>
-                )}
-                {userIds.length > 0 && (
-                  <div className="mt-4 text-sm text-muted-foreground">
-                    총 {userIds.length}개의 식별자 • 최소 1개는 유지되어야 합니다
                   </div>
                 )}
               </CardContent>

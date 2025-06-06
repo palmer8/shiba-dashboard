@@ -103,6 +103,8 @@ const mailItemSchema = z.object({
 // 개인 우편 생성 스키마
 export const personalMailCreateSchema = z.object({
   user_id: z.number().min(1, "유저 ID를 입력해주세요"),
+  title: z.string().min(1, "제목을 입력해주세요"),
+  content: z.string().min(1, "내용을 입력해주세요"),
   need_items: z.array(mailItemSchema).optional().default([]),
   reward_items: z.array(mailItemSchema).min(1, "보상 아이템을 최소 1개 이상 추가해주세요"),
 });

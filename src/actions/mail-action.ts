@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   getPersonalMails,
   createPersonalMail,
+  updatePersonalMail,
   deletePersonalMail,
   getGroupMailReserves,
   createGroupMailReserve,
@@ -64,6 +65,27 @@ export async function createPersonalMailAction(values: PersonalMailCreateValues)
       success: false,
       data: null,
       error: error instanceof Error ? error.message : "개인 우편 생성 실패",
+    };
+  }
+}
+
+export async function updatePersonalMailAction(id: number, values: PersonalMailCreateValues) {
+  try {
+    const validatedData = personalMailCreateSchema.parse(values);
+    const result = await updatePersonalMail(id, validatedData);
+    
+    revalidatePath("/game/mail");
+    
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "개인 우편 수정 실패",
     };
   }
 }

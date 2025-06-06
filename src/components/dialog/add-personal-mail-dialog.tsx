@@ -165,11 +165,13 @@ export function AddPersonalMailDialog({
     );
   };
 
-  const handleSubmit = form.handleSubmit(async (data) => {
+      const handleSubmit = form.handleSubmit(async (data) => {
     try {
       // UI 데이터를 API 형식으로 변환
       const apiData = {
         user_id: parseInt(data.userId),
+        title: data.title,
+        content: data.content,
         need_items: (data.needItems || [])
           .filter(item => item.type === "ITEM")
           .filter(item => (item as any).itemId)

@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DateTimePicker24h } from "@/components/ui/datetime-picker";
 import { createGroupMailReserveAction } from "@/actions/mail-action";
 import { formatKoreanNumber } from "@/lib/utils";
 import { X } from "lucide-react";
@@ -149,7 +150,7 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[700px] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>단체 우편 추가</DialogTitle>
           <DialogDescription>단체 우편을 생성합니다.</DialogDescription>
@@ -190,46 +191,33 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
 
             <div className="grid gap-2">
               <FormLabel>발송 일자</FormLabel>
-              <div className="flex items-center gap-2">
+              <div className="space-y-2">
                 <FormField
                   name="startDate"
                   control={form.control}
                   render={({ field }) => (
-                    <FormItem className="flex-1">
+                    <FormItem>
+                      <FormLabel className="text-xs text-muted-foreground">시작일</FormLabel>
                       <FormControl>
-                        <Input
-                          type="datetime-local"
-                          value={
-                            field.value
-                              ? new Date(field.value).toISOString().slice(0, 16)
-                              : ""
-                          }
-                          onChange={(e) =>
-                            handleDateChange("startDate", e.target.value)
-                          }
+                        <DateTimePicker24h
+                          date={field.value}
+                          onSelect={(date) => form.setValue("startDate", date as Date)}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <span>~</span>
                 <FormField
                   name="endDate"
                   control={form.control}
                   render={({ field }) => (
-                    <FormItem className="flex-1">
+                    <FormItem>
+                      <FormLabel className="text-xs text-muted-foreground">종료일</FormLabel>
                       <FormControl>
-                        <Input
-                          type="datetime-local"
-                          value={
-                            field.value
-                              ? new Date(field.value).toISOString().slice(0, 16)
-                              : ""
-                          }
-                          onChange={(e) =>
-                            handleDateChange("endDate", e.target.value)
-                          }
+                        <DateTimePicker24h
+                          date={field.value}
+                          onSelect={(date) => form.setValue("endDate", date as Date)}
                         />
                       </FormControl>
                       <FormMessage />
@@ -250,7 +238,7 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
                       {field.value.map((reward, index) => (
                         <div
                           key={index}
-                          className="grid grid-cols-[100px,1fr,100px] gap-2 items-start"
+                          className="grid grid-cols-[120px,1fr,120px,50px] gap-3 items-start"
                         >
                           <Select
                             value={reward.type}
@@ -278,29 +266,27 @@ export function AddGroupMailDialog({ open, setOpen }: AddGroupMailDialogProps) {
                                   }
                                 />
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  value={reward.amount}
-                                  onChange={(e) =>
-                                    handleRewardUpdate(
-                                      index,
-                                      "amount",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="수량"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleRemoveReward(index)}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
+                              <Input
+                                type="number"
+                                min={1}
+                                value={reward.amount}
+                                onChange={(e) =>
+                                  handleRewardUpdate(
+                                    index,
+                                    "amount",
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="수량"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveReward(index)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
                             </>
                           ) : (
                             <>
