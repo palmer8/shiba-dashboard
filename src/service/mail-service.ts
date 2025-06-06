@@ -19,7 +19,7 @@ import {
   PersonalMailCreateValues,
   GroupMailReserveCreateValues,
   GroupMailReserveEditValues,
-} from "@/lib/validations/mail";
+} from "@/lib/validations/mail"; 
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 // 아이템 정보 매핑 함수 (쿠폰 서비스와 동일)
@@ -141,6 +141,7 @@ export async function getPersonalMails(
         content: row.content || "",
         need_items: mappedNeedItems,
         reward_items: mappedRewardItems,
+        used: Boolean(row.used),
         created_at: new Date(row.created_at),
         nickname: row.nickname,
       });
@@ -193,8 +194,8 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
 
     // 개인 우편 생성
     const insertQuery = `
-      INSERT INTO dokku_mail (user_id, title, content, need_items, reward_items)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO dokku_mail (user_id, title, content, need_items, reward_items, used)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
 
     const [result] = await pool.execute(insertQuery, [
@@ -203,6 +204,7 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
       values.content || "",
       JSON.stringify(needItems),
       JSON.stringify(rewardItems),
+      values.used ? 1 : 0,
     ]);
 
     const mailId = (result as ResultSetHeader).insertId;
@@ -226,6 +228,7 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
       content: mail.content || "",
       need_items: JSON.parse(mail.need_items),
       reward_items: JSON.parse(mail.reward_items),
+      used: Boolean(mail.used),
       created_at: new Date(mail.created_at),
       nickname: mail.nickname,
     };
@@ -275,7 +278,7 @@ export async function updatePersonalMail(id: number, values: PersonalMailCreateV
     // 개인 우편 수정
     const updateQuery = `
       UPDATE dokku_mail 
-      SET user_id = ?, title = ?, content = ?, need_items = ?, reward_items = ?
+      SET user_id = ?, title = ?, content = ?, need_items = ?, reward_items = ?, used = ?
       WHERE id = ?
     `;
 
@@ -285,6 +288,7 @@ export async function updatePersonalMail(id: number, values: PersonalMailCreateV
       values.content || "",
       JSON.stringify(needItems),
       JSON.stringify(rewardItems),
+      values.used ? 1 : 0,
       id,
     ]);
 
@@ -307,6 +311,7 @@ export async function updatePersonalMail(id: number, values: PersonalMailCreateV
       content: mail.content || "",
       need_items: JSON.parse(mail.need_items),
       reward_items: JSON.parse(mail.reward_items),
+      used: Boolean(mail.used),
       created_at: new Date(mail.created_at),
       nickname: mail.nickname,
     };
@@ -484,10 +489,10 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
     );
     const reserve = (reserveRows as RowDataPacket[])[0];
 
+    await logService.writeAdminLog(`단체 우편 예약 생성: ${values.title}`);
+
     // API 호출
     await callMailReserveLoadAPI();
-
-    await logService.writeAdminLog(`단체 우편 예약 생성: ${values.title}`);
 
     return {
       id: reserve.id,
@@ -554,10 +559,10 @@ export async function updateGroupMailReserve(
     );
     const reserve = (reserveRows as RowDataPacket[])[0];
 
+    await logService.writeAdminLog(`단체 우편 예약 수정: ${values.title}`);
+
     // API 호출
     await callMailReserveLoadAPI();
-
-    await logService.writeAdminLog(`단체 우편 예약 수정: ${values.title}`);
 
     return {
       id: reserve.id,
@@ -602,10 +607,10 @@ export async function deleteGroupMailReserve(id: number): Promise<void> {
 
     await pool.execute("DELETE FROM dokku_mail_reserve WHERE id = ?", [id]);
 
+    await logService.writeAdminLog(`단체 우편 예약 삭제: ${reserve.title}`);
+
     // API 호출
     await callMailReserveLoadAPI();
-
-    await logService.writeAdminLog(`단체 우편 예약 삭제: ${reserve.title}`);
   } catch (error) {
     console.error("Delete group mail reserve error:", error);
     throw new Error(
@@ -713,12 +718,12 @@ export async function getGroupMailReserveLogs(
 // 메일 예약 로드 API 호출
 async function callMailReserveLoadAPI(): Promise<void> {
   try {
-    const response = await fetch(`${process.env.GAME_API_URL}/DokkuApi/load`, {
+    const response = await fetch(`${process.env.PRIVATE_API_URL}/DokkuApi/loadMailReserve`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        key: process.env.PRIVATE_API_KEY || "",
       },
-      body: JSON.stringify({ action: 'MailReserve' }),
     });
 
     if (!response.ok) {

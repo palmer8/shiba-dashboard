@@ -30,7 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 // import { getPersonalMailsByIdsOrigin } from "@/actions/mail-action";
 import { AddPersonalMailDialog } from "@/components/dialog/add-personal-mail-dialog";
 import { PersonalMailDisplay, PersonalMailTableData } from "@/types/mail";
-import { deletePersonalMailAction } from "@/actions/mail-action";
+import { deletePersonalMailAction, createPersonalMailAction } from "@/actions/mail-action";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,6 +117,19 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         cell: ({ row }) => (
           <div className="max-w-[400px] truncate">
             {row.getValue("content")}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "used",
+        header: "사용 여부",
+        cell: ({ row }) => (
+          <div className="text-center">
+            {row.getValue("used") ? (
+              <span className="text-green-600 font-medium">사용됨</span>
+            ) : (
+              <span className="text-gray-500">미사용</span>
+            )}
           </div>
         ),
       },
@@ -226,11 +239,174 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    // TODO: CSV 업로드 기능 구현 필요
-    toast({
-      title: "기능 준비 중",
-      description: "CSV 업로드 기능을 준비 중입니다.",
-    });
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast({
+        title: "파일 형식 오류",
+        description: "CSV 파일만 업로드 가능합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        toast({
+          title: "파일 형식 오류",
+          description: "헤더와 최소 1개의 데이터 행이 필요합니다.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // CSV 헤더 확인 (user_id, title, content, need_items, reward_items, used)
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, '')); // 따옴표 제거
+      const requiredHeaders = ['user_id', 'title', 'content'];
+      const optionalHeaders = ['need_items', 'reward_items', 'used', 'id', 'created_at']; // id, created_at도 허용
+      const allValidHeaders = [...requiredHeaders, ...optionalHeaders];
+      
+      const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+      
+      if (missingHeaders.length > 0) {
+        toast({
+          title: "헤더 오류",
+          description: `필수 헤더가 누락되었습니다: ${missingHeaders.join(', ')}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 데이터 파싱
+      const mailData: Array<{
+        user_id: number;
+        title: string;
+        content: string;
+        need_items: Record<string, number>;
+        reward_items: Record<string, number>;
+        used: boolean;
+      }> = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, '')); // 따옴표 제거
+        
+        if (values.length < requiredHeaders.length) continue;
+
+        const rowData: any = {};
+        headers.forEach((header, index) => {
+          if (allValidHeaders.includes(header)) {
+            rowData[header] = values[index] || '';
+          }
+        });
+
+        // JSON 파싱 처리
+        let needItems: Record<string, number> = {};
+        let rewardItems: Record<string, number> = {};
+
+        try {
+          if (rowData.need_items && rowData.need_items.trim() && rowData.need_items !== '{}') {
+            // 이스케이프된 따옴표 처리
+            let jsonStr = rowData.need_items.replace(/""/g, '"');
+            const parsed = JSON.parse(jsonStr);
+            if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+              needItems = parsed;
+            }
+          }
+        } catch (e) {
+          console.warn(`need_items JSON 파싱 오류 (행 ${i + 1}):`, rowData.need_items, e);
+        }
+
+        try {
+          if (rowData.reward_items && rowData.reward_items.trim() && rowData.reward_items !== '{}') {
+            // 이스케이프된 따옴표 처리
+            let jsonStr = rowData.reward_items.replace(/""/g, '"');
+            const parsed = JSON.parse(jsonStr);
+            if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+              rewardItems = parsed;
+            }
+          }
+        } catch (e) {
+          console.warn(`reward_items JSON 파싱 오류 (행 ${i + 1}):`, rowData.reward_items, e);
+        }
+
+        const mailItem = {
+          user_id: parseInt(rowData.user_id),
+          title: rowData.title || '',
+          content: rowData.content || '',
+          need_items: needItems,
+          reward_items: rewardItems,
+          used: rowData.used === 'true' || rowData.used === '1' || parseInt(rowData.used) === 1,
+        };
+
+        mailData.push(mailItem);
+      }
+
+      // 개인 우편 생성 API 호출
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const mail of mailData) {
+        try {
+          // need_items와 reward_items를 itemCode, count 형태로 변환
+          const needItemsArray = Object.entries(mail.need_items).map(([itemCode, count]) => ({
+            itemCode,
+            count: typeof count === 'number' ? count : parseInt(String(count)) || 1,
+          }));
+
+          const rewardItemsArray = Object.entries(mail.reward_items).map(([itemCode, count]) => ({
+            itemCode,
+            count: typeof count === 'number' ? count : parseInt(String(count)) || 1,
+          }));
+
+          // 보상 아이템이 없는 경우 건너뛰기
+          if (rewardItemsArray.length === 0) {
+            console.warn(`보상 아이템이 없어서 건너뜀 (유저 ${mail.user_id})`);
+            errorCount++;
+            continue;
+          }
+
+          const apiData = {
+            user_id: mail.user_id,
+            title: mail.title,
+            content: mail.content,
+            used: mail.used,
+            need_items: needItemsArray,
+            reward_items: rewardItemsArray,
+          };
+
+          const result = await createPersonalMailAction(apiData);
+          if (result.success) {
+            successCount++;
+          } else {
+            errorCount++;
+            console.error(`우편 생성 실패 (유저 ${mail.user_id}):`, result.error);
+          }
+        } catch (error) {
+          errorCount++;
+          console.error(`우편 생성 오류 (유저 ${mail.user_id}):`, error);
+        }
+      }
+
+      toast({
+        title: "CSV 업로드 완료",
+        description: `성공: ${successCount}개, 실패: ${errorCount}개`,
+      });
+
+      // 파일 입력 초기화
+      event.target.value = '';
+      
+    } catch (error) {
+      toast({
+        title: "파일 처리 오류",
+        description: "CSV 파일 처리 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+      console.error("CSV 업로드 오류:", error);
+    }
   };
 
   const handleCSVDownload = async () => {
@@ -247,19 +423,27 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
     try {
       const csvData = selectedRows.map((row) => {
         const mail = row.original;
+        
+        // need_items와 reward_items를 JSON 원본 형태로 변환 (아이템 이름 정보 제거)
+        const needItemsOriginal: Record<string, number> = {};
+        Object.entries(mail.need_items).forEach(([itemCode, itemInfo]) => {
+          needItemsOriginal[itemCode] = typeof itemInfo === 'object' ? itemInfo.amount : itemInfo;
+        });
+        
+        const rewardItemsOriginal: Record<string, number> = {};
+        Object.entries(mail.reward_items).forEach(([itemCode, itemInfo]) => {
+          rewardItemsOriginal[itemCode] = typeof itemInfo === 'object' ? itemInfo.amount : itemInfo;
+        });
+        
         return {
-          ID: mail.id,
-          유저ID: mail.user_id,
-          제목: mail.title,
-          내용: mail.content,
-          닉네임: mail.nickname || "알 수 없음",
-          필요아이템: Object.entries(mail.need_items).map(([itemCode, itemInfo]) => 
-            `${itemInfo.name}(${itemCode}): ${itemInfo.amount}개`
-          ).join(", ") || "없음",
-          보상아이템: Object.entries(mail.reward_items).map(([itemCode, itemInfo]) => 
-            `${itemInfo.name}(${itemCode}): ${itemInfo.amount}개`
-          ).join(", ") || "없음",
-          등록일: formatKoreanDateTime(mail.created_at),
+          id: mail.id,
+          user_id: mail.user_id,
+          title: mail.title,
+          content: mail.content,
+          need_items: JSON.stringify(needItemsOriginal),
+          reward_items: JSON.stringify(rewardItemsOriginal),
+          used: mail.used ? 1 : 0, // MySQL boolean 형태
+          created_at: mail.created_at.toISOString().slice(0, 19).replace('T', ' '), // MySQL datetime 형태
         };
       });
 

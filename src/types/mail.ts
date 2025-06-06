@@ -38,6 +38,7 @@ export interface PersonalMail {
   content: string;
   need_items: Record<string, number>;
   reward_items: Record<string, number>;
+  used: boolean;
   created_at: Date;
   nickname?: string;
 }
@@ -50,6 +51,7 @@ export interface PersonalMailDisplay {
   content: string;
   need_items: Record<string, { name: string; amount: number }>;
   reward_items: Record<string, { name: string; amount: number }>;
+  used: boolean;
   created_at: Date;
   nickname?: string;
 }

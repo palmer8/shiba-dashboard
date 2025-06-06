@@ -40,6 +40,7 @@ import { createPersonalMailAction } from "@/actions/mail-action";
 import { formatKoreanNumber } from "@/lib/utils";
 import { X } from "lucide-react";
 import { PersonalMailSchema, PersonalMailValues } from "@/lib/validations/mail";
+import { Switch } from "@/components/ui/switch";
 
 interface AddPersonalMailDialogProps {
   open: boolean;
@@ -61,6 +62,7 @@ export function AddPersonalMailDialog({
       content: "",
       nickname: "",
       rewards: [],
+      used: false,
     },
   });
 
@@ -172,6 +174,7 @@ export function AddPersonalMailDialog({
         user_id: parseInt(data.userId),
         title: data.title,
         content: data.content,
+        used: data.used || false,
         need_items: (data.needItems || [])
           .filter(item => item.type === "ITEM")
           .filter(item => (item as any).itemId)
@@ -293,6 +296,27 @@ export function AddPersonalMailDialog({
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              name="used"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">사용 여부</FormLabel>
+                    <div className="text-sm text-muted-foreground">
+                      우편이 이미 사용되었는지 설정합니다
+                    </div>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

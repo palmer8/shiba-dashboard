@@ -42,6 +42,7 @@ import {
   EditPersonalMailSchema,
   EditPersonalMailValues,
 } from "@/lib/validations/mail";
+import { Switch } from "@/components/ui/switch";
 
 interface EditPersonalMailDialogProps {
   personalMail: any;
@@ -60,24 +61,27 @@ export default function EditPersonalMailDialog({
   const form = useForm<EditPersonalMailValues>({
     resolver: zodResolver(EditPersonalMailSchema),
     defaultValues: {
-      userId: personalMail?.userId?.toString() || "",
+      userId: personalMail?.user_id?.toString() || "",
       title: personalMail?.title || "",
       content: personalMail?.content || "",
       nickname: "",
-      rewards:
-        personalMail?.rewards?.map((reward: any) => ({
-          type: reward.type as "ITEM" | "MONEY" | "BANK",
-          itemId: reward.itemId || "",
-          itemName: reward.itemName || "",
-          amount: reward.amount,
-        })) || [],
-      needItems:
-        personalMail?.needItems?.map((item: any) => ({
-          type: item.type as "MONEY" | "BANK" | "ITEM",
-          itemId: item.itemId || "",
-          itemName: item.itemName || "",
-          amount: item.amount,
-        })) || [],
+      used: personalMail?.used || false,
+      rewards: personalMail?.reward_items 
+        ? Object.entries(personalMail.reward_items).map(([itemCode, itemInfo]: [string, any]) => ({
+            type: "ITEM" as const,
+            itemId: itemCode,
+            itemName: itemInfo.name || itemCode,
+            amount: itemInfo.amount?.toString() || "1",
+          }))
+        : [],
+      needItems: personalMail?.need_items 
+        ? Object.entries(personalMail.need_items).map(([itemCode, itemInfo]: [string, any]) => ({
+            type: "ITEM" as const,
+            itemId: itemCode,
+            itemName: itemInfo.name || itemCode,
+            amount: itemInfo.amount?.toString() || "1",
+          }))
+        : [],
     },
   });
 
@@ -87,35 +91,38 @@ export default function EditPersonalMailDialog({
   useEffect(() => {
     if (personalMail) {
       form.reset({
-        userId: personalMail.userId?.toString() || "",
+        userId: personalMail.user_id?.toString() || "",
         title: personalMail.title || "",
         content: personalMail.content || "",
         nickname: nickname || "",
-        rewards:
-          personalMail.rewards?.map((reward: any) => ({
-            type: reward.type as "ITEM" | "MONEY" | "BANK",
-            itemId: reward.itemId || "",
-            itemName: reward.itemName || "",
-            amount: reward.amount,
-          })) || [],
-        needItems:
-          personalMail.needItems?.map((item: any) => ({
-            type: item.type as "MONEY" | "BANK" | "ITEM",
-            itemId: item.itemId || "",
-            itemName: item.itemName || "",
-            amount: item.amount,
-          })) || [],
+        used: personalMail.used || false,
+        rewards: personalMail.reward_items 
+          ? Object.entries(personalMail.reward_items).map(([itemCode, itemInfo]: [string, any]) => ({
+              type: "ITEM" as const,
+              itemId: itemCode,
+              itemName: itemInfo.name || itemCode,
+              amount: itemInfo.amount?.toString() || "1",
+            }))
+          : [],
+        needItems: personalMail.need_items 
+          ? Object.entries(personalMail.need_items).map(([itemCode, itemInfo]: [string, any]) => ({
+              type: "ITEM" as const,
+              itemId: itemCode,
+              itemName: itemInfo.name || itemCode,
+              amount: itemInfo.amount?.toString() || "1",
+            }))
+          : [],
       });
 
       // 닉네임도 함께 업데이트
-      fetchNickname(personalMail.userId?.toString() || "");
+      fetchNickname(personalMail.user_id?.toString() || "");
     }
   }, [personalMail, form]);
 
   // 초기 로딩 시 닉네임 가져오기
   useEffect(() => {
-    if (personalMail?.userId) {
-      fetchNickname(personalMail.userId.toString());
+    if (personalMail?.user_id) {
+      fetchNickname(personalMail.user_id.toString());
     }
   }, []);
 
@@ -123,12 +130,12 @@ export default function EditPersonalMailDialog({
   useEffect(() => {
     if (
       debouncedUserId &&
-      personalMail?.userId &&
-      debouncedUserId !== personalMail.userId.toString()
+      personalMail?.user_id &&
+      debouncedUserId !== personalMail.user_id.toString()
     ) {
       fetchNickname(debouncedUserId);
     }
-  }, [debouncedUserId, personalMail?.userId]);
+  }, [debouncedUserId, personalMail?.user_id]);
 
   // 닉네임 가져오기
   const fetchNickname = async (userId: string) => {
@@ -232,6 +239,7 @@ export default function EditPersonalMailDialog({
         user_id: parseInt(data.userId),
         title: data.title,
         content: data.content,
+        used: data.used || false,
         need_items: (data.needItems || [])
           .filter(item => item.type === "ITEM")
           .filter(item => (item as any).itemId)
@@ -253,7 +261,6 @@ export default function EditPersonalMailDialog({
         toast({ title: "개인 우편 수정 완료" });
         setOpen(false);
         form.reset();
-        window.location.reload();
       } else {
         toast({
           title: "개인 우편 수정 실패",
@@ -354,6 +361,27 @@ export default function EditPersonalMailDialog({
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              name="used"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">사용 여부</FormLabel>
+                    <div className="text-sm text-muted-foreground">
+                      우편이 이미 사용되었는지 설정합니다
+                    </div>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />
@@ -581,7 +609,7 @@ export default function EditPersonalMailDialog({
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                추가
+                수정
               </Button>
             </DialogFooter>
           </form>
