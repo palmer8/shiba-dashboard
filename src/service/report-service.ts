@@ -179,12 +179,19 @@ class ReportService {
         );
 
         if (result.affectedRows > 0) {
-          await prisma.blockTicket.create({
-            data: {
-              registrantId: session.user.id,
-              reportId: result.insertId,
-            },
+          // 이미 해당 reportId로 BlockTicket이 있는지 확인
+          const existingTicket = await prisma.blockTicket.findFirst({
+            where: { reportId: result.insertId },
           });
+
+          if (!existingTicket) {
+            await prisma.blockTicket.create({
+              data: {
+                registrantId: session.user.id,
+                reportId: result.insertId,
+              },
+            });
+          }
 
           await logService.writeAdminLog(
             `사건 처리 보고서 작성 및 이용 정지 요청 : ${result.insertId}`
@@ -391,13 +398,20 @@ class ReportService {
           ]
         );
 
-        // BlockTicket 생성
-        await prisma.blockTicket.create({
-          data: {
-            registrantId: session.user.id,
-            reportId: data.reportId,
-          },
+        // 이미 해당 reportId로 BlockTicket이 있는지 확인
+        const existingTicket = await prisma.blockTicket.findFirst({
+          where: { reportId: data.reportId },
         });
+
+        if (!existingTicket) {
+          // BlockTicket 생성
+          await prisma.blockTicket.create({
+            data: {
+              registrantId: session.user.id,
+              reportId: data.reportId,
+            },
+          });
+        }
 
         await logService.writeAdminLog(
           `사건 처리 보고서 수정 및 이용 정지 요청 : ${data.reportId}`
@@ -769,6 +783,19 @@ class ReportService {
 
       if (!session?.user) {
         return redirect("/login");
+      }
+
+      // 이미 해당 reportId로 BlockTicket이 있는지 확인
+      const existingTicket = await prisma.blockTicket.findFirst({
+        where: { reportId: data.reportId },
+      });
+
+      if (existingTicket) {
+        return {
+          success: false,
+          data: null,
+          error: "이미 해당 보고서에 대한 승인 요청이 존재합니다.",
+        };
       }
 
       const result = await prisma.blockTicket.create({
