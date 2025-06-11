@@ -86,6 +86,7 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
         header: ({ table }) => (
           <Checkbox
             checked={table.getIsAllPageRowsSelected()}
+            onClick={(e) => e.stopPropagation()}
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(!!value)
             }
@@ -96,6 +97,7 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
+            onClick={(e) => e.stopPropagation()}
             aria-label="Select row"
           />
         ),

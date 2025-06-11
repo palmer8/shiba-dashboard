@@ -19,6 +19,7 @@ export default async function BlockTicketPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session || !session.user) return redirect("/login");
   if (session.user && !session.user.isPermissive) return redirect("/pending");
+  if (!hasAccess(session.user.role, UserRole.MASTER)) return redirect("/404");
 
   const params = await searchParams;
 

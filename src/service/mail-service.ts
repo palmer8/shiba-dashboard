@@ -22,50 +22,19 @@ import {
 } from "@/lib/validations/mail"; 
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
-// 아이템 정보 매핑 함수 (쿠폰 서비스와 동일)
-async function mapItemNamesToRewards(rewards: Record<string, number>): Promise<Record<string, { name: string; amount: number }>> {
-  try {
-    const itemIds = Object.keys(rewards);
-    if (itemIds.length === 0) return {};
-
-    // Prisma를 사용해서 아이템 정보 조회
-    const items = await prisma.items.findMany({
-      where: {
-        itemId: {
-          in: itemIds,
-        },
-      },
-      select: {
-        itemId: true,
-        itemName: true,
-      },
-    });
-
-    // 아이템 ID -> 이름 매핑 생성
-    const itemNameMap = new Map(items.map(item => [item.itemId, item.itemName]));
-
-    // 보상 아이템에 이름 정보 추가
-    const mappedRewards: Record<string, { name: string; amount: number }> = {};
-    Object.entries(rewards).forEach(([itemId, amount]) => {
-      mappedRewards[itemId] = {
-        name: itemNameMap.get(itemId) || itemId, // 이름이 없으면 ID 사용
-        amount: amount,
-      };
-    });
-
-    return mappedRewards;
-  } catch (error) {
-    console.error("Error mapping item names:", error);
-    // 에러 발생 시 기존 형태로 반환
-    const fallbackRewards: Record<string, { name: string; amount: number }> = {};
-    Object.entries(rewards).forEach(([itemId, amount]) => {
-      fallbackRewards[itemId] = {
-        name: itemId,
-        amount: amount,
-      };
-    });
-    return fallbackRewards;
-  }
+// 아이템 이름 매핑 유틸리티 함수
+function mapItemIdsToNames(
+  items: Record<string, number>, 
+  itemNameMap: Map<string, string>
+): Record<string, { name: string; amount: number }> {
+  const mapped: Record<string, { name: string; amount: number }> = {};
+  Object.entries(items).forEach(([itemId, amount]) => {
+    mapped[itemId] = {
+      name: itemNameMap.get(itemId) || itemId,
+      amount: amount,
+    };
+  });
+  return mapped;
 }
 
 // 개인 우편 목록 조회
@@ -95,6 +64,11 @@ export async function getPersonalMails(
       params.push(filter.userId);
     }
 
+    if (filter.used !== undefined) {
+      whereClause += " AND m.used = ?";
+      params.push(filter.used ? 1 : 0);
+    }
+
     if (filter.startDate && filter.endDate) {
       const filterStartDate = new Date(filter.startDate);
       filterStartDate.setHours(0, 0, 0, 0);
@@ -106,13 +80,9 @@ export async function getPersonalMails(
       params.push(filterStartDate, filterEndDate);
     }
 
-    // 총 개수 조회
+    // 총 개수 조회와 데이터 조회를 병렬로 실행
     const countQuery = `SELECT COUNT(*) as total FROM dokku_mail m ${whereClause}`;
-    const [countResult] = await pool.execute(countQuery, params);
-    const totalCount = (countResult as RowDataPacket[])[0].total;
-
-    // 개인 우편 목록 조회 (닉네임 포함)
-    const query = `
+    const dataQuery = `
       SELECT 
         m.*,
         SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname
@@ -123,18 +93,51 @@ export async function getPersonalMails(
       LIMIT ? OFFSET ?
     `;
 
-    const [rows] = await pool.execute(query, [...params, limit, offset]);
+    const [[countResult], [rows]] = await Promise.all([
+      pool.execute(countQuery, params),
+      pool.execute(dataQuery, [...params, limit, offset])
+    ]);
     
-    // 우편 데이터 변환 및 아이템 이름 매핑
-    const mails = [];
-    for (const row of rows as RowDataPacket[]) {
+    const totalCount = (countResult as RowDataPacket[])[0].total;
+    
+    // 모든 아이템 ID를 한 번에 수집
+    const allItemIds = new Set<string>();
+    const rowsData = rows as RowDataPacket[];
+    
+    rowsData.forEach(row => {
+      const needItems = JSON.parse(row.need_items || "{}");
+      const rewardItems = JSON.parse(row.reward_items || "{}");
+      Object.keys(needItems).forEach(id => allItemIds.add(id));
+      Object.keys(rewardItems).forEach(id => allItemIds.add(id));
+    });
+
+    // 모든 아이템 정보를 한 번에 조회
+    let itemNameMap = new Map<string, string>();
+    if (allItemIds.size > 0) {
+      const items = await prisma.items.findMany({
+        where: {
+          itemId: {
+            in: Array.from(allItemIds),
+          },
+        },
+        select: {
+          itemId: true,
+          itemName: true,
+        },
+      });
+      itemNameMap = new Map(items.map(item => [item.itemId, item.itemName]));
+    }
+
+    // 우편 데이터 변환
+    const mails = rowsData.map(row => {
       const needItems = JSON.parse(row.need_items || "{}");
       const rewardItems = JSON.parse(row.reward_items || "{}");
       
-      const mappedNeedItems = await mapItemNamesToRewards(needItems);
-      const mappedRewardItems = await mapItemNamesToRewards(rewardItems);
+      // 아이템 이름 매핑 (이미 조회된 데이터 사용)
+      const mappedNeedItems = mapItemIdsToNames(needItems, itemNameMap);
+      const mappedRewardItems = mapItemIdsToNames(rewardItems, itemNameMap);
       
-      mails.push({
+      return {
         id: row.id,
         user_id: row.user_id,
         title: row.title || "",
@@ -144,8 +147,8 @@ export async function getPersonalMails(
         used: Boolean(row.used),
         created_at: new Date(row.created_at),
         nickname: row.nickname,
-      });
-    }
+      };
+    });
 
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -209,17 +212,19 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
 
     const mailId = (result as ResultSetHeader).insertId;
 
-    // 생성된 우편 조회
-    const [mailRows] = await pool.execute(
-      `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
-       FROM dokku_mail m 
-       LEFT JOIN vrp_users u ON m.user_id = u.id 
-       WHERE m.id = ?`,
-      [mailId]
-    );
+    // 생성된 우편 조회와 로그 작성을 병렬로 실행
+    const [[mailRows]] = await Promise.all([
+      pool.execute(
+        `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
+         FROM dokku_mail m 
+         LEFT JOIN vrp_users u ON m.user_id = u.id 
+         WHERE m.id = ?`,
+        [mailId]
+      ),
+      logService.writeAdminLog(`개인 우편 생성: 유저 ID ${values.user_id}`)
+    ]);
+    
     const mail = (mailRows as RowDataPacket[])[0];
-
-    await logService.writeAdminLog(`개인 우편 생성: 유저 ID ${values.user_id}`);
 
     return {
       id: mail.id,
@@ -282,27 +287,28 @@ export async function updatePersonalMail(id: number, values: PersonalMailCreateV
       WHERE id = ?
     `;
 
-    await pool.execute(updateQuery, [
-      values.user_id,
-      values.title || "",
-      values.content || "",
-      JSON.stringify(needItems),
-      JSON.stringify(rewardItems),
-      values.used ? 1 : 0,
-      id,
+    // 수정과 조회, 로그 작성을 병렬로 실행
+    const [, [mailRows]] = await Promise.all([
+      pool.execute(updateQuery, [
+        values.user_id,
+        values.title || "",
+        values.content || "",
+        JSON.stringify(needItems),
+        JSON.stringify(rewardItems),
+        values.used ? 1 : 0,
+        id,
+      ]),
+      pool.execute(
+        `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
+         FROM dokku_mail m 
+         LEFT JOIN vrp_users u ON m.user_id = u.id 
+         WHERE m.id = ?`,
+        [id]
+      ),
+      logService.writeAdminLog(`개인 우편 수정: ID ${id}, 유저 ID ${values.user_id}`)
     ]);
-
-    // 수정된 우편 조회
-    const [mailRows] = await pool.execute(
-      `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
-       FROM dokku_mail m 
-       LEFT JOIN vrp_users u ON m.user_id = u.id 
-       WHERE m.id = ?`,
-      [id]
-    );
+    
     const mail = (mailRows as RowDataPacket[])[0];
-
-    await logService.writeAdminLog(`개인 우편 수정: ID ${id}, 유저 ID ${values.user_id}`);
 
     return {
       id: mail.id,
@@ -348,9 +354,11 @@ export async function deletePersonalMail(id: number): Promise<void> {
       throw new Error("존재하지 않는 우편입니다.");
     }
 
-    await pool.execute("DELETE FROM dokku_mail WHERE id = ?", [id]);
-
-    await logService.writeAdminLog(`개인 우편 삭제: ID ${id}, 유저 ID ${mail.user_id}`);
+    // 삭제와 로그 작성을 병렬로 실행
+    await Promise.all([
+      pool.execute("DELETE FROM dokku_mail WHERE id = ?", [id]),
+      logService.writeAdminLog(`개인 우편 삭제: ID ${id}, 유저 ID ${mail.user_id}`)
+    ]);
   } catch (error) {
     console.error("Delete personal mail error:", error);
     throw new Error(
@@ -399,20 +407,21 @@ export async function getGroupMailReserves(
       params.push(filterStartDate, filterEndDate);
     }
 
-    // 총 개수 조회
+    // 총 개수 조회와 데이터 조회를 병렬로 실행
     const countQuery = `SELECT COUNT(*) as total FROM dokku_mail_reserve ${whereClause}`;
-    const [countResult] = await pool.execute(countQuery, params);
-    const totalCount = (countResult as RowDataPacket[])[0].total;
-
-    // 단체 우편 예약 목록 조회
-    const query = `
+    const dataQuery = `
       SELECT * FROM dokku_mail_reserve
       ${whereClause}
       ORDER BY start_time DESC
       LIMIT ? OFFSET ?
     `;
 
-    const [rows] = await pool.execute(query, [...params, limit, offset]);
+    const [[countResult], [rows]] = await Promise.all([
+      pool.execute(countQuery, params),
+      pool.execute(dataQuery, [...params, limit, offset])
+    ]);
+    
+    const totalCount = (countResult as RowDataPacket[])[0].total;
     const reserves = (rows as RowDataPacket[]).map((row) => ({
       id: row.id,
       title: row.title,
@@ -482,17 +491,14 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
 
     const reserveId = (result as ResultSetHeader).insertId;
 
-    // 생성된 예약 조회
-    const [reserveRows] = await pool.execute(
-      "SELECT * FROM dokku_mail_reserve WHERE id = ?",
-      [reserveId]
-    );
+    // 생성된 예약 조회, 로그 작성, API 호출을 병렬로 실행
+    const [[reserveRows]] = await Promise.all([
+      pool.execute("SELECT * FROM dokku_mail_reserve WHERE id = ?", [reserveId]),
+      logService.writeAdminLog(`단체 우편 예약 생성: ${values.title}`),
+      callMailReserveLoadAPI()
+    ]);
+    
     const reserve = (reserveRows as RowDataPacket[])[0];
-
-    await logService.writeAdminLog(`단체 우편 예약 생성: ${values.title}`);
-
-    // API 호출
-    await callMailReserveLoadAPI();
 
     return {
       id: reserve.id,
@@ -543,26 +549,22 @@ export async function updateGroupMailReserve(
     const startDateTime = new Date(values.start_time).toISOString().slice(0, 19).replace('T', ' ');
     const endDateTime = new Date(values.end_time).toISOString().slice(0, 19).replace('T', ' ');
 
-    await pool.execute(updateQuery, [
-      values.title,
-      values.content,
-      startDateTime,
-      endDateTime,
-      JSON.stringify(rewards),
-      id,
+    // 수정, 조회, 로그 작성, API 호출을 병렬로 실행
+    const [, [reserveRows]] = await Promise.all([
+      pool.execute(updateQuery, [
+        values.title,
+        values.content,
+        startDateTime,
+        endDateTime,
+        JSON.stringify(rewards),
+        id,
+      ]),
+      pool.execute("SELECT * FROM dokku_mail_reserve WHERE id = ?", [id]),
+      logService.writeAdminLog(`단체 우편 예약 수정: ${values.title}`),
+      callMailReserveLoadAPI()
     ]);
-
-    // 수정된 예약 조회
-    const [reserveRows] = await pool.execute(
-      "SELECT * FROM dokku_mail_reserve WHERE id = ?",
-      [id]
-    );
+    
     const reserve = (reserveRows as RowDataPacket[])[0];
-
-    await logService.writeAdminLog(`단체 우편 예약 수정: ${values.title}`);
-
-    // API 호출
-    await callMailReserveLoadAPI();
 
     return {
       id: reserve.id,
@@ -605,12 +607,12 @@ export async function deleteGroupMailReserve(id: number): Promise<void> {
       throw new Error("존재하지 않는 예약입니다.");
     }
 
-    await pool.execute("DELETE FROM dokku_mail_reserve WHERE id = ?", [id]);
-
-    await logService.writeAdminLog(`단체 우편 예약 삭제: ${reserve.title}`);
-
-    // API 호출
-    await callMailReserveLoadAPI();
+    // 삭제, 로그 작성, API 호출을 병렬로 실행
+    await Promise.all([
+      pool.execute("DELETE FROM dokku_mail_reserve WHERE id = ?", [id]),
+      logService.writeAdminLog(`단체 우편 예약 삭제: ${reserve.title}`),
+      callMailReserveLoadAPI()
+    ]);
   } catch (error) {
     console.error("Delete group mail reserve error:", error);
     throw new Error(
@@ -664,17 +666,13 @@ export async function getGroupMailReserveLogs(
       params.push(filterStartDate, filterEndDate);
     }
 
-    // 총 개수 조회
+    // 총 개수 조회와 데이터 조회를 병렬로 실행
     const countQuery = `
       SELECT COUNT(*) as total 
       FROM dokku_mail_reserve_log l
       ${whereClause}
     `;
-    const [countResult] = await pool.execute(countQuery, params);
-    const total = (countResult as RowDataPacket[])[0].total;
-
-    // 로그 목록 조회 (닉네임 포함)
-    const query = `
+    const dataQuery = `
       SELECT 
         l.*,
         SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname
@@ -685,7 +683,12 @@ export async function getGroupMailReserveLogs(
       LIMIT ? OFFSET ?
     `;
 
-    const [rows] = await pool.execute(query, [...params, limit, offset]);
+    const [[countResult], [rows]] = await Promise.all([
+      pool.execute(countQuery, params),
+      pool.execute(dataQuery, [...params, limit, offset])
+    ]);
+    
+    const total = (countResult as RowDataPacket[])[0].total;
     const logs = (rows as RowDataPacket[]).map((row) => ({
       reserve_id: row.reserve_id,
       user_id: row.user_id,

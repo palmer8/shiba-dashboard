@@ -118,3 +118,17 @@ export async function getBlockTicketByIdsOriginAction(
   const result = await reportService.getBlockTicketByIdsOrigin(ids);
   return result;
 }
+
+export async function getPendingBlockTicketsCountAction(): Promise<
+  ApiResponse<number>
+> {
+  const result = await reportService.getPendingBlockTicketsCount();
+  return result;
+}
+
+export async function getPendingBlockTicketsWithReportsAction(): Promise<
+  ApiResponse<any[]>
+> {
+  const result = await reportService.getPendingBlockTicketsWithReports();
+  return result;
+}

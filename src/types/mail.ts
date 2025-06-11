@@ -127,6 +127,7 @@ export interface PersonalMailFilter {
   userId?: number;
   startDate?: string;
   endDate?: string;
+  used?: boolean;
 }
 
 export interface GroupMailReserveFilter {

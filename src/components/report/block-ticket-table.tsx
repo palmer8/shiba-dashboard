@@ -89,6 +89,7 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
+            onClick={(e) => e.stopPropagation()}
             aria-label="행 선택"
           />
         ),
@@ -433,8 +434,49 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
                 {row.getIsExpanded() && (
                   <TableRow>
                     <TableCell colSpan={columns.length} className="bg-muted/30">
-                      <div className="p-2">
-                        {row.original.report?.incident_description}
+                      <div className="p-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="p-3 bg-background/50 rounded-lg">
+                            <h4 className="text-sm font-semibold mb-2">대상자 정보</h4>
+                            <div className="space-y-1 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">고유번호:</span>
+                                <span className="font-medium">
+                                  {row.original.report?.target_user_id || "정보 없음"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">닉네임:</span>
+                                <span className="font-medium">
+                                  {row.original.report?.target_user_nickname || "정보 없음"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="p-3 bg-background/50 rounded-lg">
+                            <h4 className="text-sm font-semibold mb-2">신고자 정보</h4>
+                            <div className="space-y-1 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">고유번호:</span>
+                                <span className="font-medium">
+                                  {row.original.report?.reporting_user_id || "정보 없음"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">닉네임:</span>
+                                <span className="font-medium">
+                                  {row.original.report?.reporting_user_nickname || "정보 없음"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-3 bg-background/50 rounded-lg">
+                          <h4 className="text-sm font-semibold mb-2">상세 내용</h4>
+                          <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                            {row.original.report?.incident_description || "정보 없음"}
+                          </div>
+                        </div>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -1013,7 +1013,7 @@ class ReportService {
       return redirect("/login");
     }
 
-    if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
       return {
         success: false,
         data: null,
@@ -1147,7 +1147,7 @@ class ReportService {
       return redirect("/login");
     }
 
-    if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
       return {
         success: false,
         data: null,
@@ -1287,7 +1287,7 @@ class ReportService {
         return redirect("/login");
       }
 
-      if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
+      if (!hasAccess(session.user.role, UserRole.MASTER)) {
         return {
           success: false,
           data: null,
@@ -1340,7 +1340,7 @@ class ReportService {
         return redirect("/login");
       }
 
-      if (!hasAccess(session.user.role, UserRole.INGAME_ADMIN)) {
+      if (!hasAccess(session.user.role, UserRole.MASTER)) {
         return {
           success: false,
           data: null,
@@ -1504,6 +1504,114 @@ class ReportService {
       };
     } catch (error) {
       console.error("Get block ticket by report ID error:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  async getPendingBlockTicketsCount(): Promise<ApiResponse<number>> {
+    const session = await auth();
+
+    if (!session?.user) {
+      return redirect("/login");
+    }
+
+    try {
+      const count = await prisma.blockTicket.count({
+        where: {
+          status: "PENDING",
+        },
+      });
+
+      return {
+        success: true,
+        data: count,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get pending block tickets count error:", error);
+      return {
+        success: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
+      };
+    }
+  }
+
+  async getPendingBlockTicketsWithReports(): Promise<ApiResponse<any[]>> {
+    const session = await auth();
+
+    if (!session?.user) {
+      return redirect("/login");
+    }
+
+    try {
+      const pendingTickets = await prisma.blockTicket.findMany({
+        where: {
+          status: "PENDING",
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 5, // 최신 5개만 가져오기
+        include: {
+          registrant: {
+            select: {
+              id: true,
+              nickname: true,
+              userId: true,
+            },
+          },
+        },
+      });
+
+      // reportId 목록 추출
+      const reportIds = pendingTickets.map((ticket) => ticket.reportId);
+
+      let reportsMap: Record<number, any> = {};
+
+      // reportIds가 있을 때만 MySQL 쿼리 실행
+      if (reportIds.length > 0) {
+        const [reports] = await pool.query(
+          `SELECT 
+            report_id,
+            target_user_id,
+            target_user_nickname,
+            reason,
+            incident_time
+           FROM dokku_incident_report 
+           WHERE report_id IN (?)`,
+          [reportIds]
+        );
+
+        reportsMap = (reports as any[]).reduce((acc, report) => {
+          acc[report.report_id] = report;
+          return acc;
+        }, {} as Record<number, any>);
+      }
+
+      const enrichedTickets = pendingTickets.map((ticket) => ({
+        ...ticket,
+        report: reportsMap[ticket.reportId] || null,
+        registrant: ticket.registrant as any,
+      }));
+
+      return {
+        success: true,
+        data: enrichedTickets,
+        error: null,
+      };
+    } catch (error) {
+      console.error("Get pending block tickets with reports error:", error);
       return {
         success: false,
         data: null,

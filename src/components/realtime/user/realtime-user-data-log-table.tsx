@@ -27,6 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   deleteGameLogsAction,
   exportGameLogsAction,
+  exportGameLogsByDateRangeAction,
 } from "@/actions/log-action";
 import { toast } from "@/hooks/use-toast";
 import Empty from "@/components/ui/empty";
@@ -56,6 +57,15 @@ import {
 } from "@/components/ui/popover";
 import { ChevronRight } from "lucide-react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { DateRange, SelectRangeEventHandler } from "react-day-picker";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface GameLogData {
   id: number;
@@ -93,6 +103,10 @@ export function RealtimeUserDataTable({
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [inputPage, setInputPage] = useState(page.toString());
+  const [modalOpen, setModalOpen] = useState(false);
+  const [range, setRange] = useState<DateRange | undefined>(undefined);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
   const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
@@ -347,6 +361,25 @@ export function RealtimeUserDataTable({
     }
   };
 
+  const handleCsvDownload = async () => {
+    if (!range || !range.from || !range.to) return;
+    setCsvLoading(true);
+    setCsvError(null);
+    const startDate = range.from.toISOString().slice(0, 10);
+    const endDate = range.to.toISOString().slice(0, 10);
+    const result = await exportGameLogsByDateRangeAction(startDate, endDate);
+    setCsvLoading(false);
+    if (result.success) {
+      handleDownloadJson2CSV({
+        data: result.data ?? [],
+        fileName: `user-logs-${startDate}_to_${endDate}`,
+      });
+      setModalOpen(false);
+    } else {
+      setCsvError(result.error || "다운로드 실패");
+    }
+  };
+
   if (!data?.length) {
     return (
       <div className="rounded-md p-8">
@@ -375,15 +408,24 @@ export function RealtimeUserDataTable({
             </Button>
           </div>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExport}
-          disabled={table.getSelectedRowModel().rows.length === 0}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          CSV 다운로드
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            disabled={table.getSelectedRowModel().rows.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            CSV 다운로드
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setModalOpen(true)}
+          >
+            CSV 기간 다운로드
+          </Button>
+        </div>
       </div>
       <Table ref={tableContainerRef}>
         <TableHeader>
@@ -492,6 +534,39 @@ export function RealtimeUserDataTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md w-full">
+          <DialogHeader>
+            <DialogTitle>CSV 기간 다운로드</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <Calendar
+              mode="range"
+              selected={range}
+              onSelect={setRange as SelectRangeEventHandler}
+              numberOfMonths={1}
+              className="mx-auto"
+            />
+            <div className="text-xs text-muted-foreground text-center">
+              시작일과 종료일을 선택하세요. (시간은 무시됩니다)
+            </div>
+            {csvError && (
+              <div className="text-center text-destructive text-xs">
+                {csvError}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleCsvDownload}
+              disabled={!range?.from || !range?.to || csvLoading}
+            >
+              {csvLoading ? "다운로드 중..." : "다운로드"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

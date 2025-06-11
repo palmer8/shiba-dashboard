@@ -51,6 +51,12 @@ export function PersonalMailSearchFilter({
     // 페이지를 1로 리셋
     params.set("page", "1");
 
+    // 현재 used 상태 유지
+    const currentUsed = searchParams.get("used");
+    if (currentUsed) {
+      params.set("used", currentUsed);
+    }
+
     // 유저 ID 필터 적용
     if (localFilter.userId) {
       params.set("userId", localFilter.userId);
@@ -67,7 +73,7 @@ export function PersonalMailSearchFilter({
       params.delete("endDate");
     }
 
-    router.replace(`/mail?${params.toString()}`);
+    router.replace(`?${params.toString()}`);
   }, [localFilter, dateRange, router, searchParams]);
 
   const handleReset = useCallback(() => {
@@ -76,8 +82,15 @@ export function PersonalMailSearchFilter({
     });
     setDateRange(undefined);
     
-    router.replace("/mail");
-  }, [router]);
+    // used 상태만 유지하고 나머지 초기화
+    const params = new URLSearchParams();
+    const currentUsed = searchParams.get("used");
+    if (currentUsed) {
+      params.set("used", currentUsed);
+    }
+    
+    router.replace(`?${params.toString()}`);
+  }, [router, searchParams]);
 
   return (
     <>

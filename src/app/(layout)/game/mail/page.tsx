@@ -2,6 +2,7 @@ import { GlobalTitle } from "@/components/global/global-title";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { PersonalMailTable } from "@/components/mail/personal-mail-table";
 import { PersonalMailSearchFilter } from "@/components/mail/personal-mail-search-filter";
+import { PersonalMailTabs } from "@/components/mail/personal-mail-tabs";
 import { getPersonalMails } from "@/service/mail-service";
 import { auth } from "@/lib/auth-config";
 import { hasAccess } from "@/lib/utils";
@@ -14,6 +15,7 @@ interface PageProps {
     startDate?: string;
     endDate?: string;
     userId?: string;
+    used?: string;
   }>;
 }
 
@@ -27,11 +29,13 @@ export default async function GamePersonalMailPage({
 
   const params = await searchParams;
   const page = params.page ? parseInt(params.page) - 1 : 0; // 0-based 페이징
+  const used = params.used === "0" ? false : true; // 기본값은 사용됨(true), "1"이거나 undefined일 때 true
 
   const filterParams = {
     startDate: params.startDate,
     endDate: params.endDate,
     userId: params.userId ? parseInt(params.userId) : undefined,
+    used,
   };
 
   const tableData = await getPersonalMails(page, filterParams);
@@ -54,6 +58,7 @@ export default async function GamePersonalMailPage({
         description="SHIBA의 개인 우편을 관리할 수 있습니다."
       />
       <PersonalMailSearchFilter filters={filterParams} />
+      <PersonalMailTabs />
       <PersonalMailTable data={transformedData} session={session} />
     </main>
   );

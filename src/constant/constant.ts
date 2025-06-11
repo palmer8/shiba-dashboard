@@ -150,7 +150,7 @@ const ROLE_LINKS = {
       {
         name: "사건처리 보고 승인",
         href: "/admin/report",
-        role: ["INGAME_ADMIN", "MASTER", "SUPERMASTER"],
+        role: ["MASTER", "SUPERMASTER"],
       },
     ],
   },

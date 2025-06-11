@@ -31,6 +31,8 @@ import { ROLE_LINKS } from "@/constant/constant";
 import { Session } from "next-auth";
 import { UserRole } from "@prisma/client";
 import Link from "next/link";
+import { PendingBlockNotification } from "@/components/notification/pending-block-notification";
+import { hasAccess } from "@/lib/utils";
 
 const ICONS: { [key: string]: LucideIcon } = {
   dashboard: LayoutDashboard,
@@ -51,7 +53,10 @@ export function NavLinks({ session }: { session: Session | null }) {
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>메뉴</SidebarGroupLabel>
+      <SidebarGroupLabel className="flex items-center justify-between">
+        메뉴
+        {session?.user && <PendingBlockNotification />}
+      </SidebarGroupLabel>
       <SidebarMenu>
         {filteredLinks.map(([key, item]) => (
           <Collapsible
