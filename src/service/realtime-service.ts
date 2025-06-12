@@ -2009,7 +2009,8 @@ class RealtimeService {
     const isNewUserIdExists = newRows.length > 0; // <<< 추가: 존재 여부 확인
     let lastLoginRaw: string | null = null;
     let lastLoginDate: Date | null = null;
-    let isOver31Days = false;
+    // (30일 기준) 마지막 접속 후 30일을 초과했는지 여부
+    let isOver30Days = false;
 
     // <<< 수정 시작: isNewUserIdExists 체크 로직 추가
     if (isNewUserIdExists) {
@@ -2042,7 +2043,8 @@ class RealtimeService {
       if (lastLoginDate) {
         const now = new Date();
         const diff = now.getTime() - lastLoginDate.getTime();
-        isOver31Days = diff >= 31 * 24 * 60 * 60 * 1000;
+        // 30일(2592000000ms) 초과 여부 계산
+        isOver30Days = diff >= 30 * 24 * 60 * 60 * 1000;
       }
     }
     // <<< 수정 끝
@@ -2068,34 +2070,15 @@ class RealtimeService {
         }
       } else {
         // Case where newUserId exists
-        // Check 31 day rule ONLY if it exists
-        if (!isOver31Days) {
-          // Case 2: Exists, but logged in recently (Error)
-          errorMsg = `변경할 고유번호(${newUserId})의 마지막 접속일이 31일 이내입니다. (마지막 접속: ${lastLoginRaw})`;
+        // 30일 룰 적용: 30일 이내면 "경고" / 30일 초과면 일반 경고(낮음)
+        if (!isOver30Days) {
+          // 최근 30일 내 접속 – 경고 메시지 (차단 X)
+          warningMsg = `변경할 고유번호(${newUserId})의 마지막 접속일이 30일 이내입니다. (마지막 접속: ${lastLoginRaw})\n계속 진행하시겠습니까?`;
         } else {
-          // Case 3: Exists, and not logged in for >31 days (Warning)
-          warningMsg = `변경할 고유번호(${newUserId})의 마지막 접속일은 ${lastLoginRaw} (D+31 이후)입니다. 정말로 고유번호를 변경하시겠습니까?`;
-          // Append online status warning if needed
-          if (isCurrentUserOnline) {
-            warningMsg += `\n(주의: 현재 유저(${currentUserId})는 온라인 상태입니다.)`;
-          }
+          // 30일 초과 – 일반 안내
+          warningMsg = `변경할 고유번호(${newUserId})의 마지막 접속일은 ${lastLoginRaw} (D+30 이후)입니다. 정말로 고유번호를 변경하시겠습니까?`;
         }
       }
-
-      // Determine final success status
-      const success = !errorMsg; // success is true if no blocking error occurred
-
-      // Return the result
-      return {
-        success,
-        data: {
-          lastLoginDate: lastLoginRaw,
-          isCurrentUserOnline,
-          isNewUserIdExists, // Include the flag
-        },
-        // Return the appropriate message (error takes precedence)
-        error: errorMsg || warningMsg,
-      };
     }
 
     // 2차: 실제 변경(외부 API)

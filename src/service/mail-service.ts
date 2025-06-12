@@ -31,9 +31,9 @@ function mapItemIdsToNames(
   Object.entries(items).forEach(([itemId, amount]) => {
     mapped[itemId] = {
       name: itemNameMap.get(itemId) || itemId,
-      amount: amount,
-    };
-  });
+        amount: amount,
+      };
+    });
   return mapped;
 }
 
@@ -148,7 +148,7 @@ export async function getPersonalMails(
         created_at: new Date(row.created_at),
         nickname: row.nickname,
       };
-    });
+      });
 
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -215,11 +215,11 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
     // 생성된 우편 조회와 로그 작성을 병렬로 실행
     const [[mailRows]] = await Promise.all([
       pool.execute(
-        `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
-         FROM dokku_mail m 
-         LEFT JOIN vrp_users u ON m.user_id = u.id 
-         WHERE m.id = ?`,
-        [mailId]
+      `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
+       FROM dokku_mail m 
+       LEFT JOIN vrp_users u ON m.user_id = u.id 
+       WHERE m.id = ?`,
+      [mailId]
       ),
       logService.writeAdminLog(`개인 우편 생성: 유저 ID ${values.user_id}`)
     ]);
@@ -290,20 +290,20 @@ export async function updatePersonalMail(id: number, values: PersonalMailCreateV
     // 수정과 조회, 로그 작성을 병렬로 실행
     const [, [mailRows]] = await Promise.all([
       pool.execute(updateQuery, [
-        values.user_id,
-        values.title || "",
-        values.content || "",
-        JSON.stringify(needItems),
-        JSON.stringify(rewardItems),
-        values.used ? 1 : 0,
-        id,
+      values.user_id,
+      values.title || "",
+      values.content || "",
+      JSON.stringify(needItems),
+      JSON.stringify(rewardItems),
+      values.used ? 1 : 0,
+      id,
       ]),
       pool.execute(
-        `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
-         FROM dokku_mail m 
-         LEFT JOIN vrp_users u ON m.user_id = u.id 
-         WHERE m.id = ?`,
-        [id]
+      `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
+       FROM dokku_mail m 
+       LEFT JOIN vrp_users u ON m.user_id = u.id 
+       WHERE m.id = ?`,
+      [id]
       ),
       logService.writeAdminLog(`개인 우편 수정: ID ${id}, 유저 ID ${values.user_id}`)
     ]);
@@ -552,18 +552,18 @@ export async function updateGroupMailReserve(
     // 수정, 조회, 로그 작성, API 호출을 병렬로 실행
     const [, [reserveRows]] = await Promise.all([
       pool.execute(updateQuery, [
-        values.title,
-        values.content,
-        startDateTime,
-        endDateTime,
-        JSON.stringify(rewards),
-        id,
+      values.title,
+      values.content,
+      startDateTime,
+      endDateTime,
+      JSON.stringify(rewards),
+      id,
       ]),
       pool.execute("SELECT * FROM dokku_mail_reserve WHERE id = ?", [id]),
       logService.writeAdminLog(`단체 우편 예약 수정: ${values.title}`),
       callMailReserveLoadAPI()
     ]);
-    
+
     const reserve = (reserveRows as RowDataPacket[])[0];
 
     return {

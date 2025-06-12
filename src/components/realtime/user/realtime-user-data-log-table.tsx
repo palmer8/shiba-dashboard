@@ -409,15 +409,15 @@ export function RealtimeUserDataTable({
           </div>
         )}
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExport}
-            disabled={table.getSelectedRowModel().rows.length === 0}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            CSV 다운로드
-          </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={table.getSelectedRowModel().rows.length === 0}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          CSV 다운로드
+        </Button>
           <Button
             variant="outline"
             size="sm"
