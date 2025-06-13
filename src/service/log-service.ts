@@ -291,8 +291,8 @@ export class LogService {
         );
       }
       if (filters.type) {
-        conditions.push(`type = $${paramIndex++}`);
-        params.push(filters.type);
+        conditions.push(`type ILIKE $${paramIndex++}`);
+        params.push(`%${filters.type}%`);
       }
       if (filters.level) {
         conditions.push(`level = $${paramIndex++}`);

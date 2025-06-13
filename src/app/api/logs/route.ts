@@ -14,8 +14,8 @@ class LogMemoryStore {
   private static instance: LogMemoryStore;
   private buffer: any[] = [];
   private isProcessing: boolean = false;
-  private readonly BATCH_SIZE = 1000;
-  private readonly FLUSH_INTERVAL = 5000;
+  private readonly BATCH_SIZE = 100;
+  private readonly FLUSH_INTERVAL = 3000;
 
   private constructor() {
     // 주기적으로 버퍼 플러시

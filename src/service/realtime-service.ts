@@ -2056,30 +2056,78 @@ class RealtimeService {
     // 1차: 경고 메시지/상태 반환
     if (!confirm) {
       let warningMsg: string | null = null;
-      let errorMsg: string | null = null;
 
-      // Directly use newRows.length to check existence
-      const isNewUserIdExists = newRows.length > 0;
+      // =================== 강제 조건 체크 ===================
+      if (isCurrentUserOnline) {
+        return {
+          success: false,
+          data: {
+            lastLoginDate: lastLoginRaw,
+            isCurrentUserOnline,
+            changed: false,
+            isNewUserIdExists,
+          },
+          error: `현재 유저(${currentUserId})는 온라인 상태이므로 변경할 수 없습니다.`,
+        };
+      }
+      if (isNewUserIdExists && !isOver30Days) {
+        return {
+          success: false,
+          data: {
+            lastLoginDate: lastLoginRaw,
+            isCurrentUserOnline,
+            changed: false,
+            isNewUserIdExists,
+          },
+          error: `변경할 고유번호(${newUserId})의 마지막 접속일이 30일 이내이므로 변경할 수 없습니다.`,
+        };
+      }
+      // =======================================================
 
       if (!isNewUserIdExists) {
-        // Case 1: newUserId doesn't exist
         warningMsg = `변경할 고유번호(${newUserId})는 사용된 적이 없습니다. 정말로 이 번호로 변경하시겠습니까?`;
-        // Append online status warning if needed
-        if (isCurrentUserOnline) {
-          warningMsg += `\n(주의: 현재 유저(${currentUserId})는 온라인 상태입니다.)`;
-        }
       } else {
-        // Case where newUserId exists
-        // 30일 룰 적용: 30일 이내면 "경고" / 30일 초과면 일반 경고(낮음)
-        if (!isOver30Days) {
-          // 최근 30일 내 접속 – 경고 메시지 (차단 X)
-          warningMsg = `변경할 고유번호(${newUserId})의 마지막 접속일이 30일 이내입니다. (마지막 접속: ${lastLoginRaw})\n계속 진행하시겠습니까?`;
-        } else {
-          // 30일 초과 – 일반 안내
-          warningMsg = `변경할 고유번호(${newUserId})의 마지막 접속일은 ${lastLoginRaw} (D+30 이후)입니다. 정말로 고유번호를 변경하시겠습니까?`;
-        }
+        warningMsg = `변경할 고유번호(${newUserId})의 마지막 접속일은 ${lastLoginRaw} (D+30 이후)입니다. 정말로 고유번호를 변경하시겠습니까?`;
       }
+
+      return {
+        success: true,
+        data: {
+          lastLoginDate: lastLoginRaw,
+          isCurrentUserOnline,
+          changed: false,
+          isNewUserIdExists,
+        },
+        error: warningMsg, // 경고/안내 메시지를 error 필드에 담아 전달
+      };
     }
+
+    // =================== 2차: 실제 변경 전 최종 서버사이드 조건 체크 ===================
+    if (isCurrentUserOnline) {
+      return {
+        success: false,
+        data: {
+          lastLoginDate: lastLoginRaw,
+          isCurrentUserOnline,
+          changed: false,
+          isNewUserIdExists,
+        },
+        error: `현재 유저(${currentUserId})는 온라인 상태이므로 변경할 수 없습니다.`,
+      };
+    }
+    if (isNewUserIdExists && !isOver30Days) {
+      return {
+        success: false,
+        data: {
+          lastLoginDate: lastLoginRaw,
+          isCurrentUserOnline,
+          changed: false,
+          isNewUserIdExists,
+        },
+        error: `변경할 고유번호(${newUserId})의 마지막 접속일이 30일 이내이므로 변경할 수 없습니다.`,
+      };
+    }
+    // =================================================================================
 
     // 2차: 실제 변경(외부 API)
     try {
