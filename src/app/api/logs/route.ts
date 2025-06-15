@@ -14,8 +14,8 @@ class LogMemoryStore {
   private static instance: LogMemoryStore;
   private buffer: any[] = [];
   private isProcessing: boolean = false;
-  private readonly BATCH_SIZE = 100;
-  private readonly FLUSH_INTERVAL = 3000;
+  private readonly BATCH_SIZE = parseInt(process.env.LOG_BATCH_SIZE ?? "1000");
+  private readonly FLUSH_INTERVAL = parseInt(process.env.LOG_FLUSH_INTERVAL_MS ?? "60000");
 
   private constructor() {
     // 주기적으로 버퍼 플러시
@@ -43,18 +43,21 @@ class LogMemoryStore {
   private async processBuffer() {
     if (this.isProcessing || this.buffer.length === 0) return;
 
-    try {
-      this.isProcessing = true;
-      const logsToProcess = this.buffer.splice(0, this.BATCH_SIZE);
+    this.isProcessing = true;
+    const logsToProcess = this.buffer.splice(0, this.BATCH_SIZE);
 
-      // DB 연결 실패해도 메모리에는 저장
-      try {
-        await db.batchInsert(logsToProcess);
-      } catch (error) {
-        console.error("DB 저장 실패:", error);
-      }
+    try {
+      // 10초 이내에 완료되지 않으면 타임아웃 처리
+      await Promise.race([
+        db.batchInsert(logsToProcess),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("DB insert timeout")), 10_000)
+        ),
+      ]);
     } catch (error) {
-      console.error("버퍼 처리 실패:", error);
+      console.error("DB 저장 실패 – 재시도 대기:", error);
+      // 실패한 로그를 다시 버퍼 맨 앞으로 돌려놓아 다음 주기에 재시도
+      this.buffer.unshift(...logsToProcess);
     } finally {
       this.isProcessing = false;
     }

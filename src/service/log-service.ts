@@ -53,7 +53,7 @@ export class LogMemoryStore {
   private buffer: GameLog[] = [];
   private _isProcessing: boolean = false;
   private readonly BATCH_SIZE = 1000;
-  private readonly FLUSH_INTERVAL = 5000;
+  private readonly FLUSH_INTERVAL = parseInt(process.env.LOG_FLUSH_INTERVAL_MS ?? "60000");
   private flushTimer: NodeJS.Timeout | null = null;
 
   private constructor() {
@@ -94,7 +94,12 @@ export class LogMemoryStore {
     try {
       this._isProcessing = true;
       logsToProcess = this.buffer.splice(0, this.BATCH_SIZE);
-      await db.batchInsert(logsToProcess);
+      await Promise.race([
+        db.batchInsert(logsToProcess),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("DB insert timeout")), 10_000)
+        ),
+      ]);
     } catch (error) {
       console.error("버퍼 처리 실패:", error);
       // 실패한 로그들을 다시 버퍼에 넣기
