@@ -1,6 +1,5 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
 import { StaffLog, StaffLogResponse } from "@/types/log";
@@ -9,6 +8,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Download } from "lucide-react";
 import Empty from "@/components/ui/empty";
 import { useState, useEffect, useRef } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
 import { toast } from "@/hooks/use-toast";
 
 interface StaffLogTableProps {
@@ -20,15 +33,16 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const searchParams = useSearchParams();
   const [inputPage, setInputPage] = useState(data.page.toString());
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const tableContainerRef = useRef<HTMLTableElement>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setInputPage(data.page.toString());
   }, [data.page]);
 
   useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
     }
   }, [data.page]);
 
@@ -86,61 +100,100 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
     }
   };
 
-  const renderLogCard = (log: StaffLog) => {
-    const logId = createLogId(log);
+  const columns: ColumnDef<StaffLog>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={selectedRows.length === data.records.length}
+          onCheckedChange={handleSelectAll}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => {
+        const logId = createLogId(row.original);
+        return (
+          <Checkbox
+            checked={selectedRows.includes(logId)}
+            onCheckedChange={() => handleSelect(row.original)}
+            aria-label="Select row"
+          />
+        );
+      },
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      header: "설명",
+      accessorKey: "description",
+      cell: ({ row }) => {
+        const logId = createLogId(row.original);
+        const isExpanded = expandedRows.has(logId);
+        
+        const toggleExpanded = () => {
+          setExpandedRows(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(logId)) {
+              newSet.delete(logId);
+            } else {
+              newSet.add(logId);
+            }
+            return newSet;
+          });
+        };
 
-    return (
-      <Card key={logId} className="hover:bg-muted/50 transition-colors">
-        <div className="p-4">
-          <div className="flex items-start gap-4">
-            <Checkbox
-              checked={selectedRows.includes(logId)}
-              onCheckedChange={() => handleSelect(log)}
-              onClick={(e) => e.stopPropagation()}
-              aria-label="Select row"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-medium line-clamp-2">
-                    {log.description}
-                  </h3>
-
-                  <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <span>
-                        처리자: {log.staff_name} ({log.staff_id})
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>
-                        대상자: {log.target_name} ({log.target_id})
-                      </span>
-                    </div>
-                    <span>{formatKoreanDateTime(new Date(log.time))}</span>
-                  </div>
-                </div>
-              </div>
+        return (
+          <div className="max-w-[300px] font-medium">
+            <div 
+              className={`cursor-pointer ${!isExpanded ? 'truncate' : ''}`}
+              onClick={toggleExpanded}
+              title={!isExpanded ? "클릭하여 전체 내용 보기" : "클릭하여 접기"}
+            >
+              {row.original.description}
             </div>
           </div>
+        );
+      },
+    },
+    {
+      header: "처리자",
+      accessorKey: "staff_name",
+      cell: ({ row }) => (
+        <div>
+          {row.original.staff_name} ({row.original.staff_id})
         </div>
-      </Card>
-    );
-  };
+      ),
+    },
+    {
+      header: "대상자",
+      accessorKey: "target_name",
+      cell: ({ row }) => (
+        <div>
+          {row.original.target_name} ({row.original.target_id})
+        </div>
+      ),
+    },
+    {
+      header: "시간",
+      accessorKey: "time",
+      cell: ({ row }) => (
+        <span className="whitespace-nowrap">
+          {formatKoreanDateTime(new Date(row.original.time))}
+        </span>
+      ),
+    },
+  ];
 
-  // 데이터가 없거나 빈 배열인 경우
-  if (!data.records || data.records.length === 0) {
-    return <Empty description="데이터가 존재하지 않습니다." />;
-  }
+  const table = useReactTable({
+    data: data.records,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   return (
-    <div className="flex flex-col h-[calc(100vh-400px)]">
-      <div className="flex items-center justify-between mb-4">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Checkbox
-            checked={selectedRows.length === data.records.length}
-            onCheckedChange={handleSelectAll}
-          />
           <Button
             variant="outline"
             size="sm"
@@ -154,62 +207,99 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
         </div>
       </div>
 
-      <div
-        className="overflow-y-auto space-y-2 min-h-0"
-        ref={scrollContainerRef}
-      >
-        {data.records.map((log) => renderLogCard(log))}
-      </div>
+      <Table ref={tableContainerRef}>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead key={header.id}>
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        {data.records.length > 0 ? (
+          <TableBody>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id} className="hover:bg-muted/50">
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(
+                      cell.column.columnDef.cell,
+                      cell.getContext()
+                    )}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        ) : (
+          <TableBody>
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                <Empty description="데이터가 존재하지 않습니다." />
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        )}
+      </Table>
 
-      {/* 페이지네이션 */}
-      <div className="flex items-center justify-between py-2">
-        <div className="text-sm text-muted-foreground">
-          총 {data.total}개 중 {(data.page - 1) * data.pageSize + 1}-
-          {Math.min(data.page * data.pageSize, data.total)}개 표시
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(data.page - 1)}
-            disabled={data.page <= 1}
-          >
-            이전
-          </Button>
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              value={inputPage}
-              onChange={(e) => setInputPage(e.target.value)}
-              onBlur={(e) => {
-                let newPage = parseInt(e.target.value);
-                if (isNaN(newPage) || newPage < 1) {
-                  newPage = 1;
-                  setInputPage("1");
-                } else if (newPage > data.totalPages) {
-                  newPage = data.totalPages;
-                  setInputPage(data.totalPages.toString());
-                }
-                handlePageChange(newPage);
-              }}
-              className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              min={1}
-              max={data.totalPages}
-            />
-            <span className="text-sm text-muted-foreground">
-              / {data.totalPages}
-            </span>
+      {data.records.length > 0 && (
+        <div className="flex items-center justify-between py-2">
+          <div className="text-sm text-muted-foreground">
+            총 {data.total}개 중 {(data.page - 1) * data.pageSize + 1}-
+            {Math.min(data.page * data.pageSize, data.total)}개 표시
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(data.page + 1)}
-            disabled={data.page >= data.totalPages}
-          >
-            다음
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(data.page - 1)}
+              disabled={data.page <= 1}
+            >
+              이전
+            </Button>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                value={inputPage}
+                onChange={(e) => setInputPage(e.target.value)}
+                onBlur={(e) => {
+                  let newPage = parseInt(e.target.value);
+                  if (isNaN(newPage) || newPage < 1) {
+                    newPage = 1;
+                    setInputPage("1");
+                  } else if (newPage > data.totalPages) {
+                    newPage = data.totalPages;
+                    setInputPage(data.totalPages.toString());
+                  }
+                  handlePageChange(newPage);
+                }}
+                className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                min={1}
+                max={data.totalPages}
+              />
+              <span className="text-sm text-muted-foreground">
+                / {data.totalPages}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(data.page + 1)}
+              disabled={data.page >= data.totalPages}
+            >
+              다음
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

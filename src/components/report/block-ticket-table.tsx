@@ -159,15 +159,6 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
         ),
       },
       {
-        header: "사건 발생 시간",
-        accessorKey: "incident_time",
-        cell: ({ row }) => {
-          return row.original.report?.incident_time
-            ? formatKoreanDateTime(row.original.report?.incident_time)
-            : "정보없음";
-        },
-      },
-      {
         header: "등록일자",
         accessorKey: "createdAt",
         cell: ({ row }) => formatKoreanDateTime(row.original.createdAt),

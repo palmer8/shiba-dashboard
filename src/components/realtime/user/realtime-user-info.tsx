@@ -13,6 +13,7 @@ import { parseCustomDateString } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Undo2,
   Copy,
@@ -612,7 +613,6 @@ export default function RealtimeUserInfo({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  {isSupermaster && (
                     <DropdownMenuItem
                       onClick={() => setChangeUserIdentityDialogOpen(true)}
                       tabIndex={0}
@@ -620,7 +620,6 @@ export default function RealtimeUserInfo({
                     >
                       차량/계좌번호 변경
                     </DropdownMenuItem>
-                  )}
                   {canDirectlySet && (
                     <DropdownMenuItem
                       onClick={() => setSetWarningCountDialogOpen(true)}
@@ -630,7 +629,6 @@ export default function RealtimeUserInfo({
                       경고 횟수 변경
                     </DropdownMenuItem>
                   )}
-                  {isSupermaster && (
                     <DropdownMenuItem
                       onClick={() => setChangeUserIdDialogOpen(true)}
                       tabIndex={0}
@@ -638,7 +636,6 @@ export default function RealtimeUserInfo({
                     >
                       게임 고유번호 변경
                     </DropdownMenuItem>
-                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -897,7 +894,40 @@ export default function RealtimeUserInfo({
                   <div className="p-4 rounded-lg bg-muted/30">
                     {data.skinName ? (
                       <div className="flex items-center justify-between">
-                        <span>{data.skinName}</span>
+                        <div className="flex items-center gap-2">
+                          {data.skinId ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help underline decoration-dotted decoration-muted-foreground/50 hover:decoration-muted-foreground transition-colors">
+                                    {data.skinName}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>스킨 ID: {data.skinId}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <span>{data.skinName}</span>
+                          )}
+                          {data.skinId && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 opacity-60 hover:opacity-100 transition-opacity"
+                              onClick={() => {
+                                navigator.clipboard.writeText(data.skinId || "");
+                                toast({
+                                  title: "스킨 ID 복사됨",
+                                  description: `${data.skinId}가 클립보드에 복사되었습니다.`,
+                                });
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-sm">
@@ -1403,7 +1433,7 @@ export default function RealtimeUserInfo({
                         variant="destructive"
                         size="sm"
                         onClick={handleDeleteUserIds}
-                        disabled={selectedUserIds.length === 0 || selectedUserIds.length >= userIds.length}
+                        disabled={selectedUserIds.length === 0}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         선택 삭제 ({selectedUserIds.length})

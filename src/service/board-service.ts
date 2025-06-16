@@ -93,14 +93,6 @@ class BoardService {
     if (!session?.user) return redirect("/login");
 
     try {
-      if (data.isNotice && session.user.role !== "SUPERMASTER") {
-        return {
-          success: false,
-          error: "공지사항 작성 권한이 없습니다.",
-          data: null,
-        };
-      }
-
       if (data.title.length < 5 || data.title.length > 30) {
         return {
           success: false,

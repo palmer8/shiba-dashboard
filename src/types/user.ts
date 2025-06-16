@@ -1,6 +1,5 @@
 import { Groups, Prisma, User } from "@prisma/client";
 import { UserRole } from "@prisma/client";
-import { IncidentReport } from "./report";
 import { UserMemo } from "./realtime";
 
 export type Chunobot = {
@@ -12,6 +11,7 @@ export type Chunobot = {
 
 type SignUpUser = Omit<Prisma.UserCreateInput, "hashedPassword">;
 export interface RealtimeGameUserData {
+  skinId? : string;
   user_id: number;
   last_nickname: string;
   first_join: string;

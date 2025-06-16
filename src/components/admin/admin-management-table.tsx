@@ -344,10 +344,9 @@ export function AdminManagementTable({
                                 비밀번호 재설정
                               </DropdownMenuItem>
                             )}
-                          {session.user.userId === 1 &&
-                            session.user.role === "SUPERMASTER" && (
-                              <DropdownMenuSeparator />
-                            )}
+
+                            <DropdownMenuSeparator />
+                            
                           <AlertDialog>
                             {
                               session.user.role === "SUPERMASTER" && (

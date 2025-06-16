@@ -150,7 +150,7 @@ export default function BoardEditForm({
         categories={categories}
         isNotice={isNotice}
         onNoticeChange={setIsNotice}
-        showNoticeOption={session?.user?.role === "SUPERMASTER"}
+        showNoticeOption={true}
         onMarkdownConvert={handleMarkdownConvert}
         onDraftSelect={handleDraftSelect}
         content={content}

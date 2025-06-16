@@ -253,6 +253,7 @@ class RealtimeService {
       );
       isIdBan = idBanRows.length > 0;
 
+
       // 데이터 통합
       const enrichedData: RealtimeGameUserData = {
         ...(gameDataApiResponse as Omit<
@@ -287,7 +288,10 @@ class RealtimeService {
           : null,
         emoji: dbUserData?.emoji ?? null,
         isIdBan,
+        skinId: gameDataApiResponse.skinid,
       };
+
+      console.log(enrichedData);
 
       // 로그 작성은 성공 시 한 번만
       if (enrichedData.last_nickname) {
@@ -1986,7 +1990,7 @@ class RealtimeService {
     if (!session?.user) {
       return { success: false, data: null, error: "로그인이 필요합니다." };
     }
-    if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) {
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
       return { success: false, data: null, error: "권한이 없습니다." };
     }
     // currentUserId, newUserId 존재 확인
@@ -2058,18 +2062,6 @@ class RealtimeService {
       let warningMsg: string | null = null;
 
       // =================== 강제 조건 체크 ===================
-      if (isCurrentUserOnline) {
-        return {
-          success: false,
-          data: {
-            lastLoginDate: lastLoginRaw,
-            isCurrentUserOnline,
-            changed: false,
-            isNewUserIdExists,
-          },
-          error: `현재 유저(${currentUserId})는 온라인 상태이므로 변경할 수 없습니다.`,
-        };
-      }
       if (isNewUserIdExists && !isOver30Days) {
         return {
           success: false,
@@ -2085,9 +2077,17 @@ class RealtimeService {
       // =======================================================
 
       if (!isNewUserIdExists) {
-        warningMsg = `변경할 고유번호(${newUserId})는 사용된 적이 없습니다. 정말로 이 번호로 변경하시겠습니까?`;
+        warningMsg = `변경할 고유번호(${newUserId})는 사용된 적이 없습니다.`;
+        if (isCurrentUserOnline) {
+          warningMsg += ` 현재 유저는 온라인 상태입니다.`;
+        }
+        warningMsg += ` 정말로 이 번호로 변경하시겠습니까?`;
       } else {
-        warningMsg = `변경할 고유번호(${newUserId})의 마지막 접속일은 ${lastLoginRaw} (D+30 이후)입니다. 정말로 고유번호를 변경하시겠습니까?`;
+        warningMsg = `변경할 고유번호(${newUserId})의 마지막 접속일은 ${lastLoginRaw} (D+30 이후)입니다.`;
+        if (isCurrentUserOnline) {
+          warningMsg += ` 현재 유저는 온라인 상태입니다.`;
+        }
+        warningMsg += ` 정말로 고유번호를 변경하시겠습니까?`;
       }
 
       return {
@@ -2103,18 +2103,6 @@ class RealtimeService {
     }
 
     // =================== 2차: 실제 변경 전 최종 서버사이드 조건 체크 ===================
-    if (isCurrentUserOnline) {
-      return {
-        success: false,
-        data: {
-          lastLoginDate: lastLoginRaw,
-          isCurrentUserOnline,
-          changed: false,
-          isNewUserIdExists,
-        },
-        error: `현재 유저(${currentUserId})는 온라인 상태이므로 변경할 수 없습니다.`,
-      };
-    }
     if (isNewUserIdExists && !isOver30Days) {
       return {
         success: false,
@@ -2202,7 +2190,7 @@ class RealtimeService {
     if (!session?.user) {
       return { success: false, data: null, error: "로그인이 필요합니다." };
     }
-    if (!hasAccess(session.user.role, UserRole.SUPERMASTER)) {
+    if (!hasAccess(session.user.role, UserRole.MASTER)) {
       return { success: false, data: null, error: "권한이 없습니다." };
     }
     // userId 존재 확인
