@@ -69,7 +69,6 @@ export default function RealtimeUserWrapper({
       );
     }
 
-    console.log(data);
 
     return (
       <Tabs defaultValue="info" className="mt-6">
