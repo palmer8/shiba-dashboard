@@ -2934,15 +2934,6 @@ class RealtimeService {
       const [countResult] = await pool.execute<RowDataPacket[]>(countQuery, [userId]);
       const totalCount = countResult[0].total;
 
-      // 삭제하려는 개수가 총 개수와 같거나 많으면 거부 (최소 1개는 남겨야 함)
-      if (identifiers.length >= totalCount) {
-        return {
-          success: false,
-          error: "최소 1개의 식별자는 남겨두어야 합니다",
-          data: null,
-        };
-      }
-
       const placeholders = identifiers.map(() => '?').join(',');
       const query = `
         DELETE FROM vrp_user_ids

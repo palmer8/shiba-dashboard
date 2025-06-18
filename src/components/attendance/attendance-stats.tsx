@@ -101,6 +101,7 @@ export function AttendanceStats({
   records,
   dateRange,
   targetUserNumericId,
+  isView = true
 }: AttendanceStatsProps) {
   const filteredRecords = useMemo(() => {
     if (!records) return [];
@@ -327,94 +328,98 @@ export function AttendanceStats({
         </CardContent>
       </Card>
 
-      <Card className="md:col-span-3">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">
-            {dateRange &&
-            dateRange.from &&
-            dateRange.to &&
-            format(dateRange.from, "yyyy-MM-dd") ===
-              format(startOfDay(new Date()), "yyyy-MM-dd") &&
-            format(dateRange.to, "yyyy-MM-dd") ===
-              format(endOfDay(new Date()), "yyyy-MM-dd")
-              ? "오늘 근무 현황"
-              : dateRange &&
-                dateRange.from &&
-                dateRange.to &&
-                differenceInDays(dateRange.to, dateRange.from) <= 7
-              ? "주간 근무 추이 (시간)"
-              : "근무 시간 분포 (일별, 시간)"}
-            {/* 일일/주간/월간에 따라 제목 변경 가능 */}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={workTrendData}
-                margin={{
-                  top: 5,
-                  right: 20,
-                  left: -20, // Y축 레이블 공간 확보
-                  bottom: 5,
-                }}
-              >
-                <defs>
-                  <linearGradient
-                    id="workHoursGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="5%"
-                      stopColor="hsl(var(--primary))"
-                      stopOpacity={0.6}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="hsl(var(--primary))"
-                      stopOpacity={0.1}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  className="stroke-muted/50"
-                />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 12 }}
-                  stroke="hsl(var(--muted-foreground))"
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 12 }}
-                  stroke="hsl(var(--muted-foreground))"
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `${value}`}
-                />
-                <Tooltip
-                  content={<CustomTooltipWorkTrend />}
-                  cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="workHours"
-                  stroke="hsl(var(--primary))"
-                  fillOpacity={1}
-                  fill="url(#workHoursGradient)"
-                  strokeWidth={2}
-                  dot={false}
-                  // activeDot={{ r: 6, strokeWidth: 0, fill: 'hsl(var(--primary))' }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      {
+        isView && (
+          <Card className="md:col-span-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">
+              {dateRange &&
+              dateRange.from &&
+              dateRange.to &&
+              format(dateRange.from, "yyyy-MM-dd") ===
+                format(startOfDay(new Date()), "yyyy-MM-dd") &&
+              format(dateRange.to, "yyyy-MM-dd") ===
+                format(endOfDay(new Date()), "yyyy-MM-dd")
+                ? "오늘 근무 현황"
+                : dateRange &&
+                  dateRange.from &&
+                  dateRange.to &&
+                  differenceInDays(dateRange.to, dateRange.from) <= 7
+                ? "주간 근무 추이 (시간)"
+                : "근무 시간 분포 (일별, 시간)"}
+              {/* 일일/주간/월간에 따라 제목 변경 가능 */}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={workTrendData}
+                  margin={{
+                    top: 5,
+                    right: 20,
+                    left: -20, // Y축 레이블 공간 확보
+                    bottom: 5,
+                  }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="workHoursGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="hsl(var(--primary))"
+                        stopOpacity={0.6}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="hsl(var(--primary))"
+                        stopOpacity={0.1}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-muted/50"
+                  />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `${value}`}
+                  />
+                  <Tooltip
+                    content={<CustomTooltipWorkTrend />}
+                    cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="workHours"
+                    stroke="hsl(var(--primary))"
+                    fillOpacity={1}
+                    fill="url(#workHoursGradient)"
+                    strokeWidth={2}
+                    dot={false}
+                    // activeDot={{ r: 6, strokeWidth: 0, fill: 'hsl(var(--primary))' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+        )
+      }
+      </div>
   );
 }

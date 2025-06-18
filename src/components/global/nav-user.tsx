@@ -25,18 +25,21 @@ import { formatRole, getFirstNonEmojiCharacter } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   getMyTodayAttendanceAction,
   getMyAttendanceRecordsAction,
 } from "@/actions/realtime/realtime-action";
-import { format } from "date-fns";
+import { format, subDays, startOfDay, endOfDay, differenceInMinutes } from "date-fns";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AttendanceStats } from "@/components/attendance/attendance-stats";
+import { DateRange } from "react-day-picker";
 
 interface NavUserProps {
   session: Session;
@@ -52,6 +55,16 @@ export function NavUser({ session }: NavUserProps) {
   const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [recordsError, setRecordsError] = useState<string | null>(null);
+
+  // 최근 2주 날짜 범위 계산
+  const recentTwoWeeksRange: DateRange = useMemo(() => {
+    const today = new Date();
+    const twoWeeksAgo = subDays(today, 13); // 14일간 (오늘 포함)
+    return {
+      from: startOfDay(twoWeeksAgo),
+      to: endOfDay(today)
+    };
+  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -233,7 +246,7 @@ export function NavUser({ session }: NavUserProps) {
         onOpenChange={setDialogOpen}
       />
       <Dialog open={recordsOpen} onOpenChange={setRecordsOpen}>
-        <DialogContent className="max-w-lg w-full max-h-[80vh] flex flex-col">
+        <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>내 근태 기록 (최근 2주)</DialogTitle>
           </DialogHeader>
@@ -249,39 +262,77 @@ export function NavUser({ session }: NavUserProps) {
                 근태 기록이 없습니다.
               </div>
             ) : (
-              <div className="overflow-auto max-h-[60vh]">
-                <table className="w-full text-xs border-collapse">
-                  <thead className="sticky top-0 bg-background">
-                    <tr className="border-b">
-                      <th className="py-2 px-2 text-left">날짜</th>
-                      <th className="py-2 px-2 text-left">출근</th>
-                      <th className="py-2 px-2 text-left">퇴근</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {attendanceRecords.map((record) => (
-                      <tr key={record.id} className="border-b last:border-0">
-                        <td className="py-2 px-2 whitespace-nowrap">
-                          {format(
-                            new Date(record.checkInTime),
-                            "yyyy-MM-dd (eee)"
-                          )}
-                        </td>
-                        <td className="py-2 px-2">
-                          {format(new Date(record.checkInTime), "HH:mm")}
-                        </td>
-                        <td className="py-2 px-2">
-                          {record.checkOutTime ? (
-                            format(new Date(record.checkOutTime), "HH:mm")
-                          ) : (
-                            <span className="text-destructive">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Tabs defaultValue="list" className="flex flex-col h-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="list">상세 기록</TabsTrigger>
+                  <TabsTrigger value="stats">통계 분석</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="list" className="flex-1 overflow-auto">
+                  <div className="overflow-auto max-h-[60vh]">
+                    <table className="w-full text-xs border-collapse">
+                      <thead className="sticky top-0 bg-background">
+                        <tr className="border-b">
+                          <th className="py-2 px-2 text-left">날짜</th>
+                          <th className="py-2 px-2 text-left">출근</th>
+                          <th className="py-2 px-2 text-left">퇴근</th>
+                          <th className="py-2 px-2 text-left">근무시간</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attendanceRecords.map((record) => {
+                          const workMinutes = record.checkInTime && record.checkOutTime
+                            ? differenceInMinutes(
+                                new Date(record.checkOutTime),
+                                new Date(record.checkInTime)
+                              )
+                            : 0;
+                          
+                          const formatWorkTime = (minutes: number) => {
+                            if (minutes <= 0) return "-";
+                            const hours = Math.floor(minutes / 60);
+                            const mins = minutes % 60;
+                            return `${hours}시간 ${mins > 0 ? `${mins}분` : ""}`.trim();
+                          };
+                          
+                          return (
+                            <tr key={record.id} className="border-b last:border-0">
+                              <td className="py-2 px-2 whitespace-nowrap">
+                                {format(
+                                  new Date(record.checkInTime),
+                                  "yyyy-MM-dd (eee)"
+                                )}
+                              </td>
+                              <td className="py-2 px-2">
+                                {format(new Date(record.checkInTime), "HH:mm")}
+                              </td>
+                              <td className="py-2 px-2">
+                                {record.checkOutTime ? (
+                                  format(new Date(record.checkOutTime), "HH:mm")
+                                ) : (
+                                  <span className="text-destructive">-</span>
+                                )}
+                              </td>
+                              <td className="py-2 px-2">
+                                {formatWorkTime(workMinutes)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="stats" className="flex-1 overflow-auto">
+                  <AttendanceStats
+                    records={attendanceRecords}
+                    dateRange={recentTwoWeeksRange}
+                    targetUserNumericId={session.user?.userId}
+                    isView={false}
+                  />
+                </TabsContent>
+              </Tabs>
             )}
           </div>
         </DialogContent>

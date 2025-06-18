@@ -121,6 +121,7 @@ export interface AttendanceStatsProps {
   records: AttendanceRecordWithUser[];
   targetUserNumericId?: number; // User.userId (Int)
   dateRange?: DateRange;
+  isView?: boolean;
 }
 
 // attendance-viewer.tsx 에서 page.tsx로부터 받는 데이터 타입
