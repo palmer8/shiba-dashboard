@@ -130,8 +130,11 @@ export function UserPartitionLogTable({
       {
         accessorKey: "timestamp",
         header: "시간",
+        size: 160,
+        minSize: 140,
+        maxSize: 180,
         cell: ({ row }) => (
-          <div className="whitespace-nowrap overflow-hidden text-ellipsis min-w-[120px] md:min-w-[140px] text-xs md:text-sm">
+          <div className="whitespace-nowrap overflow-hidden text-ellipsis text-xs md:text-sm">
             {row.original.timestamp ? 
               formatKoreanDateTime(new Date(row.original.timestamp)) : 
               '-'
@@ -142,6 +145,9 @@ export function UserPartitionLogTable({
       {
         accessorKey: "level",
         header: "레벨",
+        size: 80,
+        minSize: 60,
+        maxSize: 100,
         cell: ({ row }) => {
           const level = row.original.level || 'info';
           return (
@@ -168,12 +174,15 @@ export function UserPartitionLogTable({
       {
         accessorKey: "type",
         header: "타입",
+        size: 140,
+        minSize: 100,
+        maxSize: 180,
         cell: ({ row }) => (
-          <div className="relative max-w-[100px] group">
+          <div className="relative group">
             <div className="overflow-hidden">
               <Badge 
                 variant="outline" 
-                className="font-mono text-[10px] px-1.5 py-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-full cursor-help"
+                className="font-mono text-[10px] px-1.5 py-0.5 whitespace-nowrap overflow-hidden text-ellipsis w-full cursor-help"
                 title={row.original.type}
               >
                 {row.original.type}
@@ -196,20 +205,23 @@ export function UserPartitionLogTable({
       {
         accessorKey: "message",
         header: "메시지",
+        size: 300,
+        minSize: 200,
+        maxSize: 400,
         cell: ({ row }) => (
-          <div className="relative max-w-[300px] group">
-            <div className="overflow-hidden">
+          <div className="relative group">
+            <div className="overflow-hidden max-w-[300px]">
               <span 
-                className="inline-block whitespace-nowrap overflow-hidden text-ellipsis max-w-full cursor-help"
+                className="inline-block whitespace-nowrap overflow-hidden text-ellipsis w-full cursor-help"
                 title={row.original.message}
               >
                 {row.original.message}
               </span>
             </div>
             {/* Hover시 전체 텍스트 표시 */}
-            {row.original.message.length > 50 && (
+            {row.original.message.length > 30 && (
               <div className="absolute left-0 top-0 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                <div className="bg-background border rounded px-2 py-1 shadow-lg text-sm whitespace-nowrap max-w-[500px] overflow-hidden">
+                <div className="bg-background border rounded px-2 py-1 shadow-lg text-sm whitespace-nowrap max-w-[600px] overflow-hidden">
                   <span className="text-foreground">
                     {row.original.message}
                   </span>
@@ -222,6 +234,9 @@ export function UserPartitionLogTable({
       {
         accessorKey: "metadata",
         header: "메타데이터",
+        size: 160,
+        minSize: 120,
+        maxSize: 200,
         cell: MetadataCell,
       },
     ],
@@ -431,7 +446,7 @@ export function UserPartitionLogTable({
 
       {/* 로그 테이블 */}
       <div className="rounded-md overflow-auto">
-        <Table ref={tableContainerRef} className="min-w-[800px]">
+        <Table ref={tableContainerRef} className="w-full">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
