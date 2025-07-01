@@ -1,66 +1,84 @@
-import { logMemoryStore } from "@/service/log-service";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 
-// Cron Job 요청을 위한 API 키 검증
+// 환경변수 상수 초기화
+const PARTITION_LOG_URL = process.env.PARTITION_LOG_URL || "";
+const SHIBA_LOG_API_KEY = process.env.SHIBA_LOG_API_KEY || "";
+
+// 환경변수 로드 상태 확인 (개발 환경에서만)
+if (process.env.NODE_ENV === 'development') {
+  console.log('API /logs/flush 환경변수 초기화:', {
+    hasApiKey: !!SHIBA_LOG_API_KEY,
+    hasPartitionUrl: !!PARTITION_LOG_URL,
+    apiKeyLength: SHIBA_LOG_API_KEY.length,
+    partitionUrl: PARTITION_LOG_URL ? PARTITION_LOG_URL.substring(0, 20) + '...' : 'NOT_SET'
+  });
+}
+
+// API 키 검증
 const validateApiKey = async () => {
   const headersList = await headers();
   const apiKey = headersList.get("x-api-key");
-  // Cron Job 전용 API 키를 사용하는 것이 보안상 더 좋습니다.
-  return apiKey === process.env.SHIBA_CRON_API_KEY;
+  return apiKey === SHIBA_LOG_API_KEY;
 };
 
-/**
- * Cron Job에 의해 호출되어 메모리 로그 버퍼를 강제로 DB에 저장합니다.
- */
-export async function POST() {
-  const headersList = await headers();
-  const apiKey = headersList.get("x-api-key");
+// 새로운 파티션 로그 서버 플러시 함수
+async function flushPartitionServer() {
+  try {
+    const response = await fetch(`${PARTITION_LOG_URL}/api/logs/flush`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': SHIBA_LOG_API_KEY,
+      },
+    });
 
-  const isProd = process.env.NODE_ENV === "production";
-  const cronKey = process.env.SHIBA_CRON_API_KEY;
-  const logKey = process.env.SHIBA_LOG_API_KEY;
+    if (!response.ok) {
+      throw new Error(`파티션 서버 플러시 응답 오류: ${response.status}`);
+    }
 
-  let isAuthorized = false;
-  if (isProd) {
-    // 프로덕션 환경에서는 Cron Job 전용 키만 허용합니다.
-    isAuthorized = apiKey === cronKey;
-  } else {
-    // 개발 환경에서는 테스트 편의를 위해 Cron Job 키 또는 일반 로그 키를 허용합니다.
-    isAuthorized = apiKey === cronKey || apiKey === logKey;
+    return await response.json();
+  } catch (error) {
+    console.error('파티션 로그 서버 플러시 실패:', error);
+    return null;
   }
+}
 
-  if (!isAuthorized) {
+export async function POST(req: Request) {
+  if (!(await validateApiKey())) {
     return NextResponse.json({ error: "인증 실패" }, { status: 401 });
   }
 
   try {
-    const bufferSizeBefore = logMemoryStore.getBufferSize();
+    // 파티션 서버 플러시 실행
+    const partitionResult = await flushPartitionServer();
 
-    if (bufferSizeBefore === 0) {
-      return NextResponse.json({
-        success: true,
-        message: "처리할 로그가 없습니다.",
-        flushedCount: 0,
-      });
+    const response: any = {
+      success: true,
+      message: "플러시가 완료되었습니다",
+      timestamp: new Date().toISOString(),
+      partition: {
+        success: partitionResult !== null,
+        result: partitionResult
+      }
+    };
+
+    // 개발 환경에서는 상세 정보 포함
+    if (process.env.NODE_ENV === 'development') {
+      response.debug = {
+        partitionResult
+      };
     }
 
-    await logMemoryStore.forceFlush();
-    const bufferSizeAfter = logMemoryStore.getBufferSize();
-    const flushedCount = bufferSizeBefore - bufferSizeAfter;
-
-    console.log(`Cron-triggered log flush: ${flushedCount} logs processed.`);
-
-    return NextResponse.json({
-      success: true,
-      message: "로그 버퍼를 성공적으로 비웠습니다.",
-      flushedCount,
-    });
+    return NextResponse.json(response);
   } catch (error) {
-    console.error("Cron-triggered log flush 실패:", error);
+    console.error("플러시 실패:", error);
     return NextResponse.json(
-      { error: "로그 버퍼를 비우는 데 실패했습니다." },
-      { status: 500 },
+      { 
+        error: "플러시에 실패했습니다", 
+        details: error instanceof Error ? error.message : "알 수 없는 오류" 
+      },
+      { status: 500 }
     );
   }
 } 

@@ -49,6 +49,11 @@ const ROLE_LINKS = {
         role: ["INGAME_ADMIN", "MASTER", "STAFF", "SUPERMASTER"],
       },
       {
+        name: "유저 로그 조회 (새로운 파티션)",
+        href: "/log/user-partition",
+        role: ["MASTER", "SUPERMASTER"],
+      },
+      {
         name: "게임 데이터 조회",
         href: "/log/game",
         role: ["INGAME_ADMIN", "MASTER", "SUPERMASTER", "STAFF"],
@@ -246,8 +251,5 @@ export const GAME_DATA_TYPE = {
 
 // 대시보드 API 키
 export const SHIBA_DASHBOARD_API_KEY = process.env.SHIBA_DASHBOARD_API_KEY;
-
-// 로그 API 키
-export const SHIBA_LOG_API_KEY = process.env.SHIBA_LOG_API_KEY;
 
 export { ROLE_LINKS, PENALTY_TYPE, reasonOptions, WHITELIST_STATUS };

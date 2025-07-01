@@ -63,3 +63,51 @@ export interface VehicleQueryResult {
   vehicle: string;
   vehicle_plate: string | null;
 }
+
+// 새로운 파티션 로그 시스템 타입들
+export interface PartitionLogData {
+  id?: number;
+  type: string;
+  message: string;
+  level?: string;
+  metadata?: { [key: string]: any };
+  timestamp?: string;
+}
+
+export interface PartitionLogFilter {
+  type?: string;
+  level?: string;
+  message?: string;
+  startDate?: string;
+  endDate?: string;
+  page: number;
+  limit?: number;
+}
+
+export interface PartitionLogMetadata {
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  memoryLogs: number;
+  databaseLogs: number;
+  bufferSize: number;
+}
+
+export interface LogStats {
+  server: {
+    uptime: number;
+    memoryUsage: any;
+    nodeVersion: string;
+    environment: string;
+  };
+  logStore: {
+    bufferSize: number;
+    batchSize: number;
+    flushInterval: number;
+    isProcessing: boolean;
+    lastProcessedAt: string | null;
+  };
+  database: {
+    connectionString: string;
+  };
+}

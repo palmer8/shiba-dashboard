@@ -2,11 +2,25 @@ import { NextResponse } from "next/server";
 import db from "@/db/pg";
 import { headers } from "next/headers";
 
+// 환경변수 상수 초기화
+const PARTITION_LOG_URL = process.env.PARTITION_LOG_URL || "";
+const SHIBA_LOG_API_KEY = process.env.SHIBA_LOG_API_KEY || "";
+
+// 환경변수 로드 상태 확인 (개발 환경에서만)
+if (process.env.NODE_ENV === 'development') {
+  console.log('API /logs 환경변수 초기화:', {
+    hasApiKey: !!SHIBA_LOG_API_KEY,
+    hasPartitionUrl: !!PARTITION_LOG_URL,
+    apiKeyLength: SHIBA_LOG_API_KEY.length,
+    partitionUrl: PARTITION_LOG_URL ? PARTITION_LOG_URL.substring(0, 20) + '...' : 'NOT_SET'
+  });
+}
+
 // API 키 검증
 const validateApiKey = async () => {
   const headersList = await headers();
   const apiKey = headersList.get("x-api-key");
-  return apiKey === process.env.SHIBA_LOG_API_KEY;
+  return apiKey === SHIBA_LOG_API_KEY;
 };
 
 // 메모리 저장소
@@ -100,27 +114,176 @@ class LogMemoryStore {
 
 const logStore = LogMemoryStore.getInstance();
 
+// 새로운 파티션 로그 서버에 단일 로그 저장하는 함수
+async function saveToPartitionServer(logData: any) {
+  try {
+    const response = await fetch(`${PARTITION_LOG_URL}/api/logs`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': SHIBA_LOG_API_KEY,
+      },
+      body: JSON.stringify(logData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`파티션 서버 응답 오류: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('파티션 로그 서버 저장 실패:', error);
+    // 파티션 서버 저장 실패는 전체 로직을 중단시키지 않음
+    return null;
+  }
+}
+
+// 새로운 파티션 로그 서버에 배치 로그 저장하는 함수
+async function saveBatchToPartitionServer(logs: any[]) {
+  try {
+    const response = await fetch(`${PARTITION_LOG_URL}/api/logs/batch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': SHIBA_LOG_API_KEY,
+      },
+      body: JSON.stringify({ logs }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`파티션 서버 배치 응답 오류: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('파티션 로그 서버 배치 저장 실패:', error);
+    // 파티션 서버 저장 실패는 전체 로직을 중단시키지 않음
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   if (!(await validateApiKey())) {
     return NextResponse.json({ error: "인증 실패" }, { status: 401 });
   }
 
   try {
-    const logData = await req.json();
+    const requestData = await req.json();
 
-    if (!logData.type || !logData.message) {
-      return NextResponse.json(
-        { error: "필수 필드가 누락되었습니다" },
-        { status: 400 }
-      );
+    // 배치 로그인지 단일 로그인지 확인
+    const isBatch = Array.isArray(requestData.logs);
+    
+    if (isBatch) {
+      // 배치 로그 처리
+      const logs = requestData.logs;
+      
+      if (!logs || logs.length === 0) {
+        return NextResponse.json(
+          { error: "로그 배열이 비어있습니다" },
+          { status: 400 }
+        );
+      }
+
+      if (logs.length > 1000) {
+        return NextResponse.json(
+          { error: "한 번에 최대 1000개의 로그만 처리할 수 있습니다" },
+          { status: 400 }
+        );
+      }
+
+      // 각 로그 유효성 검사
+      const invalidLogs = logs.filter((log: any, index: number) => {
+        if (!log.type || !log.message) {
+          console.error(`로그 ${index}: type과 message 필수`);
+          return true;
+        }
+        return false;
+      });
+
+      if (invalidLogs.length > 0) {
+        return NextResponse.json(
+          { error: `${invalidLogs.length}개의 유효하지 않은 로그가 있습니다` },
+          { status: 400 }
+        );
+      }
+
+      // 배치 처리: 레거시 저장과 파티션 서버 저장을 병렬 처리
+      const legacyPromises = logs.map((log: any) => logStore.addLog(log));
+      const [legacyResults, partitionResult] = await Promise.allSettled([
+        Promise.allSettled(legacyPromises),
+        saveBatchToPartitionServer(logs)
+      ]);
+
+      // 레거시 저장 결과 확인
+      const legacyFailures = legacyResults.status === 'fulfilled' 
+        ? (legacyResults.value as PromiseSettledResult<any>[]).filter(result => result.status === 'rejected').length
+        : logs.length;
+
+      const response: any = {
+        success: true,
+        batch: true,
+        processed: logs.length,
+        legacy: {
+          success: logs.length - legacyFailures,
+          failures: legacyFailures
+        },
+        partition: partitionResult.status === 'fulfilled' && partitionResult.value !== null
+      };
+
+      // 개발 환경에서는 상세 정보 포함
+      if (process.env.NODE_ENV === 'development') {
+        response.debug = {
+          legacyResults: legacyResults,
+          partitionResult: partitionResult.status === 'fulfilled' ? partitionResult.value : partitionResult.reason
+        };
+      }
+
+      return NextResponse.json(response);
+
+    } else {
+      // 단일 로그 처리 (기존 로직)
+      const logData = requestData;
+
+      if (!logData.type || !logData.message) {
+        return NextResponse.json(
+          { error: "필수 필드가 누락되었습니다" },
+          { status: 400 }
+        );
+      }
+
+      // 기존 레거시 로그 저장과 새로운 파티션 로그 서버 저장을 병렬 처리
+      const [legacyResult, partitionResult] = await Promise.allSettled([
+        logStore.addLog(logData),
+        saveToPartitionServer(logData)
+      ]);
+
+    // 레거시 저장 실패 시 에러 반환
+    if (legacyResult.status === 'rejected') {
+      throw legacyResult.reason;
     }
 
-    await logStore.addLog(logData);
-    return NextResponse.json({ success: true });
+    // 응답에 파티션 서버 저장 결과도 포함
+    const response: any = { 
+      success: true,
+      legacy: true,
+      partition: partitionResult.status === 'fulfilled' && partitionResult.value !== null
+    };
+
+    // 개발 환경에서는 상세 정보 포함
+    if (process.env.NODE_ENV === 'development') {
+      response.debug = {
+        legacyStatus: legacyResult.status,
+        partitionStatus: partitionResult.status,
+        partitionResult: partitionResult.status === 'fulfilled' ? partitionResult.value : partitionResult.reason
+      };
+    }
+
+      return NextResponse.json(response);
+    }
   } catch (error) {
     console.error("로그 저장 실패:", error);
     return NextResponse.json(
-      { error: "로그 저장에 실패했습니다" },
+      { error: "로그 저장에 실패했습니다", details: error instanceof Error ? error.message : "알 수 없는 오류" },
       { status: 500 }
     );
   }

@@ -1,6 +1,6 @@
 "use server";
 
-import { logService } from "@/service/log-service";
+import { logService, newLogService } from "@/service/log-service";
 import { revalidatePath } from "next/cache";
 
 export const exportGameLogsAction = async (ids: number[]) => {
@@ -53,4 +53,34 @@ export const exportAdminLogsByDateRangeAction = async (
   endDate: string
 ) => {
   return await logService.exportAdminLogsByDateRange(startDate, endDate);
+};
+
+// 새로운 파티션 로그 시스템 액션들
+export const getPartitionLogsAction = async (filters: {
+  type?: string;
+  level?: string;
+  message?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const result = await newLogService.getPartitionLogs(filters);
+  return result;
+};
+
+export const getLogStatsAction = async () => {
+  const result = await newLogService.getLogStats();
+  return result;
+};
+
+export const flushLogsAction = async () => {
+  const result = await newLogService.flushLogs();
+  revalidatePath("/log/user-partition");
+  return result;
+};
+
+export const getHealthCheckAction = async () => {
+  const result = await newLogService.getHealthCheck();
+  return result;
 };

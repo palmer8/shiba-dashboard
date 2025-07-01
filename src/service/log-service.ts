@@ -19,6 +19,18 @@ import { UserRole } from "@prisma/client";
 import { ApiResponse } from "@/types/global.dto";
 import { RowDataPacket } from "mysql2";
 
+// 환경변수 상수 초기화
+const PARTITION_LOG_URL = process.env.PARTITION_LOG_URL || "";
+const SHIBA_LOG_API_KEY = process.env.SHIBA_LOG_API_KEY || "";
+
+// 개발 환경에서 환경변수 로드 상태 확인
+if (process.env.NODE_ENV === 'development') {
+  console.log('log-service.ts 환경변수 초기화:', {
+    PARTITION_LOG_URL: PARTITION_LOG_URL ? PARTITION_LOG_URL.substring(0, 20) + '...' : 'NOT_SET',
+    SHIBA_LOG_API_KEY: SHIBA_LOG_API_KEY ? '설정됨 (길이: ' + SHIBA_LOG_API_KEY.length + ')' : 'NOT_SET'
+  });
+}
+
 interface GameLog {
   type: string;
   level: string;
@@ -1078,4 +1090,315 @@ export class LogService {
   }
 }
 
+// 새로운 파티션 로그 시스템 관련 인터페이스
+interface NewGameLog {
+  id?: number;
+  type: string;
+  message: string;
+  level?: string;
+  metadata?: { [key: string]: any };
+  timestamp?: string;
+}
+
+interface NewLogQuery {
+  type?: string;
+  level?: string;
+  message?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
+interface NewLogsResponse {
+  success: boolean;
+  data?: {
+    memory: {
+      records: NewGameLog[];
+      total: number;
+      page: number;
+      totalPages: number;
+    };
+    database: {
+      records: NewGameLog[];
+      total: number;
+      page: number;
+      totalPages: number;
+    };
+    combined: {
+      totalMemoryLogs: number;
+      totalDatabaseLogs: number;
+      bufferSize: number;
+    };
+  };
+  error?: string;
+  timestamp?: string;
+}
+
+interface LogStatsResponse {
+  success: boolean;
+  data?: {
+    server: {
+      uptime: number;
+      memoryUsage: any;
+      nodeVersion: string;
+      environment: string;
+    };
+    logStore: {
+      bufferSize: number;
+      batchSize: number;
+      flushInterval: number;
+      isProcessing: boolean;
+      lastProcessedAt: string | null;
+    };
+    database: {
+      connectionString: string;
+    };
+  };
+  error?: string;
+  timestamp?: string;
+}
+
+// 새로운 파티션 로그 서비스 클래스
+class NewLogService {
+  private readonly apiKey = SHIBA_LOG_API_KEY;
+  private readonly baseUrl = PARTITION_LOG_URL;
+
+  constructor() {
+    // 개발 환경에서 환경변수 로드 상태 확인
+    if (process.env.NODE_ENV === 'development') {
+      console.log('NewLogService 인스턴스 생성:', {
+        hasApiKey: !!this.apiKey,
+        hasBaseUrl: !!this.baseUrl,
+        apiKeyLength: this.apiKey.length,
+        baseUrl: this.baseUrl ? this.baseUrl.substring(0, 20) + '...' : 'NOT_SET'
+      });
+    }
+    
+    if (!this.apiKey || !this.baseUrl) {
+      console.warn('NewLogService: 필수 환경변수가 설정되지 않았습니다', {
+        SHIBA_LOG_API_KEY: !!this.apiKey,
+        PARTITION_LOG_URL: !!this.baseUrl
+      });
+    }
+  }
+
+  private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+
+    console.log('makeRequest:', url);
+    
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'x-api-key': this.apiKey,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async getPartitionLogs(filters: NewLogQuery): Promise<ApiResponse<{
+    records: NewGameLog[];
+    total: number;
+    page: number;
+    totalPages: number;
+    memoryLogs: number;
+    databaseLogs: number;
+    bufferSize: number;
+  }>> {
+    try {
+      const params = new URLSearchParams();
+      
+      if (filters.type) params.set('type', filters.type);
+      if (filters.level) params.set('level', filters.level);
+      if (filters.message) params.set('message', filters.message);
+      if (filters.startDate) params.set('startDate', filters.startDate);
+      if (filters.endDate) params.set('endDate', filters.endDate);
+      if (filters.page) params.set('page', filters.page.toString());
+      if (filters.limit) params.set('limit', filters.limit.toString());
+
+      const endpoint = `/api/logs${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await this.makeRequest<NewLogsResponse>(endpoint);
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to fetch logs');
+      }
+
+      // 메모리와 DB 로그를 합쳐서 반환
+      const memoryRecords = response.data.memory?.records || [];
+      const dbRecords = response.data.database?.records || [];
+      
+      // 시간순으로 정렬 (최신순)
+      const allRecords = [...memoryRecords, ...dbRecords].sort((a, b) => {
+        const timeA = new Date(a.timestamp || 0).getTime();
+        const timeB = new Date(b.timestamp || 0).getTime();
+        return timeB - timeA;
+      });
+
+      // 페이지네이션 적용
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedRecords = allRecords.slice(startIndex, endIndex);
+
+      const totalRecords = (response.data.memory?.total || 0) + (response.data.database?.total || 0);
+
+      await this.writeAdminLog(
+        `새로운 파티션 로그 조회 (${[
+          filters.type,
+          filters.level,
+          filters.startDate,
+          filters.endDate,
+          filters.message,
+        ]
+          .filter(Boolean)
+          .join(", ")})`
+      );
+
+      return {
+        success: true,
+        data: {
+          records: paginatedRecords,
+          total: totalRecords,
+          page: page,
+          totalPages: Math.ceil(totalRecords / limit),
+          memoryLogs: response.data.combined?.totalMemoryLogs || 0,
+          databaseLogs: response.data.combined?.totalDatabaseLogs || 0,
+          bufferSize: response.data.combined?.bufferSize || 0,
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("새로운 파티션 로그 조회 실패:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "새로운 파티션 로그 조회 실패",
+        data: {
+          records: [],
+          total: 0,
+          page: 1,
+          totalPages: 1,
+          memoryLogs: 0,
+          databaseLogs: 0,
+          bufferSize: 0,
+        },
+      };
+    }
+  }
+
+  async getLogStats(): Promise<ApiResponse<LogStatsResponse['data']>> {
+    try {
+      const response = await this.makeRequest<LogStatsResponse>('/api/logs/stats');
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch stats');
+      }
+
+      return {
+        success: true,
+        data: response.data!,
+        error: null,
+      };
+    } catch (error) {
+      console.error("로그 통계 조회 실패:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "로그 통계 조회 실패",
+        data: null,
+      };
+    }
+  }
+
+  async flushLogs(): Promise<ApiResponse<{ processed: number; remainingBuffer: number }>> {
+    try {
+      const response = await this.makeRequest<{
+        success: boolean;
+        message: string;
+        processed: number;
+        remainingBuffer: number;
+        timestamp: string;
+      }>('/api/logs/flush', {
+        method: 'POST',
+      });
+
+      await this.writeAdminLog("새로운 파티션 로그 강제 플러시 실행");
+
+      return {
+        success: true,
+        data: {
+          processed: response.processed,
+          remainingBuffer: response.remainingBuffer,
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("로그 플러시 실패:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "로그 플러시 실패",
+        data: null,
+      };
+    }
+  }
+
+  async getHealthCheck(): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.makeRequest<any>('/api/logs/health');
+      
+      return {
+        success: true,
+        data: response,
+        error: null,
+      };
+    } catch (error) {
+      console.error("헬스체크 실패:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "헬스체크 실패",
+        data: null,
+      };
+    }
+  }
+
+  private async writeAdminLog(content: string) {
+    // 기존 logService의 writeAdminLog 재사용
+    const session = await auth();
+    if (!session?.user) return;
+
+    try {
+      const currentTime = new Date();
+      const existingLog = await prisma.accountUsingQuerylog.findFirst({
+        where: {
+          content: content,
+          createdAt: {
+            gte: new Date(currentTime.getTime() - 1000),
+            lt: new Date(currentTime.getTime() + 1000),
+          },
+        },
+      });
+
+      if (existingLog) return;
+
+      await prisma.accountUsingQuerylog.create({
+        data: {
+          content: `${session.user.nickname}(${session.user.userId}) > ${content}`,
+          registrantId: session.user.id,
+        },
+      });
+    } catch (error) {
+      console.error("관리자 로그 작성 중 에러:", error);
+    }
+  }
+}
+
+export const newLogService = new NewLogService();
 export const logService = new LogService();
