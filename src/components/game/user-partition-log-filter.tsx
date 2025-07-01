@@ -12,7 +12,6 @@ import { PartitionLogFilter } from "@/types/game";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { Session } from "next-auth";
@@ -192,7 +191,7 @@ export default function UserPartitionLogFilter({
           <CardTitle className="text-base">검색 조건</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="message">메시지</Label>
               <Input
@@ -207,22 +206,14 @@ export default function UserPartitionLogFilter({
 
             <div className="space-y-2">
               <Label htmlFor="level">로그 레벨</Label>
-              <Select
-                value={localFilter.level || "all"}
-                onValueChange={(value) => handleFilterChange("level", value === "all" ? undefined : value)}
+              <Input
+                id="level"
+                placeholder="예: info, error, warn, debug"
+                value={localFilter.level || ""}
+                onChange={(e) => handleFilterChange("level", e.target.value)}
+                onKeyDown={handleKeyDown}
                 disabled={isSubmitting}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="레벨 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체</SelectItem>
-                  <SelectItem value="debug">Debug</SelectItem>
-                  <SelectItem value="info">Info</SelectItem>
-                  <SelectItem value="warn">Warning</SelectItem>
-                  <SelectItem value="error">Error</SelectItem>
-                </SelectContent>
-              </Select>
+              />
             </div>
 
             <div className="space-y-2">
@@ -237,7 +228,7 @@ export default function UserPartitionLogFilter({
               />
             </div>
 
-            <div className="space-y-2 lg:col-span-2">
+            <div className="space-y-2 sm:col-span-2 lg:col-span-2">
               <Label>날짜 범위</Label>
               <DatePickerWithRange
                 date={dateRange}
@@ -248,18 +239,18 @@ export default function UserPartitionLogFilter({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 mt-6 pt-4 border-t">
             <Button
               variant="outline"
               onClick={handleReset}
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto"
               size="sm"
               disabled={isSubmitting}
             >
               <RotateCcw className="h-4 w-4" />
               초기화
             </Button>
-            <Button onClick={handleSearch} size="sm" disabled={isSubmitting}>
+            <Button onClick={handleSearch} size="sm" disabled={isSubmitting} className="w-full sm:w-auto">
               {isSearching ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

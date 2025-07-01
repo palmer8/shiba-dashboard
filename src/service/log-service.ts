@@ -1232,25 +1232,94 @@ class NewLogService {
         throw new Error(response.error || 'Failed to fetch logs');
       }
 
-      // 메모리와 DB 로그를 합쳐서 반환
+      // 서버에서 이미 페이지네이션된 데이터 사용
       const memoryRecords = response.data.memory?.records || [];
       const dbRecords = response.data.database?.records || [];
       
-      // 시간순으로 정렬 (최신순)
-      const allRecords = [...memoryRecords, ...dbRecords].sort((a, b) => {
+      // 메모리 데이터에 필터 적용 (서버에서 필터링이 안 된 경우)
+      const filteredMemoryRecords = memoryRecords.filter((log: NewGameLog) => {
+        let matches = true;
+        
+        if (filters.type && !log.type?.toLowerCase().includes(filters.type.toLowerCase())) {
+          matches = false;
+        }
+        if (filters.level && log.level !== filters.level) {
+          matches = false;
+        }
+        if (filters.message && !log.message?.toLowerCase().includes(filters.message.toLowerCase())) {
+          matches = false;
+        }
+        if (filters.startDate) {
+          const logDate = new Date(log.timestamp || 0);
+          const filterDate = new Date(filters.startDate);
+          if (logDate < filterDate) {
+            matches = false;
+          }
+        }
+        if (filters.endDate) {
+          const logDate = new Date(log.timestamp || 0);
+          const filterDate = new Date(filters.endDate);
+          filterDate.setHours(23, 59, 59, 999); // 하루 끝까지
+          if (logDate > filterDate) {
+            matches = false;
+          }
+        }
+        
+        return matches;
+      });
+      
+      // 시간순으로 정렬 (최신순) - 필터링된 메모리 데이터와 DB 데이터 결합
+      const allRecords = [...filteredMemoryRecords, ...dbRecords].sort((a, b) => {
         const timeA = new Date(a.timestamp || 0).getTime();
         const timeB = new Date(b.timestamp || 0).getTime();
         return timeB - timeA;
       });
 
-      // 페이지네이션 적용
-      const page = filters.page || 1;
+      // 총 개수 계산 (문자열을 숫자로 변환) - 디버깅 추가
+      const memoryTotal = Number(response.data.memory?.total || 0);
+      const databaseTotal = Number(response.data.database?.total || 0);
+      const combinedMemoryLogs = Number(response.data.combined?.totalMemoryLogs || 0);
+      const combinedDatabaseLogs = Number(response.data.combined?.totalDatabaseLogs || 0);
+      
+      // 필터링된 메모리 로그 수 계산
+      const filteredMemoryTotal = filteredMemoryRecords.length;
+      
+      // 우선순위: 필터링된 데이터 -> combined 데이터 -> 개별 데이터
+      const finalMemoryTotal = filteredMemoryTotal;
+      const finalDatabaseTotal = combinedDatabaseLogs || databaseTotal;
+      const totalRecords = finalMemoryTotal + finalDatabaseTotal;
+      
+      // 개발 환경에서 디버깅 로그
+      if (process.env.NODE_ENV === 'development') {
+        console.log('로그 개수 계산:', {
+          memoryTotal,
+          databaseTotal,
+          combinedMemoryLogs,
+          combinedDatabaseLogs,
+          finalMemoryTotal,
+          finalDatabaseTotal,
+          totalRecords
+        });
+      }
+      
+      // 페이지 정보 계산
+      const currentPage = filters.page || 1;
       const limit = filters.limit || 50;
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      const paginatedRecords = allRecords.slice(startIndex, endIndex);
-
-      const totalRecords = (response.data.memory?.total || 0) + (response.data.database?.total || 0);
+      const totalPages = Math.ceil(totalRecords / limit);
+      
+      // 개발 환경에서 페이지네이션 디버깅
+      if (process.env.NODE_ENV === 'development') {
+        console.log('페이지네이션 정보:', {
+          currentPage,
+          totalPages,
+          limit,
+          totalRecords,
+          memoryPage: response.data.memory?.page,
+          memoryTotalPages: response.data.memory?.totalPages,
+          databasePage: response.data.database?.page,
+          databaseTotalPages: response.data.database?.totalPages
+        });
+      }
 
       await this.writeAdminLog(
         `새로운 파티션 로그 조회 (${[
@@ -1267,13 +1336,13 @@ class NewLogService {
       return {
         success: true,
         data: {
-          records: paginatedRecords,
+          records: allRecords,
           total: totalRecords,
-          page: page,
-          totalPages: Math.ceil(totalRecords / limit),
-          memoryLogs: response.data.combined?.totalMemoryLogs || 0,
-          databaseLogs: response.data.combined?.totalDatabaseLogs || 0,
-          bufferSize: response.data.combined?.bufferSize || 0,
+          page: currentPage,
+          totalPages: totalPages,
+          memoryLogs: finalMemoryTotal,
+          databaseLogs: finalDatabaseTotal,
+          bufferSize: Number(response.data.combined?.bufferSize || 0),
         },
         error: null,
       };
@@ -1364,6 +1433,71 @@ class NewLogService {
       return {
         success: false,
         error: error instanceof Error ? error.message : "헬스체크 실패",
+        data: null,
+      };
+    }
+  }
+
+  async exportPartitionLogsByDateRange(startDate: string, endDate: string): Promise<ApiResponse<NewGameLog[]>> {
+    try {
+      const filters = {
+        startDate,
+        endDate,
+        page: 1,
+        limit: 10000, // 충분히 큰 수로 설정
+      };
+
+      const response = await this.makeRequest<NewLogsResponse>(`/api/logs?${new URLSearchParams({
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        page: filters.page.toString(),
+        limit: filters.limit.toString(),
+      }).toString()}`);
+
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to fetch logs');
+      }
+
+      // 메모리와 DB 로그를 합쳐서 반환
+      const memoryRecords = response.data.memory?.records || [];
+      const dbRecords = response.data.database?.records || [];
+      
+      // 필터링과 정렬
+      const filteredMemoryRecords = memoryRecords.filter((log: NewGameLog) => {
+        if (filters.startDate) {
+          const logDate = new Date(log.timestamp || 0);
+          const filterDate = new Date(filters.startDate);
+          if (logDate < filterDate) return false;
+        }
+        if (filters.endDate) {
+          const logDate = new Date(log.timestamp || 0);
+          const filterDate = new Date(filters.endDate);
+          filterDate.setHours(23, 59, 59, 999);
+          if (logDate > filterDate) return false;
+        }
+        return true;
+      });
+
+      const allRecords = [...filteredMemoryRecords, ...dbRecords].sort((a, b) => {
+        const timeA = new Date(a.timestamp || 0).getTime();
+        const timeB = new Date(b.timestamp || 0).getTime();
+        return timeB - timeA;
+      });
+
+      await this.writeAdminLog(
+        `새로운 파티션 로그 CSV 기간 다운로드 (${startDate} ~ ${endDate})`
+      );
+
+      return {
+        success: true,
+        data: allRecords,
+        error: null,
+      };
+    } catch (error) {
+      console.error("파티션 로그 날짜 범위 export 실패:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "파티션 로그 날짜 범위 export 실패",
         data: null,
       };
     }

@@ -84,3 +84,10 @@ export const getHealthCheckAction = async () => {
   const result = await newLogService.getHealthCheck();
   return result;
 };
+
+export const exportPartitionLogsByDateRangeAction = async (
+  startDate: string,
+  endDate: string
+) => {
+  return await newLogService.exportPartitionLogsByDateRange(startDate, endDate);
+};

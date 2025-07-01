@@ -49,9 +49,9 @@ const ROLE_LINKS = {
         role: ["INGAME_ADMIN", "MASTER", "STAFF", "SUPERMASTER"],
       },
       {
-        name: "유저 로그 조회 (새로운 파티션)",
+        name: "유저 로그 조회 (테스트)",
         href: "/log/user-partition",
-        role: ["MASTER", "SUPERMASTER"],
+        role: ["MASTER", "SUPERMASTER", "INGAME_ADMIN", "STAFF"],
       },
       {
         name: "게임 데이터 조회",

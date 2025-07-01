@@ -26,13 +26,23 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
-import { ChevronRight, RefreshCw, Activity, Zap } from "lucide-react";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { ChevronRight, RefreshCw, Activity, Zap, Download } from "lucide-react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { PartitionLogData, PartitionLogMetadata } from "@/types/game";
 import { Session } from "next-auth";
 import { UserRole } from "@prisma/client";
-import { flushLogsAction, getHealthCheckAction } from "@/actions/log-action";
+import { flushLogsAction, getHealthCheckAction, exportPartitionLogsByDateRangeAction } from "@/actions/log-action";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DateRange, SelectRangeEventHandler } from "react-day-picker";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { handleDownloadJson2CSV } from "@/lib/utils";
 
 interface PartitionLogTableProps {
   data: PartitionLogData[];
@@ -52,9 +62,20 @@ export function UserPartitionLogTable({
   const [inputPage, setInputPage] = useState(page.toString());
   const [isFlushingLogs, setIsFlushingLogs] = useState(false);
   const [healthStatus, setHealthStatus] = useState<any>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [range, setRange] = useState<DateRange | undefined>(undefined);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     setInputPage(page.toString());
+  }, [page]);
+
+  useEffect(() => {
+    if (tableContainerRef.current && tableContainerRef.current.parentElement) {
+      tableContainerRef.current.parentElement.scrollTop = 0;
+    }
   }, [page]);
 
   // 건강 상태 확인
@@ -110,7 +131,7 @@ export function UserPartitionLogTable({
         accessorKey: "timestamp",
         header: "시간",
         cell: ({ row }) => (
-          <div className="whitespace-nowrap overflow-hidden text-ellipsis min-w-[140px]">
+          <div className="whitespace-nowrap overflow-hidden text-ellipsis min-w-[120px] md:min-w-[140px] text-xs md:text-sm">
             {row.original.timestamp ? 
               formatKoreanDateTime(new Date(row.original.timestamp)) : 
               '-'
@@ -148,10 +169,27 @@ export function UserPartitionLogTable({
         accessorKey: "type",
         header: "타입",
         cell: ({ row }) => (
-          <div className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">
-            <Badge variant="outline" className="font-mono text-xs">
-              {row.original.type}
-            </Badge>
+          <div className="relative max-w-[100px] group">
+            <div className="overflow-hidden">
+              <Badge 
+                variant="outline" 
+                className="font-mono text-[10px] px-1.5 py-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-full cursor-help"
+                title={row.original.type}
+              >
+                {row.original.type}
+              </Badge>
+            </div>
+            {/* Hover시 전체 텍스트 표시 */}
+            {row.original.type.length > 15 && (
+              <div className="absolute left-0 top-0 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                <Badge 
+                  variant="outline" 
+                  className="font-mono text-[10px] px-1.5 py-0.5 whitespace-nowrap bg-background border shadow-lg"
+                >
+                  {row.original.type}
+                </Badge>
+              </div>
+            )}
           </div>
         ),
       },
@@ -159,8 +197,25 @@ export function UserPartitionLogTable({
         accessorKey: "message",
         header: "메시지",
         cell: ({ row }) => (
-          <div className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px]">
-            {row.original.message}
+          <div className="relative max-w-[300px] group">
+            <div className="overflow-hidden">
+              <span 
+                className="inline-block whitespace-nowrap overflow-hidden text-ellipsis max-w-full cursor-help"
+                title={row.original.message}
+              >
+                {row.original.message}
+              </span>
+            </div>
+            {/* Hover시 전체 텍스트 표시 */}
+            {row.original.message.length > 50 && (
+              <div className="absolute left-0 top-0 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                <div className="bg-background border rounded px-2 py-1 shadow-lg text-sm whitespace-nowrap max-w-[500px] overflow-hidden">
+                  <span className="text-foreground">
+                    {row.original.message}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         ),
       },
@@ -212,6 +267,44 @@ export function UserPartitionLogTable({
     }
   }, [router, isFlushingLogs]);
 
+  const handleCsvDownload = useCallback(async () => {
+    if (!range || !range.from || !range.to) return;
+    
+    setCsvLoading(true);
+    setCsvError(null);
+    
+    try {
+      const startDate = range.from.toISOString().slice(0, 10);
+      const endDate = range.to.toISOString().slice(0, 10);
+      const result = await exportPartitionLogsByDateRangeAction(startDate, endDate);
+      
+      if (result.success && result.data) {
+        handleDownloadJson2CSV({
+          data: result.data,
+          fileName: `partition-logs-${startDate}_to_${endDate}`,
+        });
+        toast({
+          title: "CSV 다운로드 완료",
+          description: `${result.data.length}개의 로그가 다운로드되었습니다.`,
+        });
+        setModalOpen(false);
+        setRange(undefined);
+      } else {
+        throw new Error(result.error || "다운로드 실패");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "다운로드 실패";
+      setCsvError(errorMessage);
+      toast({
+        title: "CSV 다운로드 실패",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setCsvLoading(false);
+    }
+  }, [range]);
+
   if (!data || data.length === 0) {
     return (
       <div className="space-y-4">
@@ -224,34 +317,48 @@ export function UserPartitionLogTable({
               서버 관리 도구
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center gap-3">
+          <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleFlushLogs}
+                disabled={isFlushingLogs}
+                className="gap-2 w-full sm:w-auto"
+              >
+                {isFlushingLogs ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    플러시 중...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4" />
+                    <span className="hidden sm:inline">메모리 로그 강제 플러시</span>
+                    <span className="sm:hidden">강제 플러시</span>
+                  </>
+                )}
+              </Button>
+              {healthStatus && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center sm:justify-start">
+                  <div className={`w-2 h-2 rounded-full ${
+                    healthStatus.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
+                  }`} />
+                  <span className="whitespace-nowrap">서버 상태: {healthStatus.status === 'healthy' ? '정상' : '오류'}</span>
+                </div>
+              )}
+            </div>
+            
             <Button
               variant="outline"
               size="sm"
-              onClick={handleFlushLogs}
-              disabled={isFlushingLogs}
-              className="gap-2"
+              onClick={() => setModalOpen(true)}
+              className="gap-2 w-full md:w-auto"
             >
-              {isFlushingLogs ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  플러시 중...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4" />
-                  메모리 로그 강제 플러시
-                </>
-              )}
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">CSV 기간 다운로드</span>
+              <span className="sm:hidden">CSV 다운로드</span>
             </Button>
-            {healthStatus && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className={`w-2 h-2 rounded-full ${
-                  healthStatus.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
-                }`} />
-                서버 상태: {healthStatus.status === 'healthy' ? '정상' : '오류'}
-              </div>
-            )}
           </CardContent>
         </Card>
         )}
@@ -276,14 +383,14 @@ export function UserPartitionLogTable({
             서버 관리 도구
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <Button
               variant="outline"
               size="sm"
               onClick={handleFlushLogs}
               disabled={isFlushingLogs}
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto"
             >
               {isFlushingLogs ? (
                 <>
@@ -293,32 +400,38 @@ export function UserPartitionLogTable({
               ) : (
                 <>
                   <Zap className="h-4 w-4" />
-                  메모리 로그 강제 플러시
+                  <span className="hidden sm:inline">메모리 로그 강제 플러시</span>
+                  <span className="sm:hidden">강제 플러시</span>
                 </>
               )}
             </Button>
             {healthStatus && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center sm:justify-start">
                 <div className={`w-2 h-2 rounded-full ${
                   healthStatus.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
                 }`} />
-                서버 상태: {healthStatus.status === 'healthy' ? '정상' : '오류'}
+                <span className="whitespace-nowrap">서버 상태: {healthStatus.status === 'healthy' ? '정상' : '오류'}</span>
               </div>
             )}
           </div>
           
-          <div className="text-sm text-muted-foreground">
-            총 {metadata.totalCount.toLocaleString()}개 로그 
-            (메모리: {metadata.memoryLogs.toLocaleString()}개, 
-            DB: {metadata.databaseLogs.toLocaleString()}개)
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setModalOpen(true)}
+            className="gap-2 w-full md:w-auto"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">CSV 기간 다운로드</span>
+            <span className="sm:hidden">CSV 다운로드</span>
+          </Button>
         </CardContent>
       </Card>
       )}
 
       {/* 로그 테이블 */}
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md overflow-auto">
+        <Table ref={tableContainerRef} className="min-w-[800px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -357,12 +470,18 @@ export function UserPartitionLogTable({
 
       {/* 페이지네이션 */}
       {data.length > 0 && (
-        <div className="flex items-center justify-between py-2">
-          <div className="text-sm text-muted-foreground">
-            총 {metadata.totalCount.toLocaleString()}개 중 {(page - 1) * 50 + 1}
-            -{Math.min(page * 50, metadata.totalCount)}개 표시
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-2">
+          <div className="text-sm text-muted-foreground text-center sm:text-left">
+            <div className="hidden sm:block">
+              총 {metadata.totalCount.toLocaleString()}개 중 {((page - 1) * 50 + 1).toLocaleString()}
+              -{Math.min(page * 50, metadata.totalCount).toLocaleString()}개 표시
+              (메모리: {metadata.memoryLogs.toLocaleString()}개, DB: {metadata.databaseLogs.toLocaleString()}개)
+            </div>
+            <div className="sm:hidden">
+              {((page - 1) * 50 + 1).toLocaleString()}-{Math.min(page * 50, metadata.totalCount).toLocaleString()} / {metadata.totalCount.toLocaleString()}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -408,6 +527,40 @@ export function UserPartitionLogTable({
           </div>
         </div>
       )}
+
+      {/* CSV 기간 다운로드 모달 */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md w-full">
+          <DialogHeader>
+            <DialogTitle>CSV 기간 다운로드</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <Calendar
+              mode="range"
+              selected={range}
+              onSelect={setRange as SelectRangeEventHandler}
+              numberOfMonths={1}
+              className="mx-auto"
+            />
+            <div className="text-xs text-muted-foreground text-center">
+              시작일과 종료일을 선택하세요. (시간은 무시됩니다)
+            </div>
+            {csvError && (
+              <div className="text-center text-destructive text-xs">
+                {csvError}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleCsvDownload}
+              disabled={!range?.from || !range?.to || csvLoading}
+            >
+              {csvLoading ? "다운로드 중..." : "다운로드"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
