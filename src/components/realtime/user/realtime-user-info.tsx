@@ -132,8 +132,6 @@ export default function RealtimeUserInfo({
   const [selectedIdentifier, setSelectedIdentifier] = useState<string>("");
   const [addIdentifierDialogOpen, setAddIdentifierDialogOpen] = useState(false);
 
-  const isSupermaster =
-    session?.user && hasAccess(session.user.role, UserRole.SUPERMASTER);
   const isMaster =
     session?.user && hasAccess(session.user.role, UserRole.MASTER);
   const canIncrementDecrement =
