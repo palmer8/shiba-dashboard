@@ -44,8 +44,8 @@ export default function ChangeUserIdDialog({
   const [warning, setWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isSupermaster =
-    session?.user && hasAccess(session.user.role, UserRole.SUPERMASTER);
+  const isMaster =
+    session?.user && hasAccess(session.user.role, UserRole.MASTER);
 
   const handleCheck = async () => {
     setError(null);
@@ -124,7 +124,7 @@ export default function ChangeUserIdDialog({
     setIsNewIdExists(undefined);
   };
 
-  if (!isSupermaster) return null;
+  if (!isMaster) return null;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>

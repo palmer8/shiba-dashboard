@@ -45,8 +45,8 @@ export default function ChangeUserIdentityDialog({
   const [step, setStep] = useState<"input" | "confirm" | "done">("input");
   const [error, setError] = useState<string | null>(null);
 
-  const isSupermaster =
-    session?.user && hasAccess(session.user.role, UserRole.SUPERMASTER);
+  const isMaster =
+    session?.user && hasAccess(session.user.role, UserRole.MASTER);
 
   useEffect(() => {
     if (open) {
@@ -149,7 +149,7 @@ export default function ChangeUserIdentityDialog({
     setStep("input");
   };
 
-  if (!isSupermaster) return null;
+  if (!isMaster) return null;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
