@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { getUserRelatedLogsAction } from "@/actions/log-action";
+import { getUserPartitionLogsAction } from "@/actions/log-action";
 import { useState, useEffect } from "react";
 import { UserDataTable } from "@/components/game/user-data-table";
 import { Input } from "@/components/ui/input";
@@ -35,16 +35,26 @@ export default function RealtimeUserLogs({
     type: "",
     level: "",
     message: "",
+    metadata: "",
     dateRange: undefined as DateRange | undefined,
   });
 
   const { data, error, isLoading, mutate } = useSWR(
-    [`user-logs-${userId}`, currentPage, filters],
+    [`user-partition-logs-${userId}`, currentPage, filters],
     async ([_, page, filters]) => {
-      const response = await getUserRelatedLogsAction(userId, page, filters);
+      console.log('로그 조회 요청:', { userId, page, filters });
+      const response = await getUserPartitionLogsAction(userId, page, {
+        type: filters.type,
+        level: filters.level,
+        message: filters.message,
+        metadata: filters.metadata,
+        startDate: filters.dateRange?.from?.toISOString().slice(0, 10),
+        endDate: filters.dateRange?.to?.toISOString().slice(0, 10),
+      });
       if (!response.success) {
         throw new Error(response.error || "로그를 불러올 수 없습니다.");
       }
+      console.log('로그 조회 응답:', response.data);
       return response.data;
     }
   );
@@ -64,7 +74,7 @@ export default function RealtimeUserLogs({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <div className="space-y-2">
           <Label>로그 타입</Label>
           <Input
@@ -90,6 +100,14 @@ export default function RealtimeUserLogs({
           />
         </div>
         <div className="space-y-2">
+          <Label>메타데이터</Label>
+          <Input
+            placeholder="메타데이터 검색 (예: user_id, item_id)"
+            value={filters.metadata}
+            onChange={(e) => handleFilterChange("metadata", e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
           <Label>기간</Label>
           <DatePickerWithRange
             date={filters.dateRange}
@@ -107,9 +125,13 @@ export default function RealtimeUserLogs({
             currentPage: currentPage,
             totalPages: data?.totalPages || 1,
             totalCount: data?.total || 0,
+            memoryLogs: data?.memoryLogs || 0,
+            databaseLogs: data?.databaseLogs || 0,
+            bufferSize: data?.bufferSize || 0,
           }}
           page={currentPage}
           session={session}
+          userId={userId}
           onPageChange={handlePageChange}
         />
       )}

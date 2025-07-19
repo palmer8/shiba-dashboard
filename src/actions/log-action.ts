@@ -64,6 +64,7 @@ export const getPartitionLogsAction = async (filters: {
   endDate?: string;
   page?: number;
   limit?: number;
+  metadata?: string;
 }) => {
   const result = await newLogService.getPartitionLogs(filters);
   return result;
@@ -90,4 +91,26 @@ export const exportPartitionLogsByDateRangeAction = async (
   endDate: string
 ) => {
   return await newLogService.exportPartitionLogsByDateRange(startDate, endDate);
+};
+
+// 유저별 파티션 로그 조회 액션 추가
+export const getUserPartitionLogsAction = async (
+  userId: number,
+  page: number = 1,
+  filters: {
+    type?: string;
+    level?: string;
+    message?: string;
+    startDate?: string;
+    endDate?: string;
+    metadata?: string;
+  } = {}
+) => {
+  const result = await newLogService.getPartitionLogs({
+    ...filters,
+    userId,
+    page,
+    limit: 50,
+  });
+  return result;
 };

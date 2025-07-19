@@ -44,6 +44,7 @@ export interface GameLogResponse {
   total: number;
   page: number;
   totalPages: number;
+  databaseLogs?: number; // 데이터베이스 로그 수 추가
 }
 
 export interface StaffLog {

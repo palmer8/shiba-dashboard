@@ -7,7 +7,6 @@ import { logService } from "./log-service";
 import {
   PersonalMail,
   GroupMailReserve,
-  GroupMailReserveLog,
   PersonalMailList,
   GroupMailReserveList,
   GroupMailReserveLogList,
@@ -243,6 +242,72 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
       error instanceof Error
         ? error.message
         : "개인 우편 생성 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 개인 우편 배치 생성 (간단한 병렬 처리)
+export async function createPersonalMailsBatch(
+  mailsData: PersonalMailCreateValues[]
+): Promise<{ successCount: number; errorCount: number; errors: Array<{ index: number; error: string }> }> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: Array<{ index: number; error: string }> = [];
+
+    // 배치 크기 설정 (한 번에 처리할 개수)
+    const BATCH_SIZE = 5;
+    
+    for (let i = 0; i < mailsData.length; i += BATCH_SIZE) {
+      const batch = mailsData.slice(i, i + BATCH_SIZE);
+      
+      // 병렬 처리
+      const batchPromises = batch.map(async (mailData, batchIndex) => {
+        const actualIndex = i + batchIndex;
+        try {
+          const result = await createPersonalMail(mailData);
+          return { success: true, index: actualIndex };
+        } catch (error) {
+          return {
+            success: false,
+            index: actualIndex,
+            error: error instanceof Error ? error.message : "알 수 없는 오류"
+          };
+        }
+      });
+
+      // 배치 결과 처리
+      const batchResults = await Promise.all(batchPromises);
+      
+      batchResults.forEach(result => {
+        if (result.success) {
+          successCount++;
+        } else {
+          errorCount++;
+          errors.push({
+            index: result.index,
+            error: result.error || "알 수 없는 오류"
+          });
+        }
+      });
+    }
+
+    return { successCount, errorCount, errors };
+  } catch (error) {
+    console.error("Batch create personal mails error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "개인 우편 배치 생성 중 오류가 발생했습니다."
     );
   }
 }

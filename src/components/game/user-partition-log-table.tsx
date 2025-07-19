@@ -72,6 +72,22 @@ export function UserPartitionLogTable({
     setInputPage(page.toString());
   }, [page]);
 
+  // 페이지네이션 메타데이터 검증 및 보정
+  const validatedMetadata = useMemo(() => {
+    const totalPages = Math.max(1, metadata.totalPages || 1);
+    const totalCount = Math.max(0, metadata.totalCount || 0);
+    const memoryLogs = Math.max(0, metadata.memoryLogs || 0);
+    const databaseLogs = Math.max(0, metadata.databaseLogs || 0);
+
+    return {
+      ...metadata,
+      totalPages,
+      totalCount,
+      memoryLogs,
+      databaseLogs,
+    };
+  }, [metadata]);
+
   useEffect(() => {
     if (tableContainerRef.current && tableContainerRef.current.parentElement) {
       tableContainerRef.current.parentElement.scrollTop = 0;
@@ -135,8 +151,8 @@ export function UserPartitionLogTable({
         maxSize: 180,
         cell: ({ row }) => (
           <div className="whitespace-nowrap overflow-hidden text-ellipsis text-xs md:text-sm">
-            {row.original.timestamp ? 
-              formatKoreanDateTime(new Date(row.original.timestamp)) : 
+            {row.original.timestamp ?
+              formatKoreanDateTime(new Date(row.original.timestamp)) :
               '-'
             }
           </div>
@@ -157,12 +173,12 @@ export function UserPartitionLogTable({
                   level === "error"
                     ? "destructive"
                     : level === "warn"
-                    ? "outline"
-                    : level === "info"
-                    ? "default"
-                    : level === "debug"
-                    ? "secondary"
-                    : "default"
+                      ? "outline"
+                      : level === "info"
+                        ? "default"
+                        : level === "debug"
+                          ? "secondary"
+                          : "default"
                 }
               >
                 {level.toUpperCase()}
@@ -180,8 +196,8 @@ export function UserPartitionLogTable({
         cell: ({ row }) => (
           <div className="relative group">
             <div className="overflow-hidden">
-              <Badge 
-                variant="outline" 
+              <Badge
+                variant="outline"
                 className="font-mono text-[10px] px-1.5 py-0.5 whitespace-nowrap overflow-hidden text-ellipsis w-full cursor-help"
                 title={row.original.type}
               >
@@ -191,8 +207,8 @@ export function UserPartitionLogTable({
             {/* Hover시 전체 텍스트 표시 */}
             {row.original.type.length > 15 && (
               <div className="absolute left-0 top-0 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className="font-mono text-[10px] px-1.5 py-0.5 whitespace-nowrap bg-background border shadow-lg"
                 >
                   {row.original.type}
@@ -211,7 +227,7 @@ export function UserPartitionLogTable({
         cell: ({ row }) => (
           <div className="relative group">
             <div className="overflow-hidden max-w-[300px]">
-              <span 
+              <span
                 className="inline-block whitespace-nowrap overflow-hidden text-ellipsis w-full cursor-help"
                 title={row.original.message}
               >
@@ -250,10 +266,17 @@ export function UserPartitionLogTable({
   });
 
   const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", newPage.toString());
-    router.push(`/log/user-partition?${params.toString()}`, { scroll: false });
+    // 페이지 범위 검증
+    const maxPage = Math.max(1, validatedMetadata.totalPages);
+    const validPage = Math.max(1, Math.min(newPage, maxPage));
+
+    if (validPage !== page) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("page", validPage.toString());
+      router.push(`/log/user-partition?${params.toString()}`, { scroll: false });
+    }
   };
+
 
   const handleFlushLogs = useCallback(async () => {
     if (isFlushingLogs) return;
@@ -284,15 +307,15 @@ export function UserPartitionLogTable({
 
   const handleCsvDownload = useCallback(async () => {
     if (!range || !range.from || !range.to) return;
-    
+
     setCsvLoading(true);
     setCsvError(null);
-    
+
     try {
       const startDate = range.from.toISOString().slice(0, 10);
       const endDate = range.to.toISOString().slice(0, 10);
       const result = await exportPartitionLogsByDateRangeAction(startDate, endDate);
-      
+
       if (result.success && result.data) {
         handleDownloadJson2CSV({
           data: result.data,
@@ -325,6 +348,71 @@ export function UserPartitionLogTable({
       <div className="space-y-4">
         {/* 서버 상태 및 관리 도구 - MASTER 이상만 표시 */}
         {session.user && hasAccess(session.user.role, UserRole.MASTER) && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4 text-green-500" />
+                서버 관리 도구
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleFlushLogs}
+                  disabled={isFlushingLogs}
+                  className="gap-2 w-full sm:w-auto"
+                >
+                  {isFlushingLogs ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      플러시 중...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4" />
+                      <span className="hidden sm:inline">메모리 로그 강제 플러시</span>
+                      <span className="sm:hidden">강제 플러시</span>
+                    </>
+                  )}
+                </Button>
+                {healthStatus && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center sm:justify-start">
+                    <div className={`w-2 h-2 rounded-full ${healthStatus.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
+                      }`} />
+                    <span className="whitespace-nowrap">서버 상태: {healthStatus.status === 'healthy' ? '정상' : '오류'}</span>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setModalOpen(true)}
+                className="gap-2 w-full md:w-auto"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">CSV 기간 다운로드</span>
+                <span className="sm:hidden">CSV 다운로드</span>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="rounded-md p-8">
+          <div className="flex flex-col items-center justify-center text-center">
+            <Empty description="조회된 로그가 없습니다. 검색 조건을 변경해보세요." />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* 서버 상태 및 관리 도구 - MASTER 이상만 표시 */}
+      {session.user && hasAccess(session.user.role, UserRole.MASTER) && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -356,14 +444,13 @@ export function UserPartitionLogTable({
               </Button>
               {healthStatus && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center sm:justify-start">
-                  <div className={`w-2 h-2 rounded-full ${
-                    healthStatus.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
-                  }`} />
+                  <div className={`w-2 h-2 rounded-full ${healthStatus.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
+                    }`} />
                   <span className="whitespace-nowrap">서버 상태: {healthStatus.status === 'healthy' ? '정상' : '오류'}</span>
                 </div>
               )}
             </div>
-            
+
             <Button
               variant="outline"
               size="sm"
@@ -376,72 +463,6 @@ export function UserPartitionLogTable({
             </Button>
           </CardContent>
         </Card>
-        )}
-
-        <div className="rounded-md p-8">
-          <div className="flex flex-col items-center justify-center text-center">
-            <Empty description="조회된 로그가 없습니다. 검색 조건을 변경해보세요." />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* 서버 상태 및 관리 도구 - MASTER 이상만 표시 */}
-      {session.user && hasAccess(session.user.role, UserRole.MASTER) && (
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Activity className="h-4 w-4 text-green-500" />
-            서버 관리 도구
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleFlushLogs}
-              disabled={isFlushingLogs}
-              className="gap-2 w-full sm:w-auto"
-            >
-              {isFlushingLogs ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  플러시 중...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4" />
-                  <span className="hidden sm:inline">메모리 로그 강제 플러시</span>
-                  <span className="sm:hidden">강제 플러시</span>
-                </>
-              )}
-            </Button>
-            {healthStatus && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center sm:justify-start">
-                <div className={`w-2 h-2 rounded-full ${
-                  healthStatus.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
-                }`} />
-                <span className="whitespace-nowrap">서버 상태: {healthStatus.status === 'healthy' ? '정상' : '오류'}</span>
-              </div>
-            )}
-          </div>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setModalOpen(true)}
-            className="gap-2 w-full md:w-auto"
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">CSV 기간 다운로드</span>
-            <span className="sm:hidden">CSV 다운로드</span>
-          </Button>
-        </CardContent>
-      </Card>
       )}
 
       {/* 로그 테이블 */}
@@ -488,12 +509,16 @@ export function UserPartitionLogTable({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-2">
           <div className="text-sm text-muted-foreground text-center sm:text-left">
             <div className="hidden sm:block">
-              총 {metadata.totalCount.toLocaleString()}개 중 {((page - 1) * 50 + 1).toLocaleString()}
-              -{Math.min(page * 50, metadata.totalCount).toLocaleString()}개 표시
-              (메모리: {metadata.memoryLogs.toLocaleString()}개, DB: {metadata.databaseLogs.toLocaleString()}개)
+              총 {validatedMetadata.totalCount.toLocaleString()}개 중 {((page - 1) * 50 + 1).toLocaleString()}
+              -{Math.min(page * 50, validatedMetadata.totalCount).toLocaleString()}개 표시
+              {(validatedMetadata.memoryLogs > 0 || validatedMetadata.databaseLogs > 0) && (
+                <span className="ml-2 text-xs">
+                  (메모리: {validatedMetadata.memoryLogs.toLocaleString()}개, DB: {validatedMetadata.databaseLogs.toLocaleString()}개)
+                </span>
+              )}
             </div>
             <div className="sm:hidden">
-              {((page - 1) * 50 + 1).toLocaleString()}-{Math.min(page * 50, metadata.totalCount).toLocaleString()} / {metadata.totalCount.toLocaleString()}
+              {((page - 1) * 50 + 1).toLocaleString()}-{Math.min(page * 50, validatedMetadata.totalCount).toLocaleString()} / {validatedMetadata.totalCount.toLocaleString()}
             </div>
           </div>
           <div className="flex items-center justify-center gap-2">
@@ -501,7 +526,7 @@ export function UserPartitionLogTable({
               variant="outline"
               size="sm"
               onClick={() => handlePageChange(page - 1)}
-              disabled={page === 1}
+              disabled={page <= 1}
             >
               이전
             </Button>
@@ -513,29 +538,38 @@ export function UserPartitionLogTable({
                   setInputPage(e.target.value);
                 }}
                 onBlur={(e) => {
-                  let newPage = parseInt(e.target.value);
+                  const inputValue = e.target.value.trim();
+                  let newPage = parseInt(inputValue);
+                  const maxPage = Math.max(1, validatedMetadata.totalPages);
 
-                  if (isNaN(newPage) || newPage < 1) {
+                  if (!inputValue || isNaN(newPage) || newPage < 1) {
                     newPage = 1;
-                    setInputPage("1");
-                  } else if (newPage > metadata.totalPages) {
-                    newPage = metadata.totalPages;
-                    setInputPage(metadata.totalPages.toString());
+                  } else if (newPage > maxPage) {
+                    newPage = maxPage;
                   }
+
+                  setInputPage(newPage.toString());
                   handlePageChange(newPage);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
                 className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                max={metadata.totalPages}
+                min={1}
+                max={validatedMetadata.totalPages}
+                placeholder="1"
               />
               <span className="text-sm text-muted-foreground">
-                / {metadata.totalPages}
+                / {validatedMetadata.totalPages}
               </span>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => handlePageChange(page + 1)}
-              disabled={page >= metadata.totalPages}
+              disabled={page >= validatedMetadata.totalPages}
             >
               다음
             </Button>

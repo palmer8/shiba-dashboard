@@ -15,7 +15,8 @@ export type GameDataType =
   | "INSTAGRAM"
   | "COMPANY"
   | "IP"
-  | "VEHICLE";
+  | "VEHICLE"
+  | "SKIN";
 
 export type UserLogFilter = {
   message?: string;
@@ -82,6 +83,8 @@ export interface PartitionLogFilter {
   endDate?: string;
   page: number;
   limit?: number;
+  userId?: number; // 유저별 로그 필터링을 위한 필드 추가
+  metadata?: string; // 메타데이터 검색을 위한 필드 추가
 }
 
 export interface PartitionLogMetadata {

@@ -30,7 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 // import { getPersonalMailsByIdsOrigin } from "@/actions/mail-action";
 import { AddPersonalMailDialog } from "@/components/dialog/add-personal-mail-dialog";
 import { PersonalMailDisplay, PersonalMailTableData } from "@/types/mail";
-import { deletePersonalMailAction, createPersonalMailAction } from "@/actions/mail-action";
+import { deletePersonalMailAction, createPersonalMailAction, createPersonalMailsBatchAction } from "@/actions/mail-action";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +38,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Trash, Download, Plus, Edit2 } from "lucide-react";
+import UploadProgressDialog from "@/components/dialog/upload-progress-dialog";
+import { revalidateMailCache } from "@/actions/mail-action";
+import UploadResultDialog, { UploadResult } from "@/components/dialog/upload-result-dialog";
 import { toast } from "@/hooks/use-toast";
 import { ExpandedMailRow } from "@/components/mail/expanded-mail-row";
 import EditPersonalMailDialog from "@/components/dialog/edit-personal-mail-dialog";
@@ -59,6 +62,10 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPersonalMail, setSelectedPersonalMail] =
     useState<PersonalMailDisplay | null>(null);
+  const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
+  const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
   >({
@@ -346,56 +353,107 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         mailData.push(mailItem);
       }
 
-      // 개인 우편 생성 API 호출
-      let successCount = 0;
-      let errorCount = 0;
+      // 데이터를 API 형태로 변환
+      const apiDataArray = mailData.map((mail, idx) => {
+        // need_items와 reward_items를 itemCode, count 형태로 변환
+        const needItemsArray = Object.entries(mail.need_items).map(([itemCode, count]) => ({
+          itemCode,
+          count: typeof count === 'number' ? count : parseInt(String(count)) || 1,
+        }));
 
-      for (const mail of mailData) {
-        try {
-          // need_items와 reward_items를 itemCode, count 형태로 변환
-          const needItemsArray = Object.entries(mail.need_items).map(([itemCode, count]) => ({
-            itemCode,
-            count: typeof count === 'number' ? count : parseInt(String(count)) || 1,
-          }));
+        const rewardItemsArray = Object.entries(mail.reward_items).map(([itemCode, count]) => ({
+          itemCode,
+          count: typeof count === 'number' ? count : parseInt(String(count)) || 1,
+        }));
 
-          const rewardItemsArray = Object.entries(mail.reward_items).map(([itemCode, count]) => ({
-            itemCode,
-            count: typeof count === 'number' ? count : parseInt(String(count)) || 1,
-          }));
-
-          // 보상 아이템이 없는 경우 건너뛰기
-          if (rewardItemsArray.length === 0) {
-            console.warn(`보상 아이템이 없어서 건너뜀 (유저 ${mail.user_id})`);
-            errorCount++;
-            continue;
-          }
-
-          const apiData = {
-            user_id: mail.user_id,
-            title: mail.title,
-            content: mail.content,
-            used: mail.used,
-            need_items: needItemsArray,
-            reward_items: rewardItemsArray,
-          };
-
-          const result = await createPersonalMailAction(apiData);
-          if (result.success) {
-            successCount++;
-          } else {
-            errorCount++;
-            console.error(`우편 생성 실패 (유저 ${mail.user_id}):`, result.error);
-          }
-        } catch (error) {
-          errorCount++;
-          console.error(`우편 생성 오류 (유저 ${mail.user_id}):`, error);
+        return {
+          user_id: mail.user_id,
+          title: mail.title,
+          content: mail.content,
+          used: mail.used,
+          need_items: needItemsArray,
+          reward_items: rewardItemsArray,
+        };
+      }).filter((_, idx) => {
+        // 보상 아이템이 없는 경우 필터링
+        const mail = mailData[idx];
+        const hasRewards = Object.keys(mail.reward_items).length > 0;
+        if (!hasRewards) {
+          console.warn(`보상 아이템이 없어서 건너뜀 (유저 ${mail.user_id})`);
         }
+        return hasRewards;
+      });
+
+      if (apiDataArray.length === 0) {
+        toast({
+          title: "업로드 실패",
+          description: "유효한 데이터가 없습니다. 보상 아이템이 있는 데이터를 확인해주세요.",
+          variant: "destructive",
+        });
+        setProgressOpen(false);
+        return;
       }
 
-      toast({
-        title: "CSV 업로드 완료",
-        description: `성공: ${successCount}개, 실패: ${errorCount}개`,
-      });
+      // 진행률 다이얼로그 시작
+      setProgressOpen(true);
+      setProgress(-1); // 불확정 진행률 표시
+
+      try {
+        // 배치 처리로 업로드 (병렬 처리로 속도 향상)
+        setProgress(10); // 시작 진행률
+        const batchResult = await createPersonalMailsBatchAction(apiDataArray);
+        setProgress(90); // 처리 완료 진행률
+        
+        if (batchResult.success && batchResult.data) {
+          const { successCount, errorCount, errors } = batchResult.data;
+          
+          // 결과 데이터 구성
+          const results: UploadResult[] = [];
+          
+          // 성공한 항목들 추가
+          for (let i = 0; i < apiDataArray.length; i++) {
+            const isError = errors.some(err => err.index === i);
+            const errorInfo = errors.find(err => err.index === i);
+            
+            results.push({
+              row: i + 2, // +2 to reflect CSV row number (header + 0-based idx)
+              userId: apiDataArray[i].user_id,
+              title: apiDataArray[i].title,
+              status: isError ? "실패" : "성공",
+              message: errorInfo?.error,
+            });
+          }
+
+          setUploadResults(results);
+          setIsResultDialogOpen(true);
+          
+          toast({
+            title: "CSV 업로드 완료",
+            description: `성공: ${successCount}개, 실패: ${errorCount}개`,
+          });
+          
+          // 성공한 경우에만 캐시 재검증 (한 번만)
+          if (successCount > 0) {
+            setProgress(95);
+            await revalidateMailCache();
+          }
+        } else {
+          throw new Error(batchResult.error || "배치 업로드 실패");
+        }
+      } catch (error) {
+        console.error("배치 업로드 오류:", error);
+        toast({
+          title: "업로드 실패",
+          description: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+      } finally {
+        setProgress(100);
+        // 진행률 다이얼로그를 잠시 보여준 후 닫기
+        setTimeout(() => {
+          setProgressOpen(false);
+        }, 500);
+      }
 
       // 파일 입력 초기화
       event.target.value = '';
@@ -499,6 +557,12 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
           </Button>
         </div>
       </div>
+      {/* 업로드 결과 Dialog */}
+      <UploadResultDialog
+        open={isResultDialogOpen}
+        onOpenChange={setIsResultDialogOpen}
+        results={uploadResults}
+      />
       <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -599,7 +663,12 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
           </Button>
         </div>
       </div>
-      <AddPersonalMailDialog open={open} setOpen={setOpen} />
+      <UploadProgressDialog 
+        open={progressOpen} 
+        progress={progress} 
+        totalItems={data.records.length}
+        currentStatus={progress < 0 ? "데이터 처리 준비 중..." : progress < 50 ? "배치 업로드 시작..." : "결과 처리 중..."}
+      />
       {selectedPersonalMail && (
         <EditPersonalMailDialog
           open={isEditDialogOpen}
@@ -607,6 +676,12 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
           personalMail={selectedPersonalMail}
         />
       )}
+      <AddPersonalMailDialog open={open} setOpen={setOpen} />
+      <UploadResultDialog
+        open={isResultDialogOpen}
+        onOpenChange={setIsResultDialogOpen}
+        results={uploadResults}
+      />
     </div>
   );
 }

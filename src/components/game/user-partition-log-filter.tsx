@@ -22,12 +22,13 @@ interface PartitionLogFilterProps {
     memoryLogs: number;
     databaseLogs: number;
     bufferSize: number;
+    totalRow : string;
   };
   session: Session;
 }
 
-export default function UserPartitionLogFilter({ 
-  filter, 
+export default function UserPartitionLogFilter({
+  filter,
   metadata,
   session
 }: PartitionLogFilterProps) {
@@ -36,9 +37,9 @@ export default function UserPartitionLogFilter({
   const [dateRange, setDateRange] = useState<DateRange | undefined>(
     filter.startDate && filter.endDate
       ? {
-          from: new Date(filter.startDate),
-          to: new Date(filter.endDate),
-        }
+        from: new Date(filter.startDate),
+        to: new Date(filter.endDate),
+      }
       : undefined
   );
   const [isSearching, setIsSearching] = useState(false);
@@ -79,6 +80,12 @@ export default function UserPartitionLogFilter({
         }
         if (localFilter.type) {
           searchParams.set("type", localFilter.type);
+        }
+        if (localFilter.metadata) {
+          searchParams.set("metadata", localFilter.metadata);
+        }
+        if (localFilter.userId) {
+          searchParams.set("userId", localFilter.userId.toString());
         }
         if (dateRange?.from && dateRange?.to) {
           const formatDate = (date: Date) => {
@@ -165,7 +172,7 @@ export default function UserPartitionLogFilter({
               <div>
                 <p className="text-sm font-medium">데이터베이스 로그</p>
                 <Badge variant="default" className="mt-1">
-                  {metadata.databaseLogs.toLocaleString()}개
+                  {metadata.totalRow.toLocaleString()}개
                 </Badge>
               </div>
             </div>
@@ -173,7 +180,7 @@ export default function UserPartitionLogFilter({
               <Activity className="h-4 w-4 text-orange-500" />
               <div>
                 <p className="text-sm font-medium">현재 버퍼</p>
-                <Badge 
+                <Badge
                   variant={metadata.bufferSize > 500 ? "destructive" : "outline"}
                   className="mt-1"
                 >
@@ -191,7 +198,7 @@ export default function UserPartitionLogFilter({
           <CardTitle className="text-base">검색 조건</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
             <div className="space-y-2">
               <Label htmlFor="message">메시지</Label>
               <Input
@@ -228,7 +235,32 @@ export default function UserPartitionLogFilter({
               />
             </div>
 
-            <div className="space-y-2 sm:col-span-2 lg:col-span-2">
+            <div className="space-y-2">
+              <Label htmlFor="metadata">메타데이터</Label>
+              <Input
+                id="metadata"
+                placeholder="예: user_id, item_id, action 등"
+                value={localFilter.metadata || ""}
+                onChange={(e) => handleFilterChange("metadata", e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="userId">유저 ID</Label>
+              <Input
+                id="userId"
+                type="number"
+                placeholder="유저 ID 입력"
+                value={localFilter.userId || ""}
+                onChange={(e) => handleFilterChange("userId", e.target.value ? Number(e.target.value) : undefined)}
+                onKeyDown={handleKeyDown}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2 lg:col-span-5">
               <Label>날짜 범위</Label>
               <DatePickerWithRange
                 date={dateRange}

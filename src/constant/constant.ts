@@ -45,13 +45,13 @@ const ROLE_LINKS = {
     routes: [
       {
         name: "유저 로그 조회",
-        href: "/log/user",
-        role: ["INGAME_ADMIN", "MASTER", "STAFF", "SUPERMASTER"],
-      },
-      {
-        name: "유저 로그 조회 (테스트)",
         href: "/log/user-partition",
         role: ["MASTER", "SUPERMASTER", "INGAME_ADMIN", "STAFF"],
+      },
+      {
+        name: "유저 로그 조회 (레거시)",
+        href: "/log/user",
+        role: ["INGAME_ADMIN", "MASTER", "STAFF", "SUPERMASTER"],
       },
       {
         name: "게임 데이터 조회",

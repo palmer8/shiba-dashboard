@@ -74,12 +74,15 @@ interface GameLogData {
   type: string;
   message: string;
   metadata?: any;
+  totalRow?: string;
 }
 
 interface LogMetadata {
   currentPage: number;
   totalPages: number;
   totalCount: number;
+  databaseLogs?: number;
+  totalRow?: string;
 }
 
 interface UserDataTableProps {
@@ -475,8 +478,18 @@ export function UserDataTable({
       {data.length > 0 && (
         <div className="flex items-center justify-between py-2">
           <div className="text-sm text-muted-foreground">
-            총 {metadata.totalCount.toLocaleString()}개 중 {(page - 1) * 50 + 1}
-            -{Math.min(page * 50, metadata.totalCount)}개 표시
+            <div className="hidden sm:block">
+              총 {metadata.totalCount.toLocaleString()}개 중 {((page - 1) * 50 + 1).toLocaleString()}
+              -{Math.min(page * 50, metadata.totalCount).toLocaleString()}개 표시
+              {metadata.databaseLogs && (
+                <span className="ml-2 text-xs">
+                  (DB: {metadata.databaseLogs.toLocaleString()}개)
+                </span>
+              )}
+            </div>
+            <div className="sm:hidden">
+              {((page - 1) * 50 + 1).toLocaleString()}-{Math.min(page * 50, metadata.totalCount).toLocaleString()} / {metadata.totalCount.toLocaleString()}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -495,30 +508,38 @@ export function UserDataTable({
                   setInputPage(e.target.value);
                 }}
                 onBlur={(e) => {
-                  let newPage = parseInt(e.target.value);
+                  const inputValue = e.target.value.trim();
+                  let newPage = parseInt(inputValue);
+                  const maxPage = Math.max(1, metadata.totalPages);
 
-                  if (isNaN(newPage) || newPage < 1) {
+                  if (!inputValue || isNaN(newPage) || newPage < 1) {
                     newPage = 1;
-                    setInputPage("1");
-                  } else if (newPage > metadata.totalPages) {
-                    newPage = metadata.totalPages;
-                    setInputPage(metadata.totalPages.toString());
+                  } else if (newPage > maxPage) {
+                    newPage = maxPage;
                   }
+
+                  setInputPage(newPage.toString());
                   handlePageChange(newPage);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
                 className="w-12 rounded-md border border-input bg-background px-2 py-1 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                max={metadata.totalPages}
-                maxLength={metadata.totalPages}
+                min={1}
+                max={Math.max(1, metadata.totalPages)}
+                placeholder="1"
               />
               <span className="text-sm text-muted-foreground">
-                / {metadata.totalPages}
+                / {Math.max(1, metadata.totalPages)}
               </span>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => handlePageChange(page + 1)}
-              disabled={page >= metadata.totalPages}
+              disabled={page >= Math.max(1, metadata.totalPages)}
             >
               다음
             </Button>

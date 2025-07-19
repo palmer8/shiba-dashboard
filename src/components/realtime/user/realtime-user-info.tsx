@@ -1560,6 +1560,7 @@ export default function RealtimeUserInfo({
               </CardContent>
             </Card>
           </TabsContent>
+
       </Tabs>
 
       {data.last_nickname && (

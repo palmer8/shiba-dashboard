@@ -112,6 +112,12 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
         page: Number(page),
       });
     }
+    else if (type === "SKIN" && value) {
+      data = await realtimeService.getGameDataBySkinId({
+        value,
+        page: Number(page),
+      });
+    }
   } catch (e) {
     error =
       e instanceof Error

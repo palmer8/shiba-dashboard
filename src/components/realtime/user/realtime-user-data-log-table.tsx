@@ -17,29 +17,35 @@ import {
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  formatKoreanDateTime,
-  handleDownloadJson2CSV,
-  hasAccess,
-} from "@/lib/utils";
+import { formatKoreanDateTime, handleDownloadJson2CSV, hasAccess } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  deleteGameLogsAction,
-  exportGameLogsAction,
-  exportGameLogsByDateRangeAction,
-} from "@/actions/log-action";
 import { toast } from "@/hooks/use-toast";
 import Empty from "@/components/ui/empty";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash, Download } from "lucide-react";
-import { UserRole } from "@prisma/client";
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { ChevronRight, RefreshCw, Activity, Zap, Download, Trash2 } from "lucide-react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { PartitionLogData, PartitionLogMetadata } from "@/types/game";
 import { Session } from "next-auth";
+import { UserRole } from "@prisma/client";
+import {
+  flushLogsAction,
+  getHealthCheckAction,
+  exportPartitionLogsByDateRangeAction
+} from "@/actions/log-action";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DateRange, SelectRangeEventHandler } from "react-day-picker";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,43 +56,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
-import { ChevronRight } from "lucide-react";
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { DateRange, SelectRangeEventHandler } from "react-day-picker";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 
-interface GameLogData {
-  id: number;
-  timestamp: Date;
-  level: string;
-  type: string;
-  message: string;
-  metadata?: any;
-}
-
-interface LogMetadata {
-  currentPage: number;
-  totalPages: number;
-  totalCount: number;
-}
-
-interface UserDataTableProps {
-  data: GameLogData[];
-  metadata: LogMetadata;
+interface RealtimeUserDataTableProps {
+  data: PartitionLogData[];
+  metadata: PartitionLogMetadata;
   page: number;
   session: Session;
+  userId: number;
   onPageChange: (page: number) => void;
 }
 
@@ -95,18 +71,18 @@ export function RealtimeUserDataTable({
   metadata,
   page,
   session,
+  userId,
   onPageChange,
-}: UserDataTableProps) {
+}: RealtimeUserDataTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [inputPage, setInputPage] = useState(page.toString());
   const [modalOpen, setModalOpen] = useState(false);
   const [range, setRange] = useState<DateRange | undefined>(undefined);
   const [csvLoading, setCsvLoading] = useState(false);
   const [csvError, setCsvError] = useState<string | null>(null);
+  const [isFlushingLogs, setIsFlushingLogs] = useState(false);
+  const [healthStatus, setHealthStatus] = useState<any>(null);
   const tableContainerRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
@@ -119,7 +95,26 @@ export function RealtimeUserDataTable({
     }
   }, [page]);
 
-  const MetadataCell = useCallback(({ row }: { row: Row<GameLogData> }) => {
+  // 건강 상태 확인
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const result = await getHealthCheckAction();
+        if (result.success) {
+          setHealthStatus(result.data);
+        }
+      } catch (error) {
+        console.error("Health check failed:", error);
+      }
+    };
+
+    checkHealth();
+    // 30초마다 헬스체크
+    const interval = setInterval(checkHealth, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const MetadataCell = useCallback(({ row }: { row: Row<PartitionLogData> }) => {
     return (
       <Popover>
         <PopoverTrigger asChild>
@@ -147,63 +142,46 @@ export function RealtimeUserDataTable({
     );
   }, []);
 
-  const handleSingleDelete = useCallback(
-    async (id: number) => {
-      if (isDeleting) return;
+  const handleFlushLogs = useCallback(async () => {
+    if (isFlushingLogs) return;
 
-      try {
-        setIsDeleting(true);
-        const result = await deleteGameLogsAction([id]);
+    try {
+      setIsFlushingLogs(true);
+      const result = await flushLogsAction();
 
-        if (result.success) {
-          toast({
-            title: "삭제 완료",
-            description: "로그가 삭제되었습니다.",
-          });
-        } else {
-          throw new Error(result.error ?? "알 수 없는 오류가 발생했습니다.");
-        }
-      } catch (error) {
+      if (result.success) {
         toast({
-          title: "삭제 실패",
-          description:
-            error instanceof Error
-              ? error.message
-              : "알 수 없는 오류가 발생했습니다.",
-          variant: "destructive",
+          title: "로그 플러시 완료",
+          description: "메모리에 있던 로그가 데이터베이스로 플러시되었습니다.",
         });
-      } finally {
-        setIsDeleting(false);
+      } else {
+        throw new Error(result.error ?? "알 수 없는 오류가 발생했습니다.");
       }
-    },
-    [router, isDeleting]
-  );
+    } catch (error) {
+      toast({
+        title: "로그 플러시 실패",
+        description:
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFlushingLogs(false);
+    }
+  }, [isFlushingLogs]);
 
-  const columns = useMemo<ColumnDef<GameLogData>[]>(
+  const columns = useMemo<ColumnDef<PartitionLogData>[]>(
     () => [
-      {
-        id: "select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-          />
-        ),
-      },
       {
         accessorKey: "timestamp",
         header: "시간",
         cell: ({ row }) => (
           <div className="whitespace-nowrap overflow-hidden text-ellipsis">
-            {formatKoreanDateTime(row.original.timestamp)}
+            {row.original.timestamp ?
+              formatKoreanDateTime(new Date(row.original.timestamp)) :
+              formatKoreanDateTime(new Date())
+            }
           </div>
         ),
       },
@@ -219,10 +197,10 @@ export function RealtimeUserDataTable({
                   level === "error"
                     ? "destructive"
                     : level === "warn"
-                    ? "outline"
-                    : level === "info"
-                    ? "default"
-                    : "secondary"
+                      ? "outline"
+                      : level === "info"
+                        ? "default"
+                        : "secondary"
                 }
               >
                 {level}
@@ -254,39 +232,8 @@ export function RealtimeUserDataTable({
         header: "메타데이터",
         cell: MetadataCell,
       },
-      {
-        id: "actions",
-        cell: ({ row }) => {
-          const log = row.original;
-          if (!hasAccess(session.user!.role, UserRole.SUPERMASTER)) return null;
-
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="h-8 w-8 p-0 hover:bg-muted"
-                  disabled={isDeleting}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => handleSingleDelete(log.id)}
-                  disabled={isDeleting}
-                  className="text-red-600"
-                >
-                  <Trash className="mr-2 h-4 w-4" />
-                  <span>삭제</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        },
-      },
     ],
-    [MetadataCell, handleSingleDelete, isDeleting, session.user?.role]
+    [MetadataCell]
   );
 
   const table = useReactTable({
@@ -295,44 +242,6 @@ export function RealtimeUserDataTable({
     getCoreRowModel: getCoreRowModel(),
   });
 
-  const handleBulkDelete = useCallback(async () => {
-    if (isDeleting) return;
-
-    try {
-      setIsDeleting(true);
-      const result = await deleteGameLogsAction(selectedIds);
-
-      if (result.success) {
-        toast({
-          title: "삭제 완료",
-          description: `${result.data?.deletedCount}개의 로그가 삭제되었습니다.`,
-        });
-        router.refresh();
-      } else {
-        throw new Error(result.error ?? "알 수 없는 오류가 발생했습니다.");
-      }
-    } catch (error) {
-      toast({
-        title: "삭제 실패",
-        description:
-          error instanceof Error
-            ? error.message
-            : "알 수 없는 오류가 발생했습니다.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteDialog(false);
-      setSelectedIds([]);
-      table.resetRowSelection();
-    }
-  }, [router, selectedIds, isDeleting, table]);
-
-  const handleShowDeleteDialog = useCallback(() => {
-    const ids = table.getSelectedRowModel().rows.map((row) => row.original.id);
-    setSelectedIds(ids);
-    setShowDeleteDialog(true);
-  }, [table]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > metadata.totalPages) return;
@@ -340,21 +249,17 @@ export function RealtimeUserDataTable({
   };
 
   const handleExport = async () => {
-    const ids = table.getSelectedRowModel().rows.map((row) => row.original.id);
     try {
-      const result = await exportGameLogsAction(ids);
-      if (result.success) {
-        handleDownloadJson2CSV({
-          data: result.data ?? [],
-          fileName: `user-logs`,
-        });
-        toast({
-          title: "유저 데이터 로그 CSV 파일을 다운로드하였습니다.",
-        });
-      }
+      handleDownloadJson2CSV({
+        data: data,
+        fileName: `user-partition-logs-${userId}`,
+      });
+      toast({
+        title: "유저 파티션 로그 CSV 파일을 다운로드하였습니다.",
+      });
     } catch (error) {
       toast({
-        title: "유저 데이터 로그 CSV 파일 다운로드에 실패했습니다.",
+        title: "유저 파티션 로그 CSV 파일 다운로드에 실패했습니다.",
         description: "잠시 후에 다시 시도해주세요.",
         variant: "destructive",
       });
@@ -367,12 +272,12 @@ export function RealtimeUserDataTable({
     setCsvError(null);
     const startDate = range.from.toISOString().slice(0, 10);
     const endDate = range.to.toISOString().slice(0, 10);
-    const result = await exportGameLogsByDateRangeAction(startDate, endDate);
+    const result = await exportPartitionLogsByDateRangeAction(startDate, endDate);
     setCsvLoading(false);
     if (result.success) {
       handleDownloadJson2CSV({
         data: result.data ?? [],
-        fileName: `user-logs-${startDate}_to_${endDate}`,
+        fileName: `user-partition-logs-${startDate}_to_${endDate}`,
       });
       setModalOpen(false);
     } else {
@@ -392,41 +297,6 @@ export function RealtimeUserDataTable({
 
   return (
     <>
-      <div className="flex justify-between items-center mb-4">
-        {session?.user?.role === UserRole.SUPERMASTER && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleShowDeleteDialog}
-              disabled={
-                table.getSelectedRowModel().rows.length === 0 || isDeleting
-              }
-            >
-              <Trash className="h-4 w-4 mr-2" />
-              삭제
-            </Button>
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExport}
-          disabled={table.getSelectedRowModel().rows.length === 0}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          CSV 다운로드
-        </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setModalOpen(true)}
-          >
-            CSV 기간 다운로드
-          </Button>
-        </div>
-      </div>
       <Table ref={tableContainerRef}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -513,27 +383,6 @@ export function RealtimeUserDataTable({
         </div>
       )}
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>로그 일괄 삭제</AlertDialogTitle>
-            <AlertDialogDescription>
-              선택한 {selectedIds.length}개의 로그를 삭제하시겠습니까? 이 작업은
-              되돌릴 수 없습니다.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>취소</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleBulkDelete}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeleting ? "삭제 중..." : "삭제"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-md w-full">

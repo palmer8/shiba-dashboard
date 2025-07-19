@@ -118,7 +118,7 @@ export default function GameDataFilter({
               `/log/game?type=${query.type}&itemId=${query.itemId}&value=${query.value}&condition=${query.condition}&page=1`,
               { scroll: false }
             );
-          } else if (query.type === "VEHICLE") {
+          } else if (query.type === "VEHICLE" || query.type === "SKIN") {
             router.replace(
               `/log/game?type=${query.type}&value=${query.value}&page=1`,
               { scroll: false }
@@ -193,6 +193,7 @@ export default function GameDataFilter({
                 )}
                 <SelectItem value="IP">IP</SelectItem>
                 <SelectItem value="VEHICLE">차량</SelectItem>
+                <SelectItem value="SKIN">스킨 ID</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -240,6 +241,7 @@ export default function GameDataFilter({
             "COMPANY",
             "IP",
             "VEHICLE",
+            "SKIN",
           ].includes(query.type) && (
             <div className="space-y-2">
               <Label>조건 선택</Label>

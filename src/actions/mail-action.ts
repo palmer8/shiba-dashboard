@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   getPersonalMails,
   createPersonalMail,
+  createPersonalMailsBatch,
   updatePersonalMail,
   deletePersonalMail,
   getGroupMailReserves,
@@ -24,7 +25,6 @@ import {
   PersonalMailFilter,
   GroupMailReserveFilter,
   GroupMailReserveLogFilter,
-  MailApiResponse,
 } from "@/types/mail";
 
 // 개인 우편 액션들
@@ -48,12 +48,15 @@ export async function getPersonalMailsAction(
   }
 }
 
-export async function createPersonalMailAction(values: PersonalMailCreateValues) {
+interface ActionOptions { revalidate?: boolean }
+export async function createPersonalMailAction(values: PersonalMailCreateValues, options: ActionOptions = {}) {
   try {
     const validatedData = personalMailCreateSchema.parse(values);
     const result = await createPersonalMail(validatedData);
     
-    revalidatePath("/game/mail");
+    if (options.revalidate !== false) {
+      revalidatePath("/game/mail");
+    }
     
     return {
       success: true,
@@ -88,6 +91,30 @@ export async function updatePersonalMailAction(id: number, values: PersonalMailC
       error: error instanceof Error ? error.message : "개인 우편 수정 실패",
     };
   }
+}
+
+// 개인 우편 배치 생성 액션
+export async function createPersonalMailsBatchAction(
+  mailsData: PersonalMailCreateValues[]
+) {
+  try {
+    const result = await createPersonalMailsBatch(mailsData);
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "개인 우편 배치 생성 실패",
+    };
+  }
+}
+
+export async function revalidateMailCache() {
+  revalidatePath("/game/mail");
 }
 
 export async function deletePersonalMailAction(id: number) {

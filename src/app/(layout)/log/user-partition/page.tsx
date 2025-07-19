@@ -14,6 +14,8 @@ interface PageProps {
     startDate?: string;
     endDate?: string;
     message?: string;
+    metadata?: string;
+    userId?: string;
     limit?: string;
   }>;
 }
@@ -32,6 +34,8 @@ export default async function UserPartitionLogPage({ searchParams }: PageProps) 
     startDate: params.startDate,
     endDate: params.endDate,
     message: params.message || undefined,
+    metadata: params.metadata || undefined,
+    userId: params.userId ? Number(params.userId) : undefined,
     limit: Number(params.limit) || 50,
   };
 
@@ -45,6 +49,7 @@ export default async function UserPartitionLogPage({ searchParams }: PageProps) 
     memoryLogs: 0,
     databaseLogs: 0,
     bufferSize: 0,
+    totalRow: "0",
   };
 
   const logData = result.success ? result.data! : defaultLogData;
@@ -62,6 +67,7 @@ export default async function UserPartitionLogPage({ searchParams }: PageProps) 
     memoryLogs: logData.memoryLogs,
     databaseLogs: logData.databaseLogs,
     bufferSize: logData.bufferSize,
+    totalRow: logData.totalRow || "0"
   };
 
   return (

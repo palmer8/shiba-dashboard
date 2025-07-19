@@ -291,8 +291,6 @@ class RealtimeService {
         skinId: gameDataApiResponse.skinid,
       };
 
-      console.log(enrichedData);
-
       // 로그 작성은 성공 시 한 번만
       if (enrichedData.last_nickname) {
         await logService.writeAdminLog(
@@ -2738,6 +2736,68 @@ class RealtimeService {
         success: false,
         error: "이번주 근태 기록 조회 중 오류가 발생했습니다",
         data: null,
+      };
+    }
+  }
+
+  async getGameDataBySkinId(
+    query: {
+      value: string; // 정확히 일치할 스킨ID
+    } & PaginationParams
+  ): Promise<PaginatedResult<BaseQueryResult>> {
+    try {
+      const { value, page } = query;
+      const pageSize = 50;
+      const offset = (page - 1) * pageSize;
+
+      const dataQuery = `
+        SELECT
+          u.id,
+          SUBSTRING_INDEX(u.last_login, ' ', -1) AS nickname,
+          ui.first_join,
+          ud.skinitem_skinid AS result,
+          'SKIN' AS type,
+          COUNT(*) OVER() AS total
+        FROM vrp_user_data ud
+        JOIN vrp_users u ON u.id = ud.user_id
+        LEFT JOIN vrp_user_identities ui ON ui.user_id = u.id
+        WHERE ud.skinitem_skinid = ?
+        ORDER BY u.id ASC
+        LIMIT ? OFFSET ?
+      `;
+
+      const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
+        value,
+        pageSize,
+        offset,
+      ]);
+
+      const total = rows[0]?.total || 0;
+      const totalPages = Math.ceil(total / pageSize);
+
+      await logService.writeAdminLog(`스킨 ID '${value}' 검색 (${page}페이지)`);
+
+      return {
+        data: rows.map((row: RowDataPacket): BaseQueryResult => ({
+          id: row.id,
+          nickname: row.nickname,
+          first_join: row.first_join,
+          result: row.result,
+          type: 'SKIN',
+        })),
+        total,
+        currentPage: page,
+        totalPages,
+        pageSize,
+      };
+    } catch (error) {
+      console.error('getGameDataBySkinId error:', error);
+      return {
+        data: [],
+        total: 0,
+        currentPage: query.page,
+        totalPages: 0,
+        pageSize: 50,
       };
     }
   }

@@ -327,6 +327,18 @@ export class LogService {
       const countResult = await db.sql.unsafe(countQuery, countParams);
       const totalCount = Number(countResult[0]?.total) || 0;
 
+      // 개발 환경에서 디버깅 로그
+      if (process.env.NODE_ENV === 'development') {
+        console.log('getGameLogs 디버깅:', {
+          countQuery,
+          countParams,
+          totalCount,
+          rawTotal: countResult[0]?.total,
+          totalType: typeof countResult[0]?.total,
+          filters
+        });
+      }
+
       const dataQuery = `
         SELECT 
           id,
@@ -356,6 +368,9 @@ export class LogService {
           .join(", ")})`
       );
 
+      console.log(records);
+
+
       return {
         success: true,
         data: {
@@ -370,6 +385,7 @@ export class LogService {
           total: totalCount,
           page: page,
           totalPages: Math.ceil(totalCount / limit),
+          databaseLogs: totalCount, // 데이터베이스 로그 수 추가
         },
         error: null,
       };
@@ -383,6 +399,7 @@ export class LogService {
           total: 0,
           page: 0,
           totalPages: 1,
+          databaseLogs: 0,
         },
       };
     }
@@ -1038,7 +1055,7 @@ export class LogService {
     // startDate, endDate: 'YYYY-MM-DD'
     const start = new Date(`${startDate}T00:00:00.000Z`);
     const end = new Date(`${endDate}T23:59:59.999Z`);
-    
+
     try {
       const logs = await prisma.accountUsingQuerylog.findMany({
         where: {
@@ -1108,6 +1125,8 @@ interface NewLogQuery {
   endDate?: string;
   page?: number;
   limit?: number;
+  userId?: number;
+  metadata?: string;
 }
 
 interface NewLogsResponse {
@@ -1121,7 +1140,7 @@ interface NewLogsResponse {
     };
     database: {
       records: NewGameLog[];
-      total: number;
+      total: string;
       page: number;
       totalPages: number;
     };
@@ -1174,7 +1193,7 @@ class NewLogService {
         baseUrl: this.baseUrl ? this.baseUrl.substring(0, 20) + '...' : 'NOT_SET'
       });
     }
-    
+
     if (!this.apiKey || !this.baseUrl) {
       console.warn('NewLogService: 필수 환경변수가 설정되지 않았습니다', {
         SHIBA_LOG_API_KEY: !!this.apiKey,
@@ -1187,7 +1206,7 @@ class NewLogService {
     const url = `${this.baseUrl}${endpoint}`;
 
     console.log('makeRequest:', url);
-    
+
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -1213,10 +1232,11 @@ class NewLogService {
     memoryLogs: number;
     databaseLogs: number;
     bufferSize: number;
+    totalRow : string;
   }>> {
     try {
       const params = new URLSearchParams();
-      
+
       if (filters.type) params.set('type', filters.type);
       if (filters.level) params.set('level', filters.level);
       if (filters.message) params.set('message', filters.message);
@@ -1224,6 +1244,8 @@ class NewLogService {
       if (filters.endDate) params.set('endDate', filters.endDate);
       if (filters.page) params.set('page', filters.page.toString());
       if (filters.limit) params.set('limit', filters.limit.toString());
+      if (filters.userId) params.set('userId', filters.userId.toString());
+      if (filters.metadata) params.set('metadata', filters.metadata);
 
       const endpoint = `/api/logs${params.toString() ? `?${params.toString()}` : ''}`;
       const response = await this.makeRequest<NewLogsResponse>(endpoint);
@@ -1232,92 +1254,74 @@ class NewLogService {
         throw new Error(response.error || 'Failed to fetch logs');
       }
 
-      // 서버에서 이미 페이지네이션된 데이터 사용
+      // 서버에서 이미 필터링되고 페이지네이션된 데이터 사용
       const memoryRecords = response.data.memory?.records || [];
       const dbRecords = response.data.database?.records || [];
-      
-      // 메모리 데이터에 필터 적용 (서버에서 필터링이 안 된 경우)
-      const filteredMemoryRecords = memoryRecords.filter((log: NewGameLog) => {
-        let matches = true;
-        
-        if (filters.type && !log.type?.toLowerCase().includes(filters.type.toLowerCase())) {
-          matches = false;
-        }
-        if (filters.level && log.level !== filters.level) {
-          matches = false;
-        }
-        if (filters.message && !log.message?.toLowerCase().includes(filters.message.toLowerCase())) {
-          matches = false;
-        }
-        if (filters.startDate) {
-          const logDate = new Date(log.timestamp || 0);
-          const filterDate = new Date(filters.startDate);
-          if (logDate < filterDate) {
-            matches = false;
-          }
-        }
-        if (filters.endDate) {
-          const logDate = new Date(log.timestamp || 0);
-          const filterDate = new Date(filters.endDate);
-          filterDate.setHours(23, 59, 59, 999); // 하루 끝까지
-          if (logDate > filterDate) {
-            matches = false;
-          }
-        }
-        
-        return matches;
-      });
-      
+
+      // 서버에서 온 데이터에 클라이언트 사이드 추가 필터링 적용
+      let filteredMemoryRecords = [...memoryRecords];
+      let filteredDbRecords = [...dbRecords];
+
+
+      // 메타데이터 필터링 (서버에서 지원하지 않을 경우를 대비)
+      if (filters.metadata) {
+        const metadataFilter = filters.metadata.toLowerCase();
+
+        filteredMemoryRecords = filteredMemoryRecords.filter((log: NewGameLog) => {
+          if (!log.metadata) return false;
+          const metadataStr = JSON.stringify(log.metadata).toLowerCase();
+          return metadataStr.includes(metadataFilter);
+        });
+
+        filteredDbRecords = filteredDbRecords.filter((log: NewGameLog) => {
+          if (!log.metadata) return false;
+          const metadataStr = JSON.stringify(log.metadata).toLowerCase();
+          return metadataStr.includes(metadataFilter);
+        });
+      }
+
       // 시간순으로 정렬 (최신순) - 필터링된 메모리 데이터와 DB 데이터 결합
-      const allRecords = [...filteredMemoryRecords, ...dbRecords].sort((a, b) => {
+      const allRecords = [...filteredMemoryRecords, ...filteredDbRecords].sort((a, b) => {
         const timeA = new Date(a.timestamp || 0).getTime();
         const timeB = new Date(b.timestamp || 0).getTime();
         return timeB - timeA;
       });
 
-      // 총 개수 계산 (문자열을 숫자로 변환) - 디버깅 추가
-      const memoryTotal = Number(response.data.memory?.total || 0);
-      const databaseTotal = Number(response.data.database?.total || 0);
-      const combinedMemoryLogs = Number(response.data.combined?.totalMemoryLogs || 0);
-      const combinedDatabaseLogs = Number(response.data.combined?.totalDatabaseLogs || 0);
-      
-      // 필터링된 메모리 로그 수 계산
-      const filteredMemoryTotal = filteredMemoryRecords.length;
-      
-      // 우선순위: 필터링된 데이터 -> combined 데이터 -> 개별 데이터
-      const finalMemoryTotal = filteredMemoryTotal;
-      const finalDatabaseTotal = combinedDatabaseLogs || databaseTotal;
-      const totalRecords = finalMemoryTotal + finalDatabaseTotal;
-      
-      // 개발 환경에서 디버깅 로그
-      if (process.env.NODE_ENV === 'development') {
-        console.log('로그 개수 계산:', {
-          memoryTotal,
-          databaseTotal,
-          combinedMemoryLogs,
-          combinedDatabaseLogs,
-          finalMemoryTotal,
-          finalDatabaseTotal,
-          totalRecords
-        });
-      }
-      
-      // 페이지 정보 계산
+
+      // 필터링된 데이터를 기준으로 총계 정보 계산
+      const memoryTotal = filteredMemoryRecords.length;
+      const databaseTotal = filteredDbRecords.length;
+      const totalRecords = memoryTotal + databaseTotal;
+
+      // 페이지 정보는 서버 응답 기준으로 계산
       const currentPage = filters.page || 1;
       const limit = filters.limit || 50;
+
+      // 필터링된 데이터를 기준으로 총 페이지 계산
       const totalPages = Math.ceil(totalRecords / limit);
-      
-      // 개발 환경에서 페이지네이션 디버깅
+
+      // 개발 환경에서 디버깅 로그
       if (process.env.NODE_ENV === 'development') {
-        console.log('페이지네이션 정보:', {
+        console.log('페이지네이션 정보 (필터링 적용):', {
           currentPage,
           totalPages,
           limit,
           totalRecords,
-          memoryPage: response.data.memory?.page,
-          memoryTotalPages: response.data.memory?.totalPages,
-          databasePage: response.data.database?.page,
-          databaseTotalPages: response.data.database?.totalPages
+          memoryTotal,
+          databaseTotal,
+          serverMemoryRecords: memoryRecords.length,
+          serverDbRecords: dbRecords.length,
+          filteredMemoryRecords: filteredMemoryRecords.length,
+          filteredDbRecords: filteredDbRecords.length,
+          combinedRecords: allRecords.length,
+          totalRow : response.data.database.total,
+          appliedFilters: {
+            metadata: filters.metadata,
+            userId: filters.userId,
+            type: filters.type,
+            level: filters.level,
+            message: filters.message
+          }
         });
       }
 
@@ -1340,9 +1344,10 @@ class NewLogService {
           total: totalRecords,
           page: currentPage,
           totalPages: totalPages,
-          memoryLogs: finalMemoryTotal,
-          databaseLogs: finalDatabaseTotal,
+          memoryLogs: memoryTotal,
+          databaseLogs: databaseTotal,
           bufferSize: Number(response.data.combined?.bufferSize || 0),
+          totalRow : response.data.database.total
         },
         error: null,
       };
@@ -1359,6 +1364,7 @@ class NewLogService {
           memoryLogs: 0,
           databaseLogs: 0,
           bufferSize: 0,
+          totalRow : "0"
         },
       };
     }
@@ -1367,7 +1373,7 @@ class NewLogService {
   async getLogStats(): Promise<ApiResponse<LogStatsResponse['data']>> {
     try {
       const response = await this.makeRequest<LogStatsResponse>('/api/logs/stats');
-      
+
       if (!response.success) {
         throw new Error(response.error || 'Failed to fetch stats');
       }
@@ -1422,7 +1428,7 @@ class NewLogService {
   async getHealthCheck(): Promise<ApiResponse<any>> {
     try {
       const response = await this.makeRequest<any>('/api/logs/health');
-      
+
       return {
         success: true,
         data: response,
@@ -1461,7 +1467,7 @@ class NewLogService {
       // 메모리와 DB 로그를 합쳐서 반환
       const memoryRecords = response.data.memory?.records || [];
       const dbRecords = response.data.database?.records || [];
-      
+
       // 필터링과 정렬
       const filteredMemoryRecords = memoryRecords.filter((log: NewGameLog) => {
         if (filters.startDate) {
