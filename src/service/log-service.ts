@@ -1288,33 +1288,37 @@ class NewLogService {
       });
 
 
-      // 필터링된 데이터를 기준으로 총계 정보 계산
-      const memoryTotal = filteredMemoryRecords.length;
-      const databaseTotal = filteredDbRecords.length;
-      const totalRecords = memoryTotal + databaseTotal;
+      // 서버에서 제공하는 실제 총계 정보 사용 (명시적 숫자 변환)
+      const serverMemoryTotal = Number(response.data.memory?.total || 0);
+      const serverDatabaseTotal = Number(response.data.database?.total || 0);
+      const serverTotalRecords = serverMemoryTotal + serverDatabaseTotal;
 
       // 페이지 정보는 서버 응답 기준으로 계산
       const currentPage = filters.page || 1;
       const limit = filters.limit || 50;
 
-      // 필터링된 데이터를 기준으로 총 페이지 계산
-      const totalPages = Math.ceil(totalRecords / limit);
+      // 서버의 실제 총 페이지 수 사용
+      const databaseTotalPages = Number(response.data.database?.totalPages || 0);
+      const memoryTotalPages = Number(response.data.memory?.totalPages || 0);
+      const totalPages = Math.max(databaseTotalPages, memoryTotalPages, Math.ceil(serverTotalRecords / limit));
 
       // 개발 환경에서 디버깅 로그
       if (process.env.NODE_ENV === 'development') {
-        console.log('페이지네이션 정보 (필터링 적용):', {
+        console.log('페이지네이션 정보 (서버 기준):', {
           currentPage,
           totalPages,
           limit,
-          totalRecords,
-          memoryTotal,
-          databaseTotal,
+          serverTotalRecords,
+          serverMemoryTotal,
+          serverDatabaseTotal,
+          databaseTotalPages,
+          memoryTotalPages,
           serverMemoryRecords: memoryRecords.length,
           serverDbRecords: dbRecords.length,
           filteredMemoryRecords: filteredMemoryRecords.length,
           filteredDbRecords: filteredDbRecords.length,
           combinedRecords: allRecords.length,
-          totalRow : response.data.database.total,
+          totalRow: response.data.database.total,
           appliedFilters: {
             metadata: filters.metadata,
             userId: filters.userId,
@@ -1341,13 +1345,13 @@ class NewLogService {
         success: true,
         data: {
           records: allRecords,
-          total: totalRecords,
+          total: serverTotalRecords,
           page: currentPage,
           totalPages: totalPages,
-          memoryLogs: memoryTotal,
-          databaseLogs: databaseTotal,
+          memoryLogs: serverMemoryTotal,
+          databaseLogs: serverDatabaseTotal,
           bufferSize: Number(response.data.combined?.bufferSize || 0),
-          totalRow : response.data.database.total
+          totalRow: response.data.database.total
         },
         error: null,
       };
