@@ -82,12 +82,12 @@ const ROLE_LINKS = {
       {
         name: "재화 지급/회수",
         href: "/game/credit",
-        role: ["STAFF", "INGAME_ADMIN", "MASTER", "SUPERMASTER"],
+        role: ["MASTER", "SUPERMASTER"],
       },
       {
         name: "아이템 지급/회수",
         href: "/game/item",
-        role: ["INGAME_ADMIN", "MASTER", "STAFF", "SUPERMASTER"],
+        role: ["MASTER", "SUPERMASTER"],
       },
       {
         name: "개인 우편",

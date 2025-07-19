@@ -4,9 +4,10 @@ import { CreditTabs } from "@/components/credit/credit-tabs";
 import { GlobalTitle } from "@/components/global/global-title";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { auth } from "@/lib/auth-config";
+import { hasAccess } from "@/lib/utils";
 import { creditService } from "@/service/credit-service";
 import { CreditTableData } from "@/types/credit";
-import { Status } from "@prisma/client";
+import { Status, UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 
 interface PageProps {
@@ -31,6 +32,9 @@ export default async function GameCreditPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const page = Number(params.page) || 1;
   const status = (params.status as Status) || "PENDING";
+
+  if (!hasAccess(session.user.role, UserRole.MASTER))
+    return redirect("/404");
 
   const result = await creditService.getRewardRevokes(page, {
     status,

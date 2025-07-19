@@ -5,9 +5,10 @@ import { GlobalTitle } from "@/components/global/global-title";
 import { PageBreadcrumb } from "@/components/global/page-breadcrumb";
 import { itemQuantityService } from "@/service/quantity-service";
 import { ItemQuantityTableData } from "@/types/quantity";
-import { Status } from "@prisma/client";
+import { Status, UserRole } from "@prisma/client";
 import { auth } from "@/lib/auth-config";
 import { redirect } from "next/navigation";
+import { hasAccess } from "@/lib/utils";
 
 interface PageProps {
   searchParams: Promise<{
@@ -25,6 +26,9 @@ export default async function ItemQuantityPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session || !session.user) return redirect("/login");
   if (session.user && !session.user.isPermissive) return redirect("/pending");
+
+  if (!hasAccess(session.user.role, UserRole.MASTER))
+    return redirect("/404");
 
   const params = await searchParams;
   const page = Number(params.page) || 1;
