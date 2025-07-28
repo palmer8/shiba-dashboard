@@ -36,6 +36,7 @@ import {
   WorkTrendData,
 } from "@/types/attendance";
 import { useMemo } from "react";
+import { buildWeeklyStats, type WeeklyStat } from "@/lib/attendance-utils";
 
 // 분을 시간과 분 문자열로 변환하는 함수 (AttendanceList.tsx에서 가져오거나 여기에 정의)
 const formatMinutesToHoursAndMinutes = (totalMinutes: number): string => {
@@ -129,6 +130,13 @@ export function AttendanceStats({
     }
     return userSpecificRecords;
   }, [records, dateRange, targetUserNumericId]);
+
+  // 선택 월의 주별 통계 (월 view용)
+  const weeklyStatsForMonth: WeeklyStat[] = useMemo(() => {
+    if (!dateRange || !dateRange.from) return [];
+    // buildWeeklyStats 는 records 전체를 필요로 한다 (월 범위는 이미 filteredRecords 로 제한됨)
+    return buildWeeklyStats(filteredRecords, dateRange.from);
+  }, [filteredRecords, dateRange]);
 
   const monthlyTotalWorkTime = useMemo(() => {
     if (!filteredRecords || filteredRecords.length === 0) return 0;
@@ -327,6 +335,35 @@ export function AttendanceStats({
           </div>
         </CardContent>
       </Card>
+
+      {/* 월별 보기에서 주간 카드 */}
+      {weeklyStatsForMonth.length > 0 && (
+        <Card className="md:col-span-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">
+              주차별 근무 시간
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {weeklyStatsForMonth.map((w: WeeklyStat) => (
+                <div
+                  key={w.weekLabel}
+                  className="rounded-lg border p-4 flex flex-col items-center"
+                >
+                  <div className="text-sm text-muted-foreground mb-1">
+                    {format(w.start, "M/d")} ~ {format(w.end, "M/d")}
+                  </div>
+                  <div className="text-xl font-semibold">
+                    {formatMinutesToHoursAndMinutes(w.totalMinutes)}
+                  </div>
+                  <div className="text-xs mt-1">{w.weekLabel}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {
         isView && (
