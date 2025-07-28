@@ -141,6 +141,9 @@ export function NavUser({ session }: NavUserProps) {
 
   const handleSignOut = (e: React.MouseEvent) => {
     e.preventDefault();
+    // 쿠키 초기화
+    document.cookie = "stayLogin=; max-age=0; path=/";
+    document.cookie = "stayLoginSession=; max-age=0; path=/";
     signOut({
       redirect: true,
       callbackUrl: "/login",

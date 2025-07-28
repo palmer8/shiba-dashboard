@@ -1,18 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
-// import { auth } from "@/lib/auth-config"; // 필요시 세션 기반 사용자 ID 가져오기
 
 export async function POST(req: Request) {
   try {
-    // const session = await auth(); // 예시: 세션에서 사용자 ID 가져오기
-    // if (!session?.user?.id) { // session.user.id가 User 테이블의 UUID id 라고 가정
-    //   return NextResponse.json(
-    //     { success: false, error: "인증되지 않은 사용자입니다." },
-    //     { status: 401 }
-    //   );
-    // }
-    // const userIdFromSession = session.user.id;
-
     const body = await req.json();
     let receivedUserId = body.userId; // 프론트에서 User 테이블의 숫자 ID (user.userId)를 보내야 함
 

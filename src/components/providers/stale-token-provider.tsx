@@ -20,7 +20,15 @@ const StaleTokenProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const validateSession = async () => {
-      const autoLogin = localStorage.getItem("autoLogin");
+      // 쿠키 파싱
+      const cookies = Object.fromEntries(
+        document.cookie
+          .split("; ")
+          .filter(Boolean)
+          .map((v) => v.split("=").map(decodeURIComponent)) as [string, string][]
+      );
+      const stayLogin = cookies["stayLogin"] === "true";
+      const stayLoginSession = cookies["stayLoginSession"] === "true";
 
       if (status !== "authenticated") return;
 
@@ -29,12 +37,11 @@ const StaleTokenProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      if (autoLogin === undefined || autoLogin === null) {
+      // 자동 로그인 쿠키가 없으면 로그아웃 (세션/영구 모두 부재)
+      if (!stayLogin && !stayLoginSession) {
         signOut({ callbackUrl: "/login" });
         return;
       }
-
-      if (autoLogin === "false") localStorage.removeItem("autoLogin");
 
       try {
         const result = await getUserByIdAction(session.user.id);

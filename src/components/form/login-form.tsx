@@ -46,7 +46,18 @@ export function LoginForm() {
         return;
       }
 
-      localStorage.setItem("autoLogin", data.autoLogin ? "true" : "false");
+      // 자동 로그인 상태를 쿠키로 관리
+      if (data.autoLogin) {
+        // 2일(172800초) 유지되는 영구 쿠키
+        document.cookie = "stayLogin=true; max-age=172800; path=/";
+        // 세션용 쿠키 제거
+        document.cookie = "stayLoginSession=; max-age=0; path=/";
+      } else {
+        // 브라우저 세션 동안만 유지되는 세션 쿠키 (만료 지정 안 함)
+        document.cookie = "stayLoginSession=true; path=/";
+        // 영구 쿠키 제거
+        document.cookie = "stayLogin=; max-age=0; path=/";
+      }
 
       router.replace("/");
     } catch (error) {

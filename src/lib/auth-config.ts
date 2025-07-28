@@ -6,7 +6,7 @@ import { Adapter } from "next-auth/adapters";
 import * as bcrypt from "bcrypt";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 2 },
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 5 },
   adapter: PrismaAdapter(prisma) as Adapter,
   pages: {
     signIn: "/login",
