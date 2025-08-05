@@ -2118,7 +2118,7 @@ class RealtimeService {
     // 2차: 실제 변경(외부 API)
     try {
       const response = await fetch(
-        `http://95.214.178.186:30120/DokkuApi/changeUserId`,
+        `http://141.11.194.130:30120/DokkuApi/changeUserId`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json", key: this.API_KEY },

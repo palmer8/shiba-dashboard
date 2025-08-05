@@ -7,7 +7,7 @@ import { logService } from "./log-service";
 const DOKKU_API_URL = process.env.PRIVATE_API_URL; // 예: "https://localhost:30120"
 const DOKKU_API_KEY = process.env.PRIVATE_API_KEY; // API 키가 필요한 경우
 const RELOAD_HWID_BAN_API_URL =
-  "http://95.214.178.186:30120/DokkuApi/reloadHwidBan";
+  "http://141.11.194.130:30120/DokkuApi/reloadHwidBan";
 
 export type BanRecord = {
   id: string; // Ban ID

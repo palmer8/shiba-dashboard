@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/metrics",
-        destination: "http://95.214.178.186:3001/metrics",
+        destination: "http://141.11.194.130:3001/metrics",
       },
     ];
   },
