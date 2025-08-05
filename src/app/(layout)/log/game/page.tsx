@@ -117,6 +117,11 @@ export default async function LogGamePage({ searchParams }: LogGamePageProps) {
         value,
         page: Number(page),
       });
+    } else if (type === "DISCORD" && value) {
+      data = await realtimeService.getGameDataByDiscordId({
+        value,
+        page: Number(page),
+      });
     }
   } catch (e) {
     error =

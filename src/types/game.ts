@@ -16,7 +16,8 @@ export type GameDataType =
   | "COMPANY"
   | "IP"
   | "VEHICLE"
-  | "SKIN";
+  | "SKIN"
+  | "DISCORD";
 
 export type UserLogFilter = {
   message?: string;

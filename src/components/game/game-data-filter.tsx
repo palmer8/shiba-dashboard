@@ -118,7 +118,7 @@ export default function GameDataFilter({
               `/log/game?type=${query.type}&itemId=${query.itemId}&value=${query.value}&condition=${query.condition}&page=1`,
               { scroll: false }
             );
-          } else if (query.type === "VEHICLE" || query.type === "SKIN") {
+          } else if (query.type === "VEHICLE" || query.type === "SKIN" || query.type === "DISCORD") {
             router.replace(
               `/log/game?type=${query.type}&value=${query.value}&page=1`,
               { scroll: false }
@@ -176,6 +176,7 @@ export default function GameDataFilter({
                 <SelectItem value="ITEM_NAME">아이템 이름</SelectItem>
                 <SelectItem value="NICKNAME">닉네임</SelectItem>
                 <SelectItem value="INSTAGRAM">인스타그램 계정</SelectItem>
+                <SelectItem value="DISCORD">디스코드 ID</SelectItem>
                 {hasAccess(session.user!.role, UserRole.SUPERMASTER) && (
                   <>
                     <SelectItem value="CURRENT_CASH">보유 캐시</SelectItem>
@@ -242,6 +243,7 @@ export default function GameDataFilter({
             "IP",
             "VEHICLE",
             "SKIN",
+            "DISCORD",
           ].includes(query.type) && (
             <div className="space-y-2">
               <Label>조건 선택</Label>

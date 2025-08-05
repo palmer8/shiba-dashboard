@@ -3151,6 +3151,62 @@ class RealtimeService {
       };
     }
   }
+
+  async getGameDataByDiscordId(query: {
+    value: string;
+    page: number;
+  }): Promise<PaginatedResult<BaseQueryResult>> {
+    try {
+      const { value, page } = query;
+      const pageSize = 50;
+      const offset = (page - 1) * pageSize;
+
+      const dataQuery = `
+        SELECT
+          u.id,
+          SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname,
+          ui.first_join,
+          v.identifier AS result,
+          COUNT(*) OVER() AS total
+        FROM vrp_user_ids v
+        JOIN vrp_users u ON v.user_id = u.id
+        LEFT JOIN vrp_user_identities ui ON ui.user_id = u.id
+        WHERE v.identifier = CONCAT('discord:', ?)
+        ORDER BY u.id DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      const [rows] = await pool.execute<RowDataPacket[]>(dataQuery, [
+        value,
+        pageSize,
+        offset,
+      ]);
+
+      const total = rows[0]?.total || 0;
+      const totalPages = Math.ceil(total / pageSize);
+
+      await logService.writeAdminLog(`디스코드 ID ${value} 조회 (${page}페이지)`);
+
+      return {
+        data: rows.map((row: RowDataPacket): BaseQueryResult => ({
+          id: row.id,
+          nickname: row.nickname,
+          first_join: row.first_join,
+          result: row.result,
+          type: 'DISCORD',
+        })),
+        total,
+        currentPage: page,
+        totalPages,
+        pageSize,
+      };
+    } catch (error) {
+      console.error('디스코드 ID 조회 에러:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'
+      );
+    }
+  }
 }
 
 export const realtimeService = new RealtimeService();
