@@ -191,6 +191,11 @@ export const ADMIN_LINKS = {
         href: "/admin/group",
         role: ["SUPERMASTER"],
       },
+      {
+        name: "아이템 목록",
+        href: "/admin/items",
+        role: ["MASTER", "SUPERMASTER"],
+      },
     ],
   },
 };

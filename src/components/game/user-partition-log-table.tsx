@@ -42,7 +42,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { handleDownloadJson2CSV } from "@/lib/utils";
+import { handleDownloadJson2CSV, getUTCDateRangeForCSV } from "@/lib/utils";
 
 interface PartitionLogTableProps {
   data: PartitionLogData[];
@@ -306,24 +306,91 @@ export function UserPartitionLogTable({
   }, [router, isFlushingLogs]);
 
   const handleCsvDownload = useCallback(async () => {
-    if (!range || !range.from || !range.to) return;
+    const dateRange = getUTCDateRangeForCSV(range);
+    if (!dateRange) return;
 
     setCsvLoading(true);
     setCsvError(null);
 
     try {
-      const startDate = range.from.toISOString().slice(0, 10);
-      const endDate = range.to.toISOString().slice(0, 10);
-      const result = await exportPartitionLogsByDateRangeAction(startDate, endDate);
+      const { startDate, endDate } = dateRange;
+      
+      // 현재 페이지의 필터 조건 가져오기
+      const searchParams = new URLSearchParams(window.location.search);
+      const filters = {
+        type: searchParams.get('type') || undefined,
+        level: searchParams.get('level') || undefined,
+        message: searchParams.get('message') || undefined,
+        metadata: searchParams.get('metadata') || undefined,
+        userId: searchParams.get('userId') ? Number(searchParams.get('userId')) : undefined,
+      };
+      
+      const result = await exportPartitionLogsByDateRangeAction(startDate, endDate, filters);
 
       if (result.success && result.data) {
+        // 빈 데이터 체크
+        if (!Array.isArray(result.data) || result.data.length === 0) {
+          toast({
+            title: "데이터 없음",
+            description: "선택한 기간에 다운로드할 데이터가 없습니다.",
+            variant: "destructive",
+          });
+          setModalOpen(false);
+          return;
+        }
+
+        // CSV 데이터 구조 변경: 불필요한 필드 제거 및 user_id 추가
+        const csvData = result.data.map((log: any) => {
+          // metadata에서 user_id 추출
+          let userId = null;
+          try {
+            if (log.metadata) {
+              const metadata = typeof log.metadata === 'string' ? JSON.parse(log.metadata) : log.metadata;
+              userId = metadata.user_id || null;
+            }
+          } catch (e) {
+            // metadata 파싱 실패 시 null 유지
+          }
+
+          // logged_at 필드를 KST로 변환 (timestamp 대신 사용)
+          let loggedAt = log.timestamp;
+          if (loggedAt) {
+            try {
+              const date = new Date(loggedAt);
+              // 명확한 ISO 형식으로 변환: YYYY-MM-DD HH:mm:ss
+              loggedAt = new Intl.DateTimeFormat('sv-SE', {
+                timeZone: 'Asia/Seoul',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              }).format(date);
+            } catch (e) {
+              // 변환 실패 시 원본 사용
+              console.warn('Date formatting failed for:', loggedAt);
+            }
+          }
+
+          return {
+            id: log.id,
+            logged_at: loggedAt,
+            level: log.level,
+            type: log.type,
+            message: log.message,
+            metadata: log.metadata,
+            user_id: userId
+          };
+        });
+
         handleDownloadJson2CSV({
-          data: result.data,
+          data: csvData,
           fileName: `partition-logs-${startDate}_to_${endDate}`,
         });
         toast({
           title: "CSV 다운로드 완료",
-          description: `${result.data.length}개의 로그가 다운로드되었습니다.`,
+          description: `${csvData.length}개의 로그가 다운로드되었습니다. (${startDate} ~ ${endDate})`,
         });
         setModalOpen(false);
         setRange(undefined);

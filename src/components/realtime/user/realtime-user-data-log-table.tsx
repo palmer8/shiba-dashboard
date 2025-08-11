@@ -17,7 +17,7 @@ import {
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { formatKoreanDateTime, handleDownloadJson2CSV, hasAccess } from "@/lib/utils";
+import { formatKoreanDateTime, handleDownloadJson2CSV, hasAccess, getUTCDateRangeForCSV } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import Empty from "@/components/ui/empty";
@@ -267,16 +267,40 @@ export function RealtimeUserDataTable({
   };
 
   const handleCsvDownload = async () => {
-    if (!range || !range.from || !range.to) return;
+    const dateRange = getUTCDateRangeForCSV(range);
+    if (!dateRange) return;
+    
     setCsvLoading(true);
     setCsvError(null);
-    const startDate = range.from.toISOString().slice(0, 10);
-    const endDate = range.to.toISOString().slice(0, 10);
-    const result = await exportPartitionLogsByDateRangeAction(startDate, endDate);
+    
+    const { startDate, endDate } = dateRange;
+    
+    // 현재 페이지의 필터 조건 가져오기
+    const searchParams = new URLSearchParams(window.location.search);
+    const currentFilters = {
+      type: searchParams.get('type') || undefined,
+      level: searchParams.get('level') || undefined,
+      message: searchParams.get('message') || undefined,
+      metadata: searchParams.get('metadata') || undefined,
+      userId: searchParams.get('userId') ? Number(searchParams.get('userId')) : undefined,
+    };
+    
+    const result = await exportPartitionLogsByDateRangeAction(startDate, endDate, currentFilters);
     setCsvLoading(false);
     if (result.success) {
+      // 빈 데이터 체크
+      if (!result.data || !Array.isArray(result.data) || result.data.length === 0) {
+        toast({
+          title: "데이터 없음",
+          description: "선택한 기간에 다운로드할 데이터가 없습니다.",
+          variant: "destructive",
+        });
+        setModalOpen(false);
+        return;
+      }
+
       handleDownloadJson2CSV({
-        data: result.data ?? [],
+        data: result.data,
         fileName: `user-partition-logs-${startDate}_to_${endDate}`,
       });
       setModalOpen(false);
@@ -409,7 +433,7 @@ export function RealtimeUserDataTable({
           <DialogFooter>
             <Button
               onClick={handleCsvDownload}
-              disabled={!range?.from || !range?.to || csvLoading}
+              disabled={!range?.from || csvLoading}
             >
               {csvLoading ? "다운로드 중..." : "다운로드"}
             </Button>

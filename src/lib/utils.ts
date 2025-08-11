@@ -600,6 +600,70 @@ export function getDateOnly(date: Date | string | null): Date | null {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+/**
+ * CSV 기간 다운로드를 위한 간단한 날짜 범위 처리
+ * @param range DateRange from react-day-picker
+ * @returns { startDate: string, endDate: string } YYYY-MM-DD 형식
+ */
+export function getDateRangeForCSV(range: { from?: Date; to?: Date } | undefined): {
+  startDate: string;
+  endDate: string;
+} | null {
+  if (!range?.from) return null;
+
+  // 선택된 날짜를 YYYY-MM-DD 형식으로 변환 (로컬 시간 기준)
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const startDate = formatDate(range.from);
+  // to가 없으면 from과 동일한 날짜 사용 (단일 날짜 선택)
+  const endDate = range.to ? formatDate(range.to) : startDate;
+
+  return { startDate, endDate };
+}
+
+/**
+ * CSV 기간 다운로드를 위한 UTC 날짜 범위 처리
+ * KST 기준 날짜를 UTC 기준 날짜 범위로 변환
+ * @param range DateRange from react-day-picker
+ * @returns { startDate: string, endDate: string } YYYY-MM-DD HH:mm:ss 형식 (UTC)
+ */
+export function getUTCDateRangeForCSV(range: { from?: Date; to?: Date } | undefined): {
+  startDate: string;
+  endDate: string;
+} | null {
+  if (!range?.from) return null;
+
+  // KST 기준 날짜를 UTC로 변환
+  const formatUTCDate = (date: Date, isEndDate: boolean = false): string => {
+    // KST 기준으로 날짜 설정
+    const kstDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    if (isEndDate) {
+      // 종료일: 23:59:59로 설정
+      kstDate.setHours(23, 59, 59, 999);
+    } else {
+      // 시작일: 00:00:00으로 설정
+      kstDate.setHours(0, 0, 0, 0);
+    }
+    
+    // KST를 UTC로 변환 (9시간 빼기)
+    const utcDate = new Date(kstDate.getTime() - 9 * 60 * 60 * 1000);
+    
+    return utcDate.toISOString().slice(0, 19).replace('T', ' ');
+  };
+
+  const startDate = formatUTCDate(range.from, false);
+  // to가 없으면 from과 동일한 날짜 사용 (단일 날짜 선택)
+  const endDate = range.to ? formatUTCDate(range.to, true) : formatUTCDate(range.from, true);
+
+  return { startDate, endDate };
+}
+
 // Novel JSON을 Markdown으로 변환하는 함수
 export function convertNovelToMarkdown(node: JSONContent): string {
   let markdown = "";

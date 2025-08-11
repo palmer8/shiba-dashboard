@@ -79,8 +79,12 @@ export function ItemComboBox({
         >
           <span className="text-ellipsis overflow-hidden whitespace-nowrap">
             {value
-              ? items.find((item) => item.itemId.toString() === value)
-                  ?.itemName || value
+              ? (() => {
+                  const selectedItem = items.find((item) => item.itemId.toString() === value);
+                  return selectedItem 
+                    ? `${selectedItem.itemName} (${selectedItem.itemId})`
+                    : value;
+                })()
               : placeholder || "아이템 선택..."}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -96,7 +100,7 @@ export function ItemComboBox({
             value={inputValue}
             onValueChange={setInputValue}
           />
-          <CommandList>
+          <CommandList className="max-h-[300px] overflow-y-auto">
             <CommandEmpty>
               {loading ? "검색 중..." : "검색 결과가 없습니다."}
             </CommandEmpty>
@@ -121,7 +125,12 @@ export function ItemComboBox({
                         : "opacity-0"
                     )}
                   />
-                  {item.itemName}
+                  <div className="flex flex-col">
+                    <span>{item.itemName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      코드: {item.itemId}
+                    </span>
+                  </div>
                 </CommandItem>
               ))}
             </CommandGroup>

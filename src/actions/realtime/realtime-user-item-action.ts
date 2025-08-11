@@ -31,3 +31,8 @@ export async function getItemsByItemNameAction(itemName: string) {
   const result = await realtimeService.getItemsByItemName(itemName);
   return result;
 }
+
+export async function getAllItemsAction() {
+  const result = await realtimeService.getAllItems();
+  return result;
+}

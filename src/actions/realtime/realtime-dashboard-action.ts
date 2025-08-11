@@ -1,22 +1,8 @@
 "use server";
 
-import { boardService } from "@/service/board-service";
 import { realtimeService } from "@/service/realtime-service";
-import { cache } from "react";
 import { ApiResponse } from "@/types/global.dto";
 import { DashboardData } from "@/types/dashboard";
-
-const getCachedUserCount = cache(async () => {
-  return realtimeService.getRealtimeUser();
-});
-
-const getCachedAdminData = cache(async () => {
-  return realtimeService.getAdminData();
-});
-
-const getCachedWeeklyStats = cache(async () => {
-  return realtimeService.getWeeklyNewUsersStats();
-});
 
 export async function getDashboardData(): Promise<ApiResponse<DashboardData>> {
   try {

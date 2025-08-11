@@ -1026,15 +1026,48 @@ export class LogService {
     }
   }
 
-  async exportGameLogsByDateRange(startDate: string, endDate: string) {
-    // startDate, endDate: 'YYYY-MM-DD'
-    const start = new Date(`${startDate}T00:00:00.000Z`);
-    const end = new Date(`${endDate}T23:59:59.999Z`);
+  async exportGameLogsByDateRange(
+    startDate: string, 
+    endDate: string,
+    additionalFilters?: {
+      type?: string;
+      level?: string;
+      message?: string;
+    }
+  ) {
+    // startDate, endDate: 'YYYY-MM-DD HH:mm:ss' - UTC 기준으로 받음
+    const start = new Date(startDate + 'Z'); // UTC로 파싱
+    const end = new Date(endDate + 'Z'); // UTC로 파싱
     try {
-      // DB 쿼리: timestamp >= start AND timestamp <= end
+      // 필터 조건을 위한 WHERE 절 구성
+      let whereConditions = [`timestamp >= $1`, `timestamp <= $2`];
+      let queryParams: any[] = [start, end];
+      let paramIndex = 3;
+
+      if (additionalFilters?.type) {
+        whereConditions.push(`type = $${paramIndex}`);
+        queryParams.push(additionalFilters.type);
+        paramIndex++;
+      }
+
+      if (additionalFilters?.level) {
+        whereConditions.push(`level = $${paramIndex}`);
+        queryParams.push(additionalFilters.level);
+        paramIndex++;
+      }
+
+      if (additionalFilters?.message) {
+        whereConditions.push(`message ILIKE $${paramIndex}`);
+        queryParams.push(`%${additionalFilters.message}%`);
+        paramIndex++;
+      }
+
+      const whereClause = whereConditions.join(' AND ');
+
+      // DB 쿼리: 필터 조건 적용
       const logs = await db.sql.unsafe(
-        `SELECT id, timestamp, level, type, message, metadata FROM game_logs WHERE timestamp >= $1 AND timestamp <= $2 ORDER BY timestamp DESC`,
-        [start, end]
+        `SELECT id, timestamp, level, type, message, metadata FROM game_logs WHERE ${whereClause} ORDER BY timestamp DESC`,
+        queryParams
       );
       return {
         success: true,
@@ -1051,10 +1084,17 @@ export class LogService {
     }
   }
 
-  async exportAdminLogsByDateRange(startDate: string, endDate: string) {
-    // startDate, endDate: 'YYYY-MM-DD'
-    const start = new Date(`${startDate}T00:00:00.000Z`);
-    const end = new Date(`${endDate}T23:59:59.999Z`);
+  async exportAdminLogsByDateRange(
+    startDate: string, 
+    endDate: string,
+    additionalFilters?: {
+      content?: string;
+      registrantUserId?: number;
+    }
+  ) {
+    // startDate, endDate: 'YYYY-MM-DD HH:mm:ss' - UTC 기준으로 받음
+    const start = new Date(startDate + 'Z'); // UTC로 파싱
+    const end = new Date(endDate + 'Z'); // UTC로 파싱
 
     try {
       const logs = await prisma.accountUsingQuerylog.findMany({
@@ -1063,6 +1103,12 @@ export class LogService {
             gte: start,
             lte: end,
           },
+          ...(additionalFilters?.content && {
+            content: { contains: additionalFilters.content },
+          }),
+          ...(additionalFilters?.registrantUserId && {
+            registrant: { userId: additionalFilters.registrantUserId },
+          }),
         },
         include: {
           registrant: {
@@ -1448,59 +1494,117 @@ class NewLogService {
     }
   }
 
-  async exportPartitionLogsByDateRange(startDate: string, endDate: string): Promise<ApiResponse<NewGameLog[]>> {
+  async exportPartitionLogsByDateRange(
+    startDate: string, 
+    endDate: string, 
+    additionalFilters?: {
+      type?: string;
+      level?: string;
+      message?: string;
+      metadata?: string;
+      userId?: number;
+    }
+  ): Promise<ApiResponse<NewGameLog[]>> {
     try {
-      const filters = {
-        startDate,
-        endDate,
-        page: 1,
-        limit: 10000, // 충분히 큰 수로 설정
-      };
+      const allRecords: NewGameLog[] = [];
+      let currentPage = 1;
+      const pageSize = 1000; // 한 번에 가져올 레코드 수
+      let hasMoreData = true;
 
-      const response = await this.makeRequest<NewLogsResponse>(`/api/logs?${new URLSearchParams({
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        page: filters.page.toString(),
-        limit: filters.limit.toString(),
-      }).toString()}`);
+      // 페이징으로 모든 데이터 수집
+      while (hasMoreData) {
+        const filters = {
+          startDate,
+          endDate,
+          page: currentPage,
+          limit: pageSize,
+          ...additionalFilters,
+        };
 
-      if (!response.success || !response.data) {
-        throw new Error(response.error || 'Failed to fetch logs');
+        // URLSearchParams에 필터 조건들 추가
+        const queryParams = new URLSearchParams({
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          page: filters.page.toString(),
+          limit: filters.limit.toString(),
+        });
+        
+        // 추가 필터가 있으면 쿼리에 추가
+        if (filters.type) queryParams.set('type', filters.type);
+        if (filters.level) queryParams.set('level', filters.level);
+        if (filters.message) queryParams.set('message', filters.message);
+        if (filters.metadata) queryParams.set('metadata', filters.metadata);
+        if (filters.userId) queryParams.set('userId', filters.userId.toString());
+
+        console.log(`Fetching page ${currentPage} with params:`, queryParams.toString());
+
+        const response = await this.makeRequest<NewLogsResponse>(`/api/logs?${queryParams.toString()}`);
+
+        if (!response.success || !response.data) {
+          console.error(`Failed to fetch page ${currentPage}:`, response.error);
+          break;
+        }
+
+        // 메모리와 DB 로그를 합쳐서 수집
+        const memoryRecords = response.data.memory?.records || [];
+        const dbRecords = response.data.database?.records || [];
+        
+        // KST 기준으로 날짜 필터링 (서버에서 제대로 안됐을 경우 대비)
+        const filteredMemoryRecords = memoryRecords.filter((log: NewGameLog) => {
+          if (filters.startDate) {
+            const logDate = new Date(log.timestamp || 0);
+            const filterDate = new Date(`${filters.startDate}T00:00:00+09:00`);
+            if (logDate < filterDate) return false;
+          }
+          if (filters.endDate) {
+            const logDate = new Date(log.timestamp || 0);
+            const filterDate = new Date(`${filters.endDate}T23:59:59+09:00`);
+            if (logDate > filterDate) return false;
+          }
+          return true;
+        });
+
+        const pageRecords = [...filteredMemoryRecords, ...dbRecords];
+        allRecords.push(...pageRecords);
+
+        // 더 이상 데이터가 없으면 중단
+        if (pageRecords.length < pageSize) {
+          hasMoreData = false;
+        } else {
+          currentPage++;
+        }
+
+        // 무한 루프 방지 (최대 100페이지)
+        if (currentPage > 100) {
+          console.warn('Reached maximum page limit (100 pages)');
+          break;
+        }
       }
 
-      // 메모리와 DB 로그를 합쳐서 반환
-      const memoryRecords = response.data.memory?.records || [];
-      const dbRecords = response.data.database?.records || [];
-
-      // 필터링과 정렬
-      const filteredMemoryRecords = memoryRecords.filter((log: NewGameLog) => {
-        if (filters.startDate) {
-          const logDate = new Date(log.timestamp || 0);
-          const filterDate = new Date(filters.startDate);
-          if (logDate < filterDate) return false;
-        }
-        if (filters.endDate) {
-          const logDate = new Date(log.timestamp || 0);
-          const filterDate = new Date(filters.endDate);
-          filterDate.setHours(23, 59, 59, 999);
-          if (logDate > filterDate) return false;
-        }
-        return true;
-      });
-
-      const allRecords = [...filteredMemoryRecords, ...dbRecords].sort((a, b) => {
+      // 최종 정렬
+      const sortedRecords = allRecords.sort((a, b) => {
         const timeA = new Date(a.timestamp || 0).getTime();
         const timeB = new Date(b.timestamp || 0).getTime();
         return timeB - timeA;
       });
 
+      // CSV 출력을 위해 timestamp를 KST로 변환
+      const recordsWithKST = sortedRecords.map(record => ({
+        ...record,
+        timestamp: record.timestamp ? 
+          new Date(new Date(record.timestamp).getTime() + 9 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19) :
+          record.timestamp
+      }));
+
+      console.log(`Total records collected: ${recordsWithKST.length}`);
+
       await this.writeAdminLog(
-        `새로운 파티션 로그 CSV 기간 다운로드 (${startDate} ~ ${endDate})`
+        `새로운 파티션 로그 CSV 기간 다운로드 (${startDate} ~ ${endDate}) - ${recordsWithKST.length}개 레코드`
       );
 
       return {
         success: true,
-        data: allRecords,
+        data: recordsWithKST,
         error: null,
       };
     } catch (error) {

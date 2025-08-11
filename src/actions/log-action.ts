@@ -43,16 +43,25 @@ export const getUserRelatedLogsAction = async (
 
 export const exportGameLogsByDateRangeAction = async (
   startDate: string,
-  endDate: string
+  endDate: string,
+  filters?: {
+    type?: string;
+    level?: string;
+    message?: string;
+  }
 ) => {
-  return await logService.exportGameLogsByDateRange(startDate, endDate);
+  return await logService.exportGameLogsByDateRange(startDate, endDate, filters);
 };
 
 export const exportAdminLogsByDateRangeAction = async (
   startDate: string,
-  endDate: string
+  endDate: string,
+  filters?: {
+    content?: string;
+    registrantUserId?: number;
+  }
 ) => {
-  return await logService.exportAdminLogsByDateRange(startDate, endDate);
+  return await logService.exportAdminLogsByDateRange(startDate, endDate, filters);
 };
 
 // 새로운 파티션 로그 시스템 액션들
@@ -88,9 +97,16 @@ export const getHealthCheckAction = async () => {
 
 export const exportPartitionLogsByDateRangeAction = async (
   startDate: string,
-  endDate: string
+  endDate: string,
+  filters?: {
+    type?: string;
+    level?: string;
+    message?: string;
+    metadata?: string;
+    userId?: number;
+  }
 ) => {
-  return await newLogService.exportPartitionLogsByDateRange(startDate, endDate);
+  return await newLogService.exportPartitionLogsByDateRange(startDate, endDate, filters);
 };
 
 // 유저별 파티션 로그 조회 액션 추가

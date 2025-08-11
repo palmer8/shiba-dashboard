@@ -447,18 +447,55 @@ class RealtimeService {
         itemName: true,
       },
       where: {
-        itemName: {
-          contains: itemName,
-          mode: "insensitive",
-        },
+        OR: [
+          {
+            itemName: {
+              contains: itemName,
+              mode: "insensitive",
+            },
+          },
+          {
+            itemId: {
+              contains: itemName,
+              mode: "insensitive",
+            },
+          },
+        ],
       },
       orderBy: { itemName: "asc" },
-      take: 5,
     });
 
     return {
       success: true,
       message: "아이템 조회 성공",
+      data: items,
+      error: null,
+    };
+  }
+
+  async getAllItems() {
+    const session = await auth();
+
+    if (!session || !session.user || !session.user.id) {
+      return {
+        success: false,
+        message: "권한이 없습니다.",
+        data: [],
+        error: "Unauthorized",
+      };
+    }
+
+    const items = await prisma.items.findMany({
+      select: {
+        itemId: true,
+        itemName: true,
+      },
+      orderBy: { itemName: "asc" },
+    });
+
+    return {
+      success: true,
+      message: "전체 아이템 조회 성공",
       data: items,
       error: null,
     };
@@ -940,7 +977,7 @@ class RealtimeService {
       const data = await this.fetchWithRetry<{
         count: number;
         users: Array<{ user_id: number; name: string }>;
-      }>("/DokkuApi/getAdmin", { method: "POST" });
+      }>("/DokkuApi/getAdmin", { method: "POST", body: JSON.stringify({}) });
 
       return {
         success: true,
@@ -1795,7 +1832,7 @@ class RealtimeService {
     try {
       const response = await this.fetchWithRetry<{
         users?: Array<{ user_id: number; name: string }>; // users를 optional로 변경
-      }>("/DokkuApi/getOnlinePlayers", { method: "POST" });
+      }>("/DokkuApi/getOnlinePlayers", { method: "POST", body: JSON.stringify({}) });
 
       // response.users가 존재하고 배열인지 확인
       if (response && Array.isArray(response.users)) {
@@ -2133,6 +2170,10 @@ class RealtimeService {
         await logService.writeAdminLog(
           `${session.user.nickname}가 유저 고유번호를 ${currentUserId} → ${newUserId}로 변경 (2차 승인)`
         );
+
+        // 게임서버 변경 성공 시 유저보드 동기화
+        await this.syncUserIdToUserboard(currentUserId, newUserId);
+
         return {
           success: true,
           data: {
@@ -3204,6 +3245,77 @@ class RealtimeService {
       console.error('디스코드 ID 조회 에러:', error);
       throw new Error(
         error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'
+      );
+    }
+  }
+
+  /**
+   * 유저보드 고유번호 동기화
+   * 게임서버에서 고유번호 변경 성공 후 유저보드 DB 동기화
+   */
+  private async syncUserIdToUserboard(
+    currentUserId: number,
+    newUserId: number
+  ): Promise<void> {
+    try {
+      const userboardApiUrl = process.env.USERBOARD_API_URL;
+      const userboardApiKey = process.env.USERBOARD_API_KEY;
+
+      if (!userboardApiUrl || !userboardApiKey) {
+        console.warn("[RealtimeService] 유저보드 API 설정이 없습니다. 동기화를 건너뜁니다.");
+        return;
+      }
+
+      const response = await fetch(
+        `${userboardApiUrl}/api/user/changeUserId/${currentUserId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": userboardApiKey,
+          },
+          body: JSON.stringify({
+            newUserId: newUserId,
+          }),
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        console.error(
+          `[RealtimeService] 유저보드 동기화 실패: HTTP ${response.status}`
+        );
+        await logService.writeAdminLog(
+          `유저보드 고유번호 동기화 실패 (${currentUserId} → ${newUserId}): HTTP ${response.status}`
+        );
+        return;
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        console.log(
+          `[RealtimeService] 유저보드 동기화 성공: ${currentUserId} → ${newUserId}`
+        );
+        await logService.writeAdminLog(
+          `유저보드 고유번호 동기화 성공 (${currentUserId} → ${newUserId})`
+        );
+      } else {
+        console.error(
+          `[RealtimeService] 유저보드 동기화 실패: ${result.error}`
+        );
+        await logService.writeAdminLog(
+          `유저보드 고유번호 동기화 실패 (${currentUserId} → ${newUserId}): ${result.error}`
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[RealtimeService] 유저보드 동기화 중 오류:`,
+        error
+      );
+      await logService.writeAdminLog(
+        `유저보드 고유번호 동기화 오류 (${currentUserId} → ${newUserId}): ${
+          error instanceof Error ? error.message : "알 수 없는 오류"
+        }`
       );
     }
   }

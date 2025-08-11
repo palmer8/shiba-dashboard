@@ -57,6 +57,7 @@ class BanService {
           "Content-Type": "application/json",
           key: DOKKU_API_KEY || "", // reloadHwidBan API가 키를 요구한다면 추가
         },
+        body: JSON.stringify({}),
       });
 
       if (!apiRes.ok) {

@@ -20,7 +20,7 @@ import {
 } from "@tanstack/react-table";
 import { useMemo, useEffect, useState, useRef, useCallback } from "react";
 import Empty from "@/components/ui/empty";
-import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
+import { formatKoreanDateTime, handleDownloadJson2CSV, getUTCDateRangeForCSV } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getAccountUsingLogsByIdsAction, exportAdminLogsByDateRangeAction } from "@/actions/log-action";
 import { toast } from "@/hooks/use-toast";
@@ -159,21 +159,38 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
   };
 
   const handleCsvDownload = useCallback(async () => {
-    if (!range || !range.from || !range.to) return;
+    const dateRange = getUTCDateRangeForCSV(range);
+    if (!dateRange) return;
     
     setCsvLoading(true);
     setCsvError(null);
     
-    const startDate = range.from.toISOString().slice(0, 10);
-    const endDate = range.to.toISOString().slice(0, 10);
+    const { startDate, endDate } = dateRange;
     
-    const result = await exportAdminLogsByDateRangeAction(startDate, endDate);
+    // 현재 페이지의 필터 조건 가져오기
+    const currentFilters = {
+      content: searchParams.get('content') || undefined,
+      registrantUserId: searchParams.get('registrantUserId') ? Number(searchParams.get('registrantUserId')) : undefined,
+    };
+    
+    const result = await exportAdminLogsByDateRangeAction(startDate, endDate, currentFilters);
     
     setCsvLoading(false);
     
     if (result.success) {
+      // 빈 데이터 체크
+      if (!result.data || !Array.isArray(result.data) || result.data.length === 0) {
+        toast({
+          title: "데이터 없음",
+          description: "선택한 기간에 다운로드할 데이터가 없습니다.",
+          variant: "destructive",
+        });
+        setModalOpen(false);
+        return;
+      }
+
       handleDownloadJson2CSV({
-        data: result.data ?? [],
+        data: result.data,
         fileName: `admin-logs-${startDate}_to_${endDate}`,
       });
       setModalOpen(false);
@@ -318,7 +335,7 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
           <DialogFooter>
             <Button
               onClick={handleCsvDownload}
-              disabled={!range?.from || !range?.to || csvLoading}
+              disabled={!range?.from || csvLoading}
             >
               {csvLoading ? "다운로드 중..." : "다운로드"}
             </Button>
