@@ -46,6 +46,7 @@ import EditGroupMailDialog from "@/components/dialog/edit-group-mail-dialog";
 import Empty from "@/components/ui/empty";
 import { Session } from "next-auth";
 import { writeAdminLogAction } from "@/actions/log-action";
+import { Badge } from "@/components/ui/badge";
 
 interface GroupMailTableProps {
   data: GroupMailTableData;
@@ -68,6 +69,19 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
   });
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
   const tableContainerRef = useRef<HTMLTableElement>(null);
+
+  // 상태 계산 함수
+  const getMailStatus = (startDate: Date, endDate: Date) => {
+    const now = new Date();
+    
+    if (now < startDate) {
+      return { text: "대기", variant: "secondary" as const };
+    } else if (now >= startDate && now <= endDate) {
+      return { text: "진행중", variant: "default" as const };
+    } else {
+      return { text: "종료", variant: "destructive" as const };
+    }
+  };
 
   useEffect(() => {
     setInputPage(data.metadata.page.toString());
@@ -108,6 +122,19 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
         accessorKey: "reason",
         header: "제목",
         cell: ({ row }) => <div>{row.getValue("reason")}</div>,
+      },
+      {
+        accessorKey: "status",
+        header: "상태",
+        cell: ({ row }) => {
+          const mail = row.original;
+          const status = getMailStatus(mail.startDate, mail.endDate);
+          return (
+            <Badge variant={status.variant}>
+              {status.text}
+            </Badge>
+          );
+        },
       },
       {
         accessorKey: "content",
