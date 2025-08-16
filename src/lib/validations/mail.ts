@@ -108,7 +108,7 @@ export const personalMailCreateSchema = z.object({
   title: z.string(),
   content: z.string(),
   need_items: z.array(mailItemSchema).optional().default([]),
-  reward_items: z.array(mailItemSchema).min(1, "보상 아이템을 최소 1개 이상 추가해주세요"),
+  reward_items: z.array(mailItemSchema).optional().default([]),
   used: z.boolean().optional().default(false),
 });
 
