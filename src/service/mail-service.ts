@@ -21,7 +21,7 @@ import {
 } from "@/lib/validations/mail"; 
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
-// 아이템 이름 매핑 유틸리티 함수
+// 아이템 이름 매핑 유티 함수
 function mapItemIdsToNames(
   items: Record<string, number>, 
   itemNameMap: Map<string, string>
@@ -473,9 +473,9 @@ export async function getGroupMailReserves(
     }
 
     // 총 개수 조회와 데이터 조회를 병렬로 실행
-    const countQuery = `SELECT COUNT(*) as total FROM dokku_mail_reserve ${whereClause}`;
+    const countQuery = `SELECT COUNT(*) as total FROM dokku_hottime_event ${whereClause}`;
     const dataQuery = `
-      SELECT * FROM dokku_mail_reserve
+      SELECT * FROM dokku_hottime_event
       ${whereClause}
       ORDER BY start_time DESC
       LIMIT ? OFFSET ?
@@ -487,14 +487,33 @@ export async function getGroupMailReserves(
     ]);
     
     const totalCount = (countResult as RowDataPacket[])[0].total;
-    const reserves = (rows as RowDataPacket[]).map((row) => ({
-      id: row.id,
-      title: row.title,
-      content: row.content,
-      start_time: new Date(row.start_time),
-      end_time: new Date(row.end_time),
-      rewards: JSON.parse(row.rewards || "{}"),
-    }));
+    const reserves = (rows as RowDataPacket[]).map((row) => {
+      // reward 필드를 [{itemcode: string, amount: number}] 형식으로 파싱
+      let rewards: Record<string, number> = {};
+      try {
+        const parsedRewards = JSON.parse(row.reward || "[]");
+        if (Array.isArray(parsedRewards)) {
+          // [{itemcode: "test", amount: 1}] 형식에서 {test: 1} 형식으로 변환
+          parsedRewards.forEach((item) => {
+            if (item.itemcode && typeof item.amount === "number") {
+              rewards[item.itemcode] = item.amount;
+            }
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to parse reward JSON:", row.reward);
+        rewards = {};
+      }
+
+      return {
+        id: row.id,
+        title: row.title,
+        content: row.content,
+        start_time: new Date(row.start_time),
+        end_time: new Date(row.end_time),
+        rewards,
+      };
+    });
 
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -530,15 +549,15 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
       throw new Error("권한이 없습니다.");
     }
 
-    // rewards를 JSON 형태로 변환
-    const rewards: Record<string, number> = {};
-    values.rewards.forEach((item) => {
-      rewards[item.itemCode] = item.count;
-    });
+    // rewards를 [{itemcode, amount}] 배열 JSON으로 변환
+    const rewardsArray = values.rewards.map((item) => ({
+      itemcode: item.itemCode,
+      amount: item.count,
+    }));
 
-    // 단체 우편 예약 생성
+    // 단체 우편 예약 생성 (dokku_hottime_event)
     const insertQuery = `
-      INSERT INTO dokku_mail_reserve (title, content, start_time, end_time, rewards)
+      INSERT INTO dokku_hottime_event (title, content, start_time, end_time, reward)
       VALUES (?, ?, ?, ?, ?)
     `;
 
@@ -551,19 +570,34 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
       values.content,
       startDateTime,
       endDateTime,
-      JSON.stringify(rewards),
+      JSON.stringify(rewardsArray),
     ]);
 
     const reserveId = (result as ResultSetHeader).insertId;
 
-    // 생성된 예약 조회, 로그 작성, API 호출을 병렬로 실행
+    // 생성된 예약 조회와 로그 작성을 병렬로 실행 (외부 API 호출은 비동기 분리)
     const [[reserveRows]] = await Promise.all([
-      pool.execute("SELECT * FROM dokku_mail_reserve WHERE id = ?", [reserveId]),
-      logService.writeAdminLog(`단체 우편 예약 생성: ${values.title}`),
-      callMailReserveLoadAPI()
+      pool.execute("SELECT * FROM dokku_hottime_event WHERE id = ?", [reserveId]),
+      logService.writeAdminLog(`단체 우편 예약 생성: ${values.title}`)
     ]);
     
+    // 외부 API 호출은 응답을 블로킹하지 않도록 비동기로 트리거
+    setTimeout(() => {
+      callMailReserveLoadAPI().catch((err) => console.error("Mail reserve load async error:", err));
+    }, 0);
+    
     const reserve = (reserveRows as RowDataPacket[])[0];
+
+    // reward(JSON 배열) -> Record<string, number>로 변환하여 반환(현 UI 호환 유지)
+    let rewardsObj: Record<string, number> = {};
+    try {
+      const arr = JSON.parse(reserve.reward || "[]");
+      if (Array.isArray(arr)) {
+        arr.forEach((r: any) => {
+          if (r?.itemcode && typeof r.amount === "number") rewardsObj[r.itemcode] = r.amount;
+        });
+      }
+    } catch {}
 
     return {
       id: reserve.id,
@@ -571,7 +605,7 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
       content: reserve.content,
       start_time: new Date(reserve.start_time),
       end_time: new Date(reserve.end_time),
-      rewards: JSON.parse(reserve.rewards),
+      rewards: rewardsObj,
     };
   } catch (error) {
     console.error("Create group mail reserve error:", error);
@@ -598,15 +632,15 @@ export async function updateGroupMailReserve(
       throw new Error("권한이 없습니다.");
     }
 
-    // rewards를 JSON 형태로 변환
-    const rewards: Record<string, number> = {};
-    values.rewards.forEach((item) => {
-      rewards[item.itemCode] = item.count;
-    });
+    // rewards를 [{itemcode, amount}] 배열 JSON으로 변환
+    const rewardsArray = values.rewards.map((item) => ({
+      itemcode: item.itemCode,
+      amount: item.count,
+    }));
 
     const updateQuery = `
-      UPDATE dokku_mail_reserve 
-      SET title = ?, content = ?, start_time = ?, end_time = ?, rewards = ?
+      UPDATE dokku_hottime_event
+      SET title = ?, content = ?, start_time = ?, end_time = ?, reward = ?
       WHERE id = ?
     `;
 
@@ -614,22 +648,37 @@ export async function updateGroupMailReserve(
     const startDateTime = new Date(values.start_time).toISOString().slice(0, 19).replace('T', ' ');
     const endDateTime = new Date(values.end_time).toISOString().slice(0, 19).replace('T', ' ');
 
-    // 수정, 조회, 로그 작성, API 호출을 병렬로 실행
+    // 수정, 조회, 로그 작성(외부 API 호출은 비동기 분리)
     const [, [reserveRows]] = await Promise.all([
       pool.execute(updateQuery, [
-      values.title,
-      values.content,
-      startDateTime,
-      endDateTime,
-      JSON.stringify(rewards),
-      id,
+        values.title,
+        values.content,
+        startDateTime,
+        endDateTime,
+        JSON.stringify(rewardsArray),
+        id,
       ]),
-      pool.execute("SELECT * FROM dokku_mail_reserve WHERE id = ?", [id]),
-      logService.writeAdminLog(`단체 우편 예약 수정: ${values.title}`),
-      callMailReserveLoadAPI()
+      pool.execute("SELECT * FROM dokku_hottime_event WHERE id = ?", [id]),
+      logService.writeAdminLog(`단체 우편 예약 수정: ${values.title}`)
     ]);
 
+    // 외부 API 호출은 응답을 블로킹하지 않도록 비동기로 트리거
+    setTimeout(() => {
+      callMailReserveLoadAPI().catch((err) => console.error("Mail reserve load async error:", err));
+    }, 0);
+
     const reserve = (reserveRows as RowDataPacket[])[0];
+
+    // reward(JSON 배열) -> Record<string, number>
+    let rewardsObj2: Record<string, number> = {};
+    try {
+      const arr = JSON.parse(reserve.reward || "[]");
+      if (Array.isArray(arr)) {
+        arr.forEach((r: any) => {
+          if (r?.itemcode && typeof r.amount === "number") rewardsObj2[r.itemcode] = r.amount;
+        });
+      }
+    } catch {}
 
     return {
       id: reserve.id,
@@ -637,7 +686,7 @@ export async function updateGroupMailReserve(
       content: reserve.content,
       start_time: new Date(reserve.start_time),
       end_time: new Date(reserve.end_time),
-      rewards: JSON.parse(reserve.rewards),
+      rewards: rewardsObj2,
     };
   } catch (error) {
     console.error("Update group mail reserve error:", error);
@@ -663,7 +712,7 @@ export async function deleteGroupMailReserve(id: number): Promise<void> {
 
     // 예약 정보 조회 (로그용)
     const [reserveRows] = await pool.execute(
-      "SELECT title FROM dokku_mail_reserve WHERE id = ?",
+      "SELECT title FROM dokku_hottime_event WHERE id = ?",
       [id]
     );
     const reserve = (reserveRows as RowDataPacket[])[0];
@@ -674,10 +723,14 @@ export async function deleteGroupMailReserve(id: number): Promise<void> {
 
     // 삭제, 로그 작성, API 호출을 병렬로 실행
     await Promise.all([
-      pool.execute("DELETE FROM dokku_mail_reserve WHERE id = ?", [id]),
-      logService.writeAdminLog(`단체 우편 예약 삭제: ${reserve.title}`),
-      callMailReserveLoadAPI()
+      pool.execute("DELETE FROM dokku_hottime_event WHERE id = ?", [id]),
+      logService.writeAdminLog(`단체 우편 예약 삭제: ${reserve.title}`)
     ]);
+
+    // 외부 API 호출은 응답을 블로킹하지 않도록 비동기로 트리거
+    setTimeout(() => {
+      callMailReserveLoadAPI().catch((err) => console.error("Mail reserve load async error:", err));
+    }, 0);
   } catch (error) {
     console.error("Delete group mail reserve error:", error);
     throw new Error(
@@ -783,7 +836,6 @@ export async function getGroupMailReserveLogs(
   }
 }
 
-// 메일 예약 로드 API 호출
 async function callMailReserveLoadAPI(): Promise<void> {
   try {
     const response = await fetch(`${process.env.PRIVATE_API_URL}/DokkuApi/loadMailReserve`, {
@@ -799,6 +851,23 @@ async function callMailReserveLoadAPI(): Promise<void> {
     }
   } catch (error) {
     console.error('Mail reserve load API call error:', error);
-    // API 호출 실패는 메일 시스템 동작에 치명적이지 않으므로 에러를 던지지 않음
   }
 } 
+
+async function callReloadGroupMailAPI(): Promise<void> {
+  try {
+    const response = await fetch(`${process.env.PRIVATE_API_URL}/DokkuApi/reloadGroupMail`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        key: process.env.PRIVATE_API_KEY || "",
+      },
+    });
+
+    if (!response.ok) {
+      console.error('Mail reserve load API call failed:', response.status);
+    }
+  } catch (error) {
+    console.error('Mail reserve load API call error:', error);
+  }
+}

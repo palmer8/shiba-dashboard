@@ -126,12 +126,14 @@ export async function updateUserDiscordIdAction(
 export async function changeUserIdAction(
   currentUserId: number,
   newUserId: number,
-  confirm: boolean
+  confirm: boolean,
+  forceChange = false
 ): Promise<ApiResponse<ChangeUserIdResponseData>> {
   const result = await realtimeService.changeUserId(
     currentUserId,
     newUserId,
-    confirm
+    confirm,
+    forceChange
   );
   return result;
 }

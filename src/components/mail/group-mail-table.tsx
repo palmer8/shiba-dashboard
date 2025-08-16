@@ -140,13 +140,6 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
         ),
       },
       {
-        accessorKey: "nickname",
-        header: "작성자",
-        cell: ({ row }) => (
-          <div>{row.original.registrant?.nickname || "알 수 없음"}</div>
-        ),
-      },
-      {
         accessorKey: "createdAt",
         header: "등록일",
         cell: ({ row }) => (
@@ -244,7 +237,6 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
           보상: JSON.stringify(mail.rewards),
           시작일: formatKoreanDateTime(mail.startDate),
           종료일: formatKoreanDateTime(mail.endDate),
-          작성자: mail.registrant?.nickname || "알 수 없음",
           등록일: formatKoreanDateTime(mail.createdAt),
         };
       });

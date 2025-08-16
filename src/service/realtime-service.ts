@@ -2012,7 +2012,8 @@ class RealtimeService {
   async changeUserId(
     currentUserId: number,
     newUserId: number,
-    confirm: boolean
+    confirm: boolean,
+    forceChange = false
   ): Promise<
     ApiResponse<{
       lastLoginDate: string | null;
@@ -2096,8 +2097,8 @@ class RealtimeService {
     if (!confirm) {
       let warningMsg: string | null = null;
 
-      // =================== 강제 조건 체크 ===================
-      if (isNewUserIdExists && !isOver30Days) {
+      // =================== 강제 조건 체크 (forceChange 옵션 고려) ===================
+      if (isNewUserIdExists && !isOver30Days && !forceChange) {
         return {
           success: false,
           data: {
@@ -2137,8 +2138,8 @@ class RealtimeService {
       };
     }
 
-    // =================== 2차: 실제 변경 전 최종 서버사이드 조건 체크 ===================
-    if (isNewUserIdExists && !isOver30Days) {
+    // =================== 2차: 실제 변경 전 최종 서버사이드 조건 체크 (forceChange 고려) ===================
+    if (isNewUserIdExists && !isOver30Days && !forceChange) {
       return {
         success: false,
         data: {
