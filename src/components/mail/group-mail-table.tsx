@@ -45,7 +45,6 @@ import { MoreHorizontal, Trash, Edit2, Plus, Download } from "lucide-react";
 import EditGroupMailDialog from "@/components/dialog/edit-group-mail-dialog";
 import Empty from "@/components/ui/empty";
 import { Session } from "next-auth";
-import { writeAdminLogAction } from "@/actions/log-action";
 import { Badge } from "@/components/ui/badge";
 
 interface GroupMailTableProps {

@@ -441,6 +441,18 @@ class RealtimeService {
       };
     }
 
+    const search = itemName.trim();
+    if (!search) {
+      return {
+        success: true,
+        message: "아이템 조회 성공",
+        data: [],
+        error: null,
+      };
+    }
+
+    const tokens = search.split(/\s+/).filter(Boolean);
+
     const items = await prisma.items.findMany({
       select: {
         itemId: true,
@@ -448,15 +460,16 @@ class RealtimeService {
       },
       where: {
         OR: [
+          // itemName: 모든 토큰을 포함(공백 무시 효과)
           {
-            itemName: {
-              contains: itemName,
-              mode: "insensitive",
-            },
+            AND: tokens.map((t) => ({
+              itemName: { contains: t, mode: "insensitive" },
+            })),
           },
+          // itemId: 입력값 포함
           {
             itemId: {
-              contains: itemName,
+              contains: search,
               mode: "insensitive",
             },
           },
