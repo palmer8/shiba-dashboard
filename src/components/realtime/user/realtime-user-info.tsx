@@ -28,6 +28,7 @@ import {
   ChevronDown,
   Shield,
   ShieldCheck,
+  Mail,
 } from "lucide-react";
 import IncidentReportTable from "@/components/report/incident-report-table";
 import { Session } from "next-auth";
@@ -82,6 +83,11 @@ import {
 } from "@/actions/ban-action";
 import EditUserIdentifierDialog from "./edit-user-identifier-dialog";
 import AddUserIdentifierDialog from "./add-user-identifier-dialog";
+import { sendSimpleMailAction } from "@/actions/mail-action";
+import { SimpleMailValues, simpleMailSchema } from "@/lib/validations/mail";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { SendSimpleMailDialog } from "@/components/dialog/send-simple-mail-dialog";
 
 interface RealtimeUserInfoProps {
   data: RealtimeGameUserData;
@@ -131,6 +137,9 @@ export default function RealtimeUserInfo({
   const [editIdentifierDialogOpen, setEditIdentifierDialogOpen] = useState(false);
   const [selectedIdentifier, setSelectedIdentifier] = useState<string>("");
   const [addIdentifierDialogOpen, setAddIdentifierDialogOpen] = useState(false);
+
+  // 메일 발송 관련 상태
+  const [mailDialogOpen, setMailDialogOpen] = useState(false);
 
   const isMaster =
     session?.user && hasAccess(session.user.role, UserRole.MASTER);
@@ -596,47 +605,64 @@ export default function RealtimeUserInfo({
             </div>
           </div>
           <div className="flex flex-col gap-2 items-end">
-            {isMaster && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 w-auto px-3 flex items-center"
-                    tabIndex={0}
-                    aria-label="유저 관리"
-                  >
-                    <span>유저 관리</span>
-                    <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem
-                      onClick={() => setChangeUserIdentityDialogOpen(true)}
+            <div className="flex gap-2">
+              {/* 메일 발송 버튼 (스태프 이상) */}
+              {canIncrementDecrement && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMailDialogOpen(true)}
+                  className="h-9 flex items-center gap-2"
+                  tabIndex={0}
+                  aria-label="메일 발송"
+                >
+                  <Mail className="h-4 w-4" />
+                  <span>메일 발송</span>
+                </Button>
+              )}
+
+              {isMaster && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-auto px-3 flex items-center"
                       tabIndex={0}
-                      aria-label="유저 정보 수정 (차량/계좌)"
+                      aria-label="유저 관리"
                     >
-                      차량/계좌번호 변경
-                    </DropdownMenuItem>
-                  {canDirectlySet && (
-                    <DropdownMenuItem
-                      onClick={() => setSetWarningCountDialogOpen(true)}
-                      tabIndex={0}
-                      aria-label="경고 횟수 변경"
-                    >
-                      경고 횟수 변경
-                    </DropdownMenuItem>
-                  )}
-                    <DropdownMenuItem
-                      onClick={() => setChangeUserIdDialogOpen(true)}
-                      tabIndex={0}
-                      aria-label="게임 고유번호 변경"
-                    >
-                      게임 고유번호 변경
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                      <span>유저 관리</span>
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem
+                        onClick={() => setChangeUserIdentityDialogOpen(true)}
+                        tabIndex={0}
+                        aria-label="유저 정보 수정 (차량/계좌)"
+                      >
+                        차량/계좌번호 변경
+                      </DropdownMenuItem>
+                    {canDirectlySet && (
+                      <DropdownMenuItem
+                        onClick={() => setSetWarningCountDialogOpen(true)}
+                        tabIndex={0}
+                        aria-label="경고 횟수 변경"
+                      >
+                        경고 횟수 변경
+                      </DropdownMenuItem>
+                    )}
+                      <DropdownMenuItem
+                        onClick={() => setChangeUserIdDialogOpen(true)}
+                        tabIndex={0}
+                        aria-label="게임 고유번호 변경"
+                      >
+                        게임 고유번호 변경
+                      </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1681,6 +1707,17 @@ export default function RealtimeUserInfo({
         setOpen={setAddIdentifierDialogOpen}
         userId={userId}
         onAdd={handleAddIdentifier}
+      />
+
+      <SendSimpleMailDialog
+        open={mailDialogOpen}
+        setOpen={setMailDialogOpen}
+        userData={data}
+        userId={userId}
+        onTemplateChange={async () => {
+          // 템플릿 변경 시 필요한 추가 로직이 있다면 여기에 추가
+          console.log("Mail template changed");
+        }}
       />
     </>
   );

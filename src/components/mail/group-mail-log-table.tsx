@@ -55,9 +55,9 @@ export function GroupMailLogTable({ data, session }: GroupMailLogTableProps) {
   const columns = useMemo<ColumnDef<GroupMailReserveLog>[]>(
     () => [
       {
-        accessorKey: "reserve_id",
-        header: "단체 우편 ID",
-        cell: ({ row }) => <div>{row.getValue("reserve_id")}</div>,
+        accessorKey: "event_id",
+        header: "이벤트 ID",
+        cell: ({ row }) => <div>{row.getValue("event_id")}</div>,
       },
       {
         accessorKey: "user_id",

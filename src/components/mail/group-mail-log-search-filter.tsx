@@ -30,7 +30,7 @@ export function GroupMailLogSearchFilter({ filters }: GroupMailLogSearchFilterPr
   };
   
   const [localFilter, setLocalFilter] = useState({
-    reserveId: filters.reserveId?.toString() || "",
+    eventId: filters.eventId?.toString() || "",
     userId: filters.userId?.toString() || "",
   });
   
@@ -52,11 +52,11 @@ export function GroupMailLogSearchFilter({ filters }: GroupMailLogSearchFilterPr
     // 페이지를 1로 리셋
     params.set("page", "1");
 
-    // 예약 ID 필터 적용
-    if (localFilter.reserveId) {
-      params.set("reserveId", localFilter.reserveId);
+    // 이벤트 ID 필터 적용
+    if (localFilter.eventId) {
+      params.set("eventId", localFilter.eventId);
     } else {
-      params.delete("reserveId");
+      params.delete("eventId");
     }
 
     // 유저 ID 필터 적용
@@ -80,7 +80,7 @@ export function GroupMailLogSearchFilter({ filters }: GroupMailLogSearchFilterPr
 
   const handleReset = useCallback(() => {
     setLocalFilter({
-      reserveId: "",
+      eventId: "",
       userId: "",
     });
     setDateRange(undefined);
@@ -92,13 +92,13 @@ export function GroupMailLogSearchFilter({ filters }: GroupMailLogSearchFilterPr
     <>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-2">
-          <Label htmlFor="reserveId">예약 ID</Label>
+          <Label htmlFor="eventId">이벤트 ID</Label>
           <Input
-            id="reserveId"
+            id="eventId"
             type="number"
-            placeholder="예약 ID 입력"
-            value={localFilter.reserveId}
-            onChange={(e) => handleFilterChange("reserveId", e.target.value)}
+            placeholder="이벤트 ID 입력"
+            value={localFilter.eventId}
+            onChange={(e) => handleFilterChange("eventId", e.target.value)}
           />
         </div>
 

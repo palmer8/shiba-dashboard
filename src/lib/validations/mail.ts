@@ -134,3 +134,20 @@ export const groupMailReserveEditSchema = z.object({
 export type PersonalMailCreateValues = z.infer<typeof personalMailCreateSchema>;
 export type GroupMailReserveCreateValues = z.infer<typeof groupMailReserveCreateSchema>;
 export type GroupMailReserveEditValues = z.infer<typeof groupMailReserveEditSchema>;
+
+// 메일 발송 스키마 (보상/사용 여부 제외)
+export const simpleMailSchema = z.object({
+  user_id: z.number().min(1, "유저 ID를 입력해주세요"),
+  title: z.string().min(1, "제목을 입력해주세요").max(100, "제목은 100자 이하여야 합니다"),
+  content: z.string().min(1, "내용을 입력해주세요"),
+  nickname: z.string().min(1, "닉네임을 입력해주세요"),
+});
+
+// 메일 템플릿 스키마
+export const mailTemplateSchema = z.object({
+  title: z.string().min(1, "제목을 입력해주세요").max(100, "제목은 100자 이하여야 합니다"),
+  content: z.string().min(1, "내용을 입력해주세요"),
+});
+
+export type SimpleMailValues = z.infer<typeof simpleMailSchema>;
+export type MailTemplateValues = z.infer<typeof mailTemplateSchema>;

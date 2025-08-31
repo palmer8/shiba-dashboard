@@ -115,6 +115,7 @@ model User {
   boardLikes      BoardLike[]
 
   attendanceRecords AttendanceRecord[]
+  mailTemplates     MailTemplate[]
 
   @@map("user")
 }
@@ -389,3 +390,19 @@ model AttendanceRecord {
   @@index([userNumericId, checkInTime(sort: Desc)])
   @@map("attendance_record")
 }
+
+model MailTemplate {
+  id           String   @id @default(uuid())
+  title        String
+  content      String
+  registrantId String?  @map("registrant_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  registrant   User?    @relation(fields: [registrantId], references: [id], onDelete: SetNull)
+
+  @@index([registrantId], name: "idx_mail_template_registrant")
+  @@index([createdAt(sort: Desc)], name: "idx_mail_template_created")
+  @@map("mail_template")
+}
+
+

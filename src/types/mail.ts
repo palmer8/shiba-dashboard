@@ -75,7 +75,7 @@ export interface GroupMailReserve {
 }
 
 export interface GroupMailReserveLog {
-  reserve_id: number;
+  event_id: number;
   user_id: number;
   claimed_at: Date;
   nickname?: string;
@@ -137,7 +137,7 @@ export interface GroupMailReserveFilter {
 }
 
 export interface GroupMailReserveLogFilter {
-  reserveId?: number;
+  eventId?: number;
   userId?: number;
   startDate?: string;
   endDate?: string;
@@ -152,4 +152,43 @@ export interface MailApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+// 메일 템플릿 타입
+export interface MailTemplate {
+  id: string;
+  title: string;
+  content: string;
+  registrantId: string | null;
+  registrant?: {
+    nickname: string;
+    userId: number;
+  } | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface MailTemplateList {
+  templates: MailTemplate[];
+  metadata: {
+    total: number;
+    page: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+
+// 메일 발송 타입 (보상/사용 여부 제외)
+export interface SimpleMailData {
+  user_id: number;
+  title: string;
+  content: string;
+}
+
+export interface SimpleMailCreateValues {
+  user_id: number;
+  title: string;
+  content: string;
+  nickname: string;
 }

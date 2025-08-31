@@ -12,6 +12,11 @@ import {
   updateGroupMailReserve,
   deleteGroupMailReserve,
   getGroupMailReserveLogs,
+  sendSimpleMail,
+  getMailTemplates,
+  createMailTemplate,
+  updateMailTemplate,
+  deleteMailTemplate,
 } from "@/service/mail-service";
 import {
   personalMailCreateSchema,
@@ -25,6 +30,7 @@ import {
   PersonalMailFilter,
   GroupMailReserveFilter,
   GroupMailReserveLogFilter,
+  SimpleMailCreateValues,
 } from "@/types/mail";
 
 // 개인 우편 액션들
@@ -240,6 +246,96 @@ export async function getGroupMailReserveLogsAction(
       success: false,
       data: null,
       error: error instanceof Error ? error.message : "단체 우편 수령 로그 조회 실패",
+    };
+  }
+}
+
+// 메일 발송 액션 (스태프 이상 권한)
+export async function sendSimpleMailAction(values: SimpleMailCreateValues) {
+  try {
+    const result = await sendSimpleMail(values);
+
+    revalidatePath("/game/mail");
+
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "메일 발송 실패",
+    };
+  }
+}
+
+// 메일 템플릿 액션들
+export async function getMailTemplatesAction(page: number = 0) {
+  try {
+    const result = await getMailTemplates(page);
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "메일 템플릿 조회 실패",
+    };
+  }
+}
+
+export async function createMailTemplateAction(title: string, content: string) {
+  try {
+    const result = await createMailTemplate(title, content);
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "메일 템플릿 생성 실패",
+    };
+  }
+}
+
+export async function updateMailTemplateAction(id: string, title: string, content: string) {
+  try {
+    const result = await updateMailTemplate(id, title, content);
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "메일 템플릿 수정 실패",
+    };
+  }
+}
+
+export async function deleteMailTemplateAction(id: string) {
+  try {
+    await deleteMailTemplate(id);
+    return {
+      success: true,
+      data: null,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "메일 템플릿 삭제 실패",
     };
   }
 }

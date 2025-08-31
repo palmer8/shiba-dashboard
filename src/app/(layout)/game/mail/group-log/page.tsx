@@ -13,7 +13,7 @@ interface PageProps {
     page?: string;
     startDate?: string;
     endDate?: string;
-    reserveId?: string;
+    eventId?: string;
     userId?: string;
   }>;
 }
@@ -32,7 +32,7 @@ export default async function GameGroupMailLogPage({
   const filterParams = {
     startDate: params.startDate,
     endDate: params.endDate,
-    reserveId: params.reserveId ? parseInt(params.reserveId) : undefined,
+    eventId: params.eventId ? parseInt(params.eventId) : undefined,
     userId: params.userId ? parseInt(params.userId) : undefined,
   };
 
@@ -53,7 +53,7 @@ export default async function GameGroupMailLogPage({
       <PageBreadcrumb />
       <GlobalTitle
         title="단체 우편 수령 로그"
-        description="SHIBA의 단체 우편 수령 로그를 조회할 수 있습니다."
+        description="SHIBA의 단체 우편 이벤트 수령 로그를 조회할 수 있습니다."
       />
       <GroupMailLogSearchFilter filters={filterParams} />
       <GroupMailLogTable data={transformedData} session={session} />

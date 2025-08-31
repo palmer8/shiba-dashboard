@@ -13,6 +13,9 @@ import {
   PersonalMailFilter,
   GroupMailReserveFilter,
   GroupMailReserveLogFilter,
+  MailTemplate,
+  MailTemplateList,
+  SimpleMailCreateValues,
 } from "@/types/mail";
 import {
   PersonalMailCreateValues,
@@ -151,6 +154,18 @@ export async function getPersonalMails(
 
     const totalPages = Math.ceil(totalCount / limit);
 
+    // 조회 조건을 로그로 기록
+    const filterDesc = [];
+    if (filter.userId) filterDesc.push(`유저: ${filter.userId}`);
+    if (filter.used !== undefined) filterDesc.push(`사용여부: ${filter.used ? '사용됨' : '미사용'}`);
+    if (filter.startDate && filter.endDate) {
+      filterDesc.push(`기간: ${filter.startDate} ~ ${filter.endDate}`);
+    }
+
+    await logService.writeAdminLog(
+      `개인 우편 목록 조회 (페이지: ${page + 1}, 총: ${totalCount}개${filterDesc.length > 0 ? `, 필터: ${filterDesc.join(', ')}` : ''})`
+    );
+
     return {
       mails,
       metadata: {
@@ -246,7 +261,71 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
   }
 }
 
-// 개인 우편 배치 생성 (간단한 병렬 처리)
+// 메일 발송 (보상/사용 여부 제외, 스태프 이상 권한)
+export async function sendSimpleMail(values: SimpleMailCreateValues): Promise<PersonalMail> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
+    // 메일 생성 (보상/사용 여부 제외)
+    const insertQuery = `
+      INSERT INTO dokku_mail (user_id, title, content, need_items, reward_items, used)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    const [result] = await pool.execute(insertQuery, [
+      values.user_id,
+      values.title || "",
+      values.content || "",
+      null, // 빈 need_items
+      null, // 빈 reward_items
+      1, // 사용되지 않음으로 설정
+    ]);
+
+    const mailId = (result as ResultSetHeader).insertId;
+
+    // 생성된 메일 조회
+    const [[mailRows]] = await Promise.all([
+      pool.execute(
+        `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname
+         FROM dokku_mail m
+         LEFT JOIN vrp_users u ON m.user_id = u.id
+         WHERE m.id = ?`,
+        [mailId]
+      ),
+      logService.writeAdminLog(`메일 발송: 유저 ID ${values.user_id} - ${values.title}`)
+    ]);
+
+    const mail = (mailRows as RowDataPacket[])[0];
+
+    return {
+      id: mail.id,
+      user_id: mail.user_id,
+      title: mail.title || "",
+      content: mail.content || "",
+      need_items: {},
+      reward_items: {},
+      used: false,
+      created_at: new Date(mail.created_at),
+      nickname: mail.nickname,
+    };
+  } catch (error) {
+    console.error("Send simple mail error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "메일 발송 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 개인 우편 배치 생성 (병렬 처리)
 export async function createPersonalMailsBatch(
   mailsData: PersonalMailCreateValues[]
 ): Promise<{ successCount: number; errorCount: number; errors: Array<{ index: number; error: string }> }> {
@@ -517,6 +596,17 @@ export async function getGroupMailReserves(
 
     const totalPages = Math.ceil(totalCount / limit);
 
+    // 조회 조건을 로그로 기록
+    const filterDesc = [];
+    if (filter.title) filterDesc.push(`제목: ${filter.title}`);
+    if (filter.startDate && filter.endDate) {
+      filterDesc.push(`기간: ${filter.startDate} ~ ${filter.endDate}`);
+    }
+
+    await logService.writeAdminLog(
+      `단체 우편 예약 목록 조회 (페이지: ${page + 1}, 총: ${totalCount}개${filterDesc.length > 0 ? `, 필터: ${filterDesc.join(', ')}` : ''})`
+    );
+
     return {
       reserves,
       metadata: {
@@ -763,9 +853,9 @@ export async function getGroupMailReserveLogs(
     let whereClause = "WHERE 1=1";
     const params: any[] = [];
 
-    if (filter.reserveId) {
-      whereClause += " AND l.reserve_id = ?";
-      params.push(filter.reserveId);
+    if (filter.eventId) {
+      whereClause += " AND l.event_id = ?";
+      params.push(filter.eventId);
     }
 
     if (filter.userId) {
@@ -787,14 +877,14 @@ export async function getGroupMailReserveLogs(
     // 총 개수 조회와 데이터 조회를 병렬로 실행
     const countQuery = `
       SELECT COUNT(*) as total 
-      FROM dokku_mail_reserve_log l
+      FROM dokku_hottime_log l
       ${whereClause}
     `;
     const dataQuery = `
       SELECT 
         l.*,
         SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname
-      FROM dokku_mail_reserve_log l
+      FROM dokku_hottime_log l
       LEFT JOIN vrp_users u ON l.user_id = u.id
       ${whereClause}
       ORDER BY l.claimed_at DESC
@@ -808,13 +898,25 @@ export async function getGroupMailReserveLogs(
     
     const total = (countResult as RowDataPacket[])[0].total;
     const logs = (rows as RowDataPacket[]).map((row) => ({
-      reserve_id: row.reserve_id,
+      event_id: row.event_id,
       user_id: row.user_id,
       claimed_at: new Date(row.claimed_at),
       nickname: row.nickname,
     }));
 
     const totalPages = Math.ceil(total / limit);
+
+    // 조회 조건을 로그로 기록
+    const filterDesc = [];
+    if (filter.eventId) filterDesc.push(`이벤트 ID: ${filter.eventId}`);
+    if (filter.userId) filterDesc.push(`유저: ${filter.userId}`);
+    if (filter.startDate && filter.endDate) {
+      filterDesc.push(`기간: ${filter.startDate} ~ ${filter.endDate}`);
+    }
+
+    await logService.writeAdminLog(
+      `단체 우편 수령 로그 조회 (페이지: ${page}, 총: ${total}개${filterDesc.length > 0 ? `, 필터: ${filterDesc.join(', ')}` : ''})`
+    );
 
     return {
       logs,
@@ -869,5 +971,172 @@ async function callReloadGroupMailAPI(): Promise<void> {
     }
   } catch (error) {
     console.error('Mail reserve load API call error:', error);
+  }
+}
+
+// 메일 템플릿 목록 조회
+export async function getMailTemplates(
+  page: number = 0
+): Promise<MailTemplateList> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    const limit = 20;
+    const offset = page * limit;
+
+    // 총 개수와 템플릿 목록을 병렬로 조회
+    const [totalResult, templates] = await Promise.all([
+      prisma.mailTemplate.count(),
+      prisma.mailTemplate.findMany({
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          registrant: {
+            select: {
+              nickname: true,
+              userId: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalResult / limit);
+
+    return {
+      templates,
+      metadata: {
+        total: totalResult,
+        page: page + 1, // 1-based
+        totalPages,
+        hasNext: page < totalPages - 1,
+        hasPrev: page > 0,
+      },
+    };
+  } catch (error) {
+    console.error("Get mail templates error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "메일 템플릿 목록 조회 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 메일 템플릿 생성
+export async function createMailTemplate(
+  title: string,
+  content: string
+): Promise<MailTemplate> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    const template = await prisma.mailTemplate.create({
+      data: {
+        title,
+        content,
+        registrantId: session.user.id,
+      },
+      include: {
+        registrant: {
+          select: {
+            nickname: true,
+            userId: true,
+          },
+        },
+      },
+    });
+
+    await logService.writeAdminLog(`메일 템플릿 생성: ${title} (${content.substring(0, 50)}${content.length > 50 ? '...' : ''})`);
+
+    return template;
+  } catch (error) {
+    console.error("Create mail template error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "메일 템플릿 생성 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 메일 템플릿 수정
+export async function updateMailTemplate(
+  id: string,
+  title: string,
+  content: string
+): Promise<MailTemplate> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    const template = await prisma.mailTemplate.update({
+      where: { id },
+      data: {
+        title,
+        content,
+      },
+      include: {
+        registrant: {
+          select: {
+            nickname: true,
+            userId: true,
+          },
+        },
+      },
+    });
+
+    await logService.writeAdminLog(`메일 템플릿 수정: ${title} (${content.substring(0, 50)}${content.length > 50 ? '...' : ''})`);
+
+    return template;
+  } catch (error) {
+    console.error("Update mail template error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "메일 템플릿 수정 중 오류가 발생했습니다."
+    );
+  }
+}
+
+// 메일 템플릿 삭제
+export async function deleteMailTemplate(id: string): Promise<void> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      throw new Error("로그인이 필요합니다.");
+    }
+
+    // 템플릿 정보 조회 (로그용)
+    const template = await prisma.mailTemplate.findUnique({
+      where: { id },
+      select: { title: true },
+    });
+
+    if (!template) {
+      throw new Error("존재하지 않는 템플릿입니다.");
+    }
+
+    await prisma.mailTemplate.delete({
+      where: { id },
+    });
+
+    await logService.writeAdminLog(`메일 템플릿 삭제: ${template.title}`);
+  } catch (error) {
+    console.error("Delete mail template error:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "메일 템플릿 삭제 중 오류가 발생했습니다."
+    );
   }
 }
