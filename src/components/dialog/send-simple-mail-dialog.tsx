@@ -155,7 +155,8 @@ export function SendSimpleMailDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px]" onInteractOutside={(e) => { e.preventDefault(); }}
+      >
         <DialogHeader>
           <DialogTitle>메일 발송</DialogTitle>
           <DialogDescription>

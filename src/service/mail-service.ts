@@ -21,21 +21,21 @@ import {
   PersonalMailCreateValues,
   GroupMailReserveCreateValues,
   GroupMailReserveEditValues,
-} from "@/lib/validations/mail"; 
+} from "@/lib/validations/mail";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 // 아이템 이름 매핑 유티 함수
 function mapItemIdsToNames(
-  items: Record<string, number>, 
+  items: Record<string, number>,
   itemNameMap: Map<string, string>
 ): Record<string, { name: string; amount: number }> {
   const mapped: Record<string, { name: string; amount: number }> = {};
   Object.entries(items).forEach(([itemId, amount]) => {
     mapped[itemId] = {
       name: itemNameMap.get(itemId) || itemId,
-        amount: amount,
-      };
-    });
+      amount: amount,
+    };
+  });
   return mapped;
 }
 
@@ -74,10 +74,10 @@ export async function getPersonalMails(
     if (filter.startDate && filter.endDate) {
       const filterStartDate = new Date(filter.startDate);
       filterStartDate.setHours(0, 0, 0, 0);
-      
+
       const filterEndDate = new Date(filter.endDate);
       filterEndDate.setHours(23, 59, 59, 999);
-      
+
       whereClause += " AND m.created_at >= ? AND m.created_at <= ?";
       params.push(filterStartDate, filterEndDate);
     }
@@ -99,13 +99,13 @@ export async function getPersonalMails(
       pool.execute(countQuery, params),
       pool.execute(dataQuery, [...params, limit, offset])
     ]);
-    
+
     const totalCount = (countResult as RowDataPacket[])[0].total;
-    
+
     // 모든 아이템 ID를 한 번에 수집
     const allItemIds = new Set<string>();
     const rowsData = rows as RowDataPacket[];
-    
+
     rowsData.forEach(row => {
       const needItems = JSON.parse(row.need_items || "{}");
       const rewardItems = JSON.parse(row.reward_items || "{}");
@@ -134,11 +134,11 @@ export async function getPersonalMails(
     const mails = rowsData.map(row => {
       const needItems = JSON.parse(row.need_items || "{}");
       const rewardItems = JSON.parse(row.reward_items || "{}");
-      
+
       // 아이템 이름 매핑 (이미 조회된 데이터 사용)
       const mappedNeedItems = mapItemIdsToNames(needItems, itemNameMap);
       const mappedRewardItems = mapItemIdsToNames(rewardItems, itemNameMap);
-      
+
       return {
         id: row.id,
         user_id: row.user_id,
@@ -150,7 +150,7 @@ export async function getPersonalMails(
         created_at: new Date(row.created_at),
         nickname: row.nickname,
       };
-      });
+    });
 
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -229,15 +229,15 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
     // 생성된 우편 조회와 로그 작성을 병렬로 실행
     const [[mailRows]] = await Promise.all([
       pool.execute(
-      `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
+        `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
        FROM dokku_mail m 
        LEFT JOIN vrp_users u ON m.user_id = u.id 
        WHERE m.id = ?`,
-      [mailId]
+        [mailId]
       ),
       logService.writeAdminLog(`개인 우편 생성: 유저 ID ${values.user_id}`)
     ]);
-    
+
     const mail = (mailRows as RowDataPacket[])[0];
 
     return {
@@ -285,7 +285,7 @@ export async function sendSimpleMail(values: SimpleMailCreateValues): Promise<Pe
       values.content || "",
       null, // 빈 need_items
       null, // 빈 reward_items
-      1, // 사용되지 않음으로 설정
+      0, // 사용되지 않음으로 설정
     ]);
 
     const mailId = (result as ResultSetHeader).insertId;
@@ -345,10 +345,10 @@ export async function createPersonalMailsBatch(
 
     // 배치 크기 설정 (한 번에 처리할 개수)
     const BATCH_SIZE = 5;
-    
+
     for (let i = 0; i < mailsData.length; i += BATCH_SIZE) {
       const batch = mailsData.slice(i, i + BATCH_SIZE);
-      
+
       // 병렬 처리
       const batchPromises = batch.map(async (mailData, batchIndex) => {
         const actualIndex = i + batchIndex;
@@ -366,7 +366,7 @@ export async function createPersonalMailsBatch(
 
       // 배치 결과 처리
       const batchResults = await Promise.all(batchPromises);
-      
+
       batchResults.forEach(result => {
         if (result.success) {
           successCount++;
@@ -408,7 +408,7 @@ export async function updatePersonalMail(id: number, values: PersonalMailCreateV
       "SELECT id FROM dokku_mail WHERE id = ?",
       [id]
     );
-    
+
     if ((existingRows as RowDataPacket[]).length === 0) {
       throw new Error("존재하지 않는 우편입니다.");
     }
@@ -434,24 +434,24 @@ export async function updatePersonalMail(id: number, values: PersonalMailCreateV
     // 수정과 조회, 로그 작성을 병렬로 실행
     const [, [mailRows]] = await Promise.all([
       pool.execute(updateQuery, [
-      values.user_id,
-      values.title || "",
-      values.content || "",
-      JSON.stringify(needItems),
-      JSON.stringify(rewardItems),
-      values.used ? 1 : 0,
-      id,
+        values.user_id,
+        values.title || "",
+        values.content || "",
+        JSON.stringify(needItems),
+        JSON.stringify(rewardItems),
+        values.used ? 1 : 0,
+        id,
       ]),
       pool.execute(
-      `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
+        `SELECT m.*, SUBSTRING_INDEX(u.last_login, ' ', -1) as nickname 
        FROM dokku_mail m 
        LEFT JOIN vrp_users u ON m.user_id = u.id 
        WHERE m.id = ?`,
-      [id]
+        [id]
       ),
       logService.writeAdminLog(`개인 우편 수정: ID ${id}, 유저 ID ${values.user_id}`)
     ]);
-    
+
     const mail = (mailRows as RowDataPacket[])[0];
 
     return {
@@ -543,10 +543,10 @@ export async function getGroupMailReserves(
     if (filter.startDate && filter.endDate) {
       const filterStartDate = new Date(filter.startDate);
       filterStartDate.setHours(0, 0, 0, 0);
-      
+
       const filterEndDate = new Date(filter.endDate);
       filterEndDate.setHours(23, 59, 59, 999);
-      
+
       whereClause += " AND start_time >= ? AND start_time <= ?";
       params.push(filterStartDate, filterEndDate);
     }
@@ -564,7 +564,7 @@ export async function getGroupMailReserves(
       pool.execute(countQuery, params),
       pool.execute(dataQuery, [...params, limit, offset])
     ]);
-    
+
     const totalCount = (countResult as RowDataPacket[])[0].total;
     const reserves = (rows as RowDataPacket[]).map((row) => {
       // reward 필드를 [{itemcode: string, amount: number}] 형식으로 파싱
@@ -670,12 +670,12 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
       pool.execute("SELECT * FROM dokku_hottime_event WHERE id = ?", [reserveId]),
       logService.writeAdminLog(`단체 우편 예약 생성: ${values.title}`)
     ]);
-    
+
     // 외부 API 호출은 응답을 블로킹하지 않도록 비동기로 트리거
     setTimeout(() => {
       callMailReserveLoadAPI().catch((err) => console.error("Mail reserve load async error:", err));
     }, 0);
-    
+
     const reserve = (reserveRows as RowDataPacket[])[0];
 
     // reward(JSON 배열) -> Record<string, number>로 변환하여 반환(현 UI 호환 유지)
@@ -687,7 +687,7 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
           if (r?.itemcode && typeof r.amount === "number") rewardsObj[r.itemcode] = r.amount;
         });
       }
-    } catch {}
+    } catch { }
 
     return {
       id: reserve.id,
@@ -768,7 +768,7 @@ export async function updateGroupMailReserve(
           if (r?.itemcode && typeof r.amount === "number") rewardsObj2[r.itemcode] = r.amount;
         });
       }
-    } catch {}
+    } catch { }
 
     return {
       id: reserve.id,
@@ -866,10 +866,10 @@ export async function getGroupMailReserveLogs(
     if (filter.startDate && filter.endDate) {
       const filterStartDate = new Date(filter.startDate);
       filterStartDate.setHours(0, 0, 0, 0);
-      
+
       const filterEndDate = new Date(filter.endDate);
       filterEndDate.setHours(23, 59, 59, 999);
-      
+
       whereClause += " AND l.claimed_at >= ? AND l.claimed_at <= ?";
       params.push(filterStartDate, filterEndDate);
     }
@@ -895,7 +895,7 @@ export async function getGroupMailReserveLogs(
       pool.execute(countQuery, params),
       pool.execute(dataQuery, [...params, limit, offset])
     ]);
-    
+
     const total = (countResult as RowDataPacket[])[0].total;
     const logs = (rows as RowDataPacket[]).map((row) => ({
       event_id: row.event_id,
@@ -954,7 +954,7 @@ async function callMailReserveLoadAPI(): Promise<void> {
   } catch (error) {
     console.error('Mail reserve load API call error:', error);
   }
-} 
+}
 
 async function callReloadGroupMailAPI(): Promise<void> {
   try {
