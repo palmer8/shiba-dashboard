@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -59,6 +59,43 @@ export function SendSimpleMailDialog({
   const [isTemplateLoading, setIsTemplateLoading] = useState(false);
   const [templateManagementOpen, setTemplateManagementOpen] = useState(false);
 
+  // 로컬 스토리지 키 생성
+  const getStorageKey = useCallback(() => {
+    return `mail_draft_${userId}`;
+  }, [userId]);
+
+  // 로컬 스토리지에서 데이터 불러오기
+  const loadDraftFromStorage = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const stored = localStorage.getItem(getStorageKey());
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.error('로컬 스토리지에서 데이터 불러오기 실패:', error);
+      return null;
+    }
+  }, [getStorageKey]);
+
+  // 로컬 스토리지에 데이터 저장
+  const saveDraftToStorage = useCallback((data: Partial<SimpleMailValues>) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(getStorageKey(), JSON.stringify(data));
+    } catch (error) {
+      console.error('로컬 스토리지에 데이터 저장 실패:', error);
+    }
+  }, [getStorageKey]);
+
+  // 로컬 스토리지에서 데이터 삭제
+  const clearDraftFromStorage = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(getStorageKey());
+    } catch (error) {
+      console.error('로컬 스토리지에서 데이터 삭제 실패:', error);
+    }
+  }, [getStorageKey]);
+
   const form = useForm<SimpleMailValues>({
     resolver: zodResolver(simpleMailSchema),
     defaultValues: {
@@ -69,14 +106,35 @@ export function SendSimpleMailDialog({
     },
   });
 
-  // 템플릿 목록 불러오기
+  // 다이얼로그 열 때 저장된 데이터 복원
   useEffect(() => {
     if (open) {
-      loadTemplates();
+      const draft = loadDraftFromStorage();
+      if (draft) {
+        form.reset({
+          user_id: userId,
+          title: draft.title || "",
+          content: draft.content || "",
+          nickname: userData.last_nickname || "",
+        });
+      }
     }
-  }, [open]);
+  }, [open, userId, userData.last_nickname, form, loadDraftFromStorage]);
 
-  const loadTemplates = async () => {
+  // 폼 값 변경 시 자동 저장
+  useEffect(() => {
+    const subscription = form.watch((value) => {
+      if (open && value.title !== "" || value.content !== "") {
+        saveDraftToStorage({
+          title: value.title || "",
+          content: value.content || "",
+        });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form, open, saveDraftToStorage]);
+
+  const loadTemplates = useCallback(async () => {
     setIsTemplateLoading(true);
     try {
       const result = await getMailTemplatesAction(0);
@@ -88,10 +146,10 @@ export function SendSimpleMailDialog({
     } finally {
       setIsTemplateLoading(false);
     }
-  };
+  }, []);
 
   // 템플릿 목록 새로고침
-  const refreshTemplates = async () => {
+  const refreshTemplates = useCallback(async () => {
     setIsTemplateLoading(true);
     try {
       const result = await getMailTemplatesAction(0);
@@ -103,18 +161,18 @@ export function SendSimpleMailDialog({
     } finally {
       setIsTemplateLoading(false);
     }
-  };
+  }, []);
 
   // 템플릿 선택 핸들러
-  const handleTemplateSelect = (templateId: string) => {
+  const handleTemplateSelect = useCallback((templateId: string) => {
     const selectedTemplate = templates.find(t => t.id === templateId);
     if (selectedTemplate) {
       form.setValue("title", selectedTemplate.title);
       form.setValue("content", selectedTemplate.content);
     }
-  };
+  }, [templates, form]);
 
-  const onSubmit = async (data: SimpleMailValues) => {
+  const onSubmit = useCallback(async (data: SimpleMailValues) => {
     try {
       const result = await sendSimpleMailAction({
         user_id: userId,
@@ -130,6 +188,8 @@ export function SendSimpleMailDialog({
         });
         setOpen(false);
         form.reset();
+        // 메일 발송 성공 시 임시저장 데이터 삭제
+        clearDraftFromStorage();
       } else {
         toast({
           title: "메일 발송 실패",
@@ -144,18 +204,32 @@ export function SendSimpleMailDialog({
         variant: "destructive",
       });
     }
-  };
+  }, [userId, setOpen, form, clearDraftFromStorage]);
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      form.reset();
-    }
-    setOpen(newOpen);
-  };
+  const handleCloseWithSave = useCallback(() => {
+    // ESC나 X 버튼으로 닫을 때: 값 보존 (자동 저장됨)
+    setOpen(false);
+  }, [setOpen]);
+
+  const handleCloseWithCancel = useCallback(() => {
+    // 취소 버튼으로 닫을 때: 초기화 및 임시저장 데이터 삭제
+    form.reset();
+    clearDraftFromStorage();
+    setOpen(false);
+  }, [form, clearDraftFromStorage, setOpen]);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[600px]" onInteractOutside={(e) => { e.preventDefault(); }}
+    <Dialog open={open} onOpenChange={handleCloseWithSave}>
+      <DialogContent
+        className="sm:max-w-[600px]"
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          handleCloseWithSave();
+        }}
+        onPointerDownOutside={(e) => {
+          e.preventDefault();
+          handleCloseWithSave();
+        }}
       >
         <DialogHeader>
           <DialogTitle>메일 발송</DialogTitle>
@@ -259,7 +333,7 @@ export function SendSimpleMailDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={handleCloseWithCancel}
               >
                 취소
               </Button>
