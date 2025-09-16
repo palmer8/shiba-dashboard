@@ -255,6 +255,7 @@ model Items {
   itemName  String   @map("item_name")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  isTradable Boolean @default(true) @map("is_tradable")
 
   @@index([itemName], name: "idx_items_name")
   @@map("items")

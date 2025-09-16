@@ -5,7 +5,7 @@ import { prisma } from "@/db/prisma";
 
 export async function POST(request: Request) {
   try {
-    const jsonData: Record<string, string> = await request.json();
+    const jsonData: Record<string, any> = await request.json();
 
     // 데이터가 객체인지 확인 (배열이나 null이 아닌지)
     if (
@@ -20,11 +20,26 @@ export async function POST(request: Request) {
     }
 
     // 데이터 변환: key를 itemId, value를 itemName으로 매핑
-    const itemEntries = Object.entries(jsonData).map(([itemId, itemName]) => ({
-      itemId,
-      itemName,
-      updatedAt: new Date(), // 업데이트 시간 추가 (옵션)
-    }));
+    const itemEntries = Object.entries(jsonData).map(([itemId, value]) => {
+      // value가 객체인 경우 (isTradable 포함 가능)
+      if (typeof value === 'object' && value !== null) {
+        return {
+          itemId,
+          itemName: value.itemName,
+          // isTradable 값이 있으면 사용, 없으면 true로 설정
+          isTradable: value.isTradable !== undefined ? value.isTradable : true,
+          updatedAt: new Date(),
+        };
+      }
+
+      // value가 문자열인 경우 (기존 형식)
+      return {
+        itemId,
+        itemName: value,
+        isTradable: true, // 기본값은 true
+        updatedAt: new Date(),
+      };
+    });
 
     // 배치 크기 제한 (최대 100개)
     if (itemEntries.length > 100) {
@@ -48,11 +63,13 @@ export async function POST(request: Request) {
           where: { itemId: item.itemId },
           update: {
             itemName: item.itemName,
+            isTradable: item.isTradable,
             updatedAt: new Date(),
           },
           create: {
             itemId: item.itemId,
             itemName: item.itemName,
+            isTradable: item.isTradable,
             updatedAt: new Date(),
           },
         })
