@@ -1916,8 +1916,7 @@ class RealtimeService {
   }
 
   /**
-   * 사용자의 Discord ID (identifier)를 업데이트하거나 삽입합니다.
-   * 기존 discord: 형식의 식별자가 있으면 삭제 후 새로 추가합니다.
+   * 사용자의 Discord ID (identifier)를 업데이트하거나 삽입(Upsert)합니다.
    * @param gameUserId 게임 유저 ID
    * @param newDiscordId 새로운 Discord 사용자 ID (숫자 문자열)
    */
@@ -1958,31 +1957,22 @@ class RealtimeService {
         };
       }
 
+      // 2. Upsert 실행
       const connection = await pool.getConnection();
       try {
-        // 트랜잭션 시작
-        await connection.beginTransaction();
-
-        // 2. 기존 discord: 형식의 식별자 삭제
-        const deleteQuery = `
-          DELETE FROM vrp_user_ids 
-          WHERE user_id = ? AND identifier LIKE 'discord:%'
-        `;
-        await connection.execute(deleteQuery, [gameUserId]);
-
-        // 3. 새 식별자 추가
-        const insertQuery = `
+        // user_id가 PK 또는 UNIQUE 키라고 가정
+        const query = `
           INSERT INTO vrp_user_ids (user_id, identifier)
           VALUES (?, ?)
+          ON DUPLICATE KEY UPDATE identifier = VALUES(identifier)
         `;
-        const [result] = await connection.execute<ResultSetHeader>(insertQuery, [
+        const [result] = await connection.execute<ResultSetHeader>(query, [
           gameUserId,
           newIdentifier,
         ]);
 
-        // 트랜잭션 커밋
-        await connection.commit();
-
+        // result.affectedRows: 1 = insert, 2 = update (값이 변경됨), 1 = update (값이 동일함 - MySQL 버전 따라 다름)
+        // result.warningStatus == 0 (or check warnings if needed)
         if (result.affectedRows >= 1) {
           await logService.writeAdminLog(
             `${session.user.nickname}가 사용자 ${gameUserId}의 Discord ID를 ${newDiscordId}(으)로 설정/변경`
@@ -1991,19 +1981,17 @@ class RealtimeService {
           // 예: revalidateTag(`user-${gameUserId}-data`);
           return { success: true, data: true, error: null };
         } else {
+          // affectedRows가 0인 경우: ON DUPLICATE KEY UPDATE 조건에서 아무 변경도 없었거나 예상치 못한 오류
           console.warn(
-            `Discord ID update for user ${gameUserId} resulted in 0 affected rows.`
+            `Discord ID Upsert for user ${gameUserId} resulted in 0 affected rows.`
           );
           return {
             success: false,
-            error: "Discord ID 설정/변경에 실패했습니다.",
+            error:
+              "Discord ID 설정/변경에 실패했습니다 (변경사항 없음 또는 오류).",
             data: false,
           };
         }
-      } catch (error) {
-        // 오류 발생 시 롤백
-        await connection.rollback();
-        throw error;
       } finally {
         connection.release();
       }

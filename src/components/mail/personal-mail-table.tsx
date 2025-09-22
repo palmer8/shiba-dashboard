@@ -49,6 +49,7 @@ import Empty from "@/components/ui/empty";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { Session } from "next-auth";
+import { parse as parseCSV } from "csv-parse/sync";
 
 interface PersonalMailTableProps {
   data: PersonalMailTableData;
@@ -261,9 +262,16 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
 
     try {
       const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
-      
-      if (lines.length < 2) {
+
+      // csv-parse를 사용해 안전하게 CSV 파싱 (따옴표/쉼표 포함 필드 처리)
+      const records: any[] = parseCSV(text, {
+        columns: true, // 첫 행을 헤더로 사용
+        skip_empty_lines: true,
+        bom: true, // BOM 처리
+        relax_column_count: true, // 열 개수가 가변적인 경우 허용
+      });
+
+      if (!records || records.length === 0) {
         toast({
           title: "파일 형식 오류",
           description: "헤더와 최소 1개의 데이터 행이 필요합니다.",
@@ -272,14 +280,12 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         return;
       }
 
-      // CSV 헤더 확인 (user_id, title, content, need_items, reward_items, used)
-      const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, '')); // 따옴표 제거
+      // 헤더 검증
       const requiredHeaders = ['user_id', 'title', 'content'];
-      const optionalHeaders = ['need_items', 'reward_items', 'used', 'id', 'created_at']; // id, created_at도 허용
-      const allValidHeaders = [...requiredHeaders, ...optionalHeaders];
-      
-      const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
-      
+      const optionalHeaders = ['need_items', 'reward_items', 'used', 'id', 'created_at'];
+      const firstRecord = records[0] ?? {};
+      const missingHeaders = requiredHeaders.filter((h) => !(h in firstRecord));
+
       if (missingHeaders.length > 0) {
         toast({
           title: "헤더 오류",
@@ -299,90 +305,88 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         used: boolean;
       }> = [];
 
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, '')); // 따옴표 제거
-        
-        if (values.length < requiredHeaders.length) continue;
-
-        const rowData: any = {};
-        headers.forEach((header, index) => {
-          if (allValidHeaders.includes(header)) {
-            rowData[header] = values[index] || '';
-          }
-        });
+      for (let i = 0; i < records.length; i++) {
+        const rowData: any = records[i];
 
         // JSON 파싱 처리
         let needItems: Record<string, number> = {};
         let rewardItems: Record<string, number> = {};
 
         try {
-          if (rowData.need_items && rowData.need_items.trim() && rowData.need_items !== '{}') {
-            // 이스케이프된 따옴표 처리
-            let jsonStr = rowData.need_items.replace(/""/g, '"');
+          const rawNeed = rowData.need_items ?? rowData.needItems; // 여분 키 허용
+          if (rawNeed && String(rawNeed).trim() && String(rawNeed).trim() !== '{}') {
+            let jsonStr = String(rawNeed).replace(/""/g, '"');
             const parsed = JSON.parse(jsonStr);
             if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
               needItems = parsed;
             }
           }
         } catch (e) {
-          console.warn(`need_items JSON 파싱 오류 (행 ${i + 1}):`, rowData.need_items, e);
+          console.warn(`need_items JSON 파싱 오류 (행 ${i + 2}):`, rowData.need_items, e);
         }
 
         try {
-          if (rowData.reward_items && rowData.reward_items.trim() && rowData.reward_items !== '{}') {
-            // 이스케이프된 따옴표 처리
-            let jsonStr = rowData.reward_items.replace(/""/g, '"');
+          const rawReward = rowData.reward_items ?? rowData.rewardItems; // 여분 키 허용
+          if (rawReward && String(rawReward).trim() && String(rawReward).trim() !== '{}') {
+            let jsonStr = String(rawReward).replace(/""/g, '"');
             const parsed = JSON.parse(jsonStr);
             if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
               rewardItems = parsed;
             }
           }
         } catch (e) {
-          console.warn(`reward_items JSON 파싱 오류 (행 ${i + 1}):`, rowData.reward_items, e);
+          console.warn(`reward_items JSON 파싱 오류 (행 ${i + 2}):`, rowData.reward_items, e);
         }
 
         const mailItem = {
-          user_id: parseInt(rowData.user_id),
-          title: rowData.title || '',
-          content: rowData.content || '',
+          user_id: parseInt(String(rowData.user_id ?? rowData.userId)),
+          title: (rowData.title ?? '').toString(),
+          content: (rowData.content ?? '').toString(),
           need_items: needItems,
           reward_items: rewardItems,
-          used: rowData.used === 'true' || rowData.used === '1' || parseInt(rowData.used) === 1,
+          used:
+            String(rowData.used).toLowerCase() === 'true' ||
+            String(rowData.used) === '1' ||
+            parseInt(String(rowData.used)) === 1,
         };
 
-        mailData.push(mailItem);
+        // 기본 유효성 검사: 필수 필드 확인
+        if (!isNaN(mailItem.user_id) && mailItem.title && mailItem.content) {
+          mailData.push(mailItem);
+        } else {
+          console.warn(`필수 필드 누락으로 건너뜀 (행 ${i + 2}):`, rowData);
+        }
       }
 
       // 데이터를 API 형태로 변환
-      const apiDataArray = mailData.map((mail, idx) => {
-        // need_items와 reward_items를 itemCode, count 형태로 변환
-        const needItemsArray = Object.entries(mail.need_items).map(([itemCode, count]) => ({
-          itemCode,
-          count: typeof count === 'number' ? count : parseInt(String(count)) || 1,
-        }));
+      const apiDataArray = mailData
+        .map((mail) => {
+          const needItemsArray = Object.entries(mail.need_items).map(([itemCode, count]) => ({
+            itemCode,
+            count: typeof count === 'number' ? count : parseInt(String(count)) || 1,
+          }));
 
-        const rewardItemsArray = Object.entries(mail.reward_items).map(([itemCode, count]) => ({
-          itemCode,
-          count: typeof count === 'number' ? count : parseInt(String(count)) || 1,
-        }));
+          const rewardItemsArray = Object.entries(mail.reward_items).map(([itemCode, count]) => ({
+            itemCode,
+            count: typeof count === 'number' ? count : parseInt(String(count)) || 1,
+          }));
 
-        return {
-          user_id: mail.user_id,
-          title: mail.title,
-          content: mail.content,
-          used: mail.used,
-          need_items: needItemsArray,
-          reward_items: rewardItemsArray,
-        };
-      }).filter((_, idx) => {
-        // 보상 아이템이 없는 경우 필터링
-        const mail = mailData[idx];
-        const hasRewards = Object.keys(mail.reward_items).length > 0;
-        if (!hasRewards) {
-          console.warn(`보상 아이템이 없어서 건너뜀 (유저 ${mail.user_id})`);
-        }
-        return hasRewards;
-      });
+          return {
+            user_id: mail.user_id,
+            title: mail.title,
+            content: mail.content,
+            used: mail.used,
+            need_items: needItemsArray,
+            reward_items: rewardItemsArray,
+          };
+        })
+        .filter((mail, idx) => {
+          const hasRewards = mail.reward_items.length > 0;
+          if (!hasRewards) {
+            console.warn(`보상 아이템이 없어서 건너뜀 (유저 ${mail.user_id}, 행 ${idx + 2})`);
+          }
+          return hasRewards;
+        });
 
       if (apiDataArray.length === 0) {
         toast({
@@ -403,36 +407,32 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         setProgress(10); // 시작 진행률
         const batchResult = await createPersonalMailsBatchAction(apiDataArray);
         setProgress(90); // 처리 완료 진행률
-        
+
         if (batchResult.success && batchResult.data) {
           const { successCount, errorCount, errors } = batchResult.data;
-          
+
           // 결과 데이터 구성
           const results: UploadResult[] = [];
-          
-          // 성공한 항목들 추가
+
           for (let i = 0; i < apiDataArray.length; i++) {
-            const isError = errors.some(err => err.index === i);
-            const errorInfo = errors.find(err => err.index === i);
-            
+            const errorInfo = errors.find((err) => err.index === i);
             results.push({
-              row: i + 2, // +2 to reflect CSV row number (header + 0-based idx)
+              row: i + 2,
               userId: apiDataArray[i].user_id,
               title: apiDataArray[i].title,
-              status: isError ? "실패" : "성공",
+              status: errorInfo ? "실패" : "성공",
               message: errorInfo?.error,
             });
           }
 
           setUploadResults(results);
           setIsResultDialogOpen(true);
-          
+
           toast({
             title: "CSV 업로드 완료",
             description: `성공: ${successCount}개, 실패: ${errorCount}개`,
           });
-          
-          // 성공한 경우에만 캐시 재검증 (한 번만)
+
           if (successCount > 0) {
             setProgress(95);
             await revalidateMailCache();
@@ -449,7 +449,6 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         });
       } finally {
         setProgress(100);
-        // 진행률 다이얼로그를 잠시 보여준 후 닫기
         setTimeout(() => {
           setProgressOpen(false);
         }, 500);
@@ -457,7 +456,6 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
 
       // 파일 입력 초기화
       event.target.value = '';
-      
     } catch (error) {
       toast({
         title: "파일 처리 오류",
