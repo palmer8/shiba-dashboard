@@ -50,6 +50,7 @@ import Empty from "@/components/ui/empty";
 import { ConfirmDialog } from "@/components/dialog/confirm-dialog";
 import EditItemQuantityDialog from "@/components/dialog/edit-quantity-dialog";
 import { toast as sonnerToast } from "sonner";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface ItemQuantityTableProps {
   data: ItemQuantityTableData;
@@ -103,7 +104,10 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(!!value)
             }
@@ -272,6 +276,7 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
     },
     getCoreRowModel: getCoreRowModel(),
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -616,7 +621,7 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
         </div>
       </div>
 
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -636,7 +641,7 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow key={row.id} {...getRowProps(row)}>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

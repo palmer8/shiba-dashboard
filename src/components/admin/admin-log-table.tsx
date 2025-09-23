@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { DateRange, SelectRangeEventHandler } from "react-day-picker";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface AdminLogTableProps {
   data: AdminLogListResponse;
@@ -73,7 +74,10 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(!!value)
             }
@@ -135,6 +139,7 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
       },
     },
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handleCSVDownload = async () => {
     const selectedRows = table.getSelectedRowModel().rows;
@@ -230,7 +235,7 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
           CSV 기간 다운로드
         </Button>
       </div>
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -250,7 +255,7 @@ export default function AdminLogTable({ data }: AdminLogTableProps) {
         <TableBody>
           {table.getRowModel().rows.length > 0 ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow key={row.id} {...getRowProps(row)}>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

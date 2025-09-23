@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/dialog";
 import { CouponExpandedRow } from "./coupon-expanded-row";
 import JSZip from "jszip";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface CouponTableProps {
   data: { coupons: CouponDisplay[]; metadata: any };
@@ -190,7 +191,7 @@ export function CouponTable({ data, page, session, filters }: CouponTableProps) 
         <Checkbox
           onClick={(e) => e.stopPropagation()}
           checked={row.getIsSelected()}
-          onCheckedChange={() => row.toggleSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
           aria-label="Select row"
         />
       ),
@@ -347,6 +348,8 @@ export function CouponTable({ data, page, session, filters }: CouponTableProps) 
     getRowCanExpand: () => true,
   });
 
+  const { tableProps, getRowProps } = useDragSelect(table);
+
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", newPage.toString());
@@ -380,7 +383,7 @@ export function CouponTable({ data, page, session, filters }: CouponTableProps) 
         </Button>
       </div>
       
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader className="z-20">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -402,6 +405,7 @@ export function CouponTable({ data, page, session, filters }: CouponTableProps) 
                 <TableRow 
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => row.toggleExpanded()}
+                  {...getRowProps(row)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

@@ -27,6 +27,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { handleDownloadJson2CSV } from "@/lib/utils";
 import Empty from "@/components/ui/empty";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface RealtimeGroupExpandedRowProps {
   userId: string;
@@ -50,7 +51,10 @@ export function RealtimeGroupExpandedRow({
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(!!value)
             }
@@ -184,6 +188,7 @@ export function RealtimeGroupExpandedRow({
       rowSelection,
     },
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   if (isLoading) {
     return (
@@ -243,7 +248,7 @@ export function RealtimeGroupExpandedRow({
           <div className="grid gap-2">
             <h3 className="font-semibold">소속 그룹</h3>
             {groupsData.length > 0 ? (
-              <Table>
+              <Table {...tableProps}>
                 <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
                     <TableRow key={headerGroup.id}>
@@ -262,7 +267,7 @@ export function RealtimeGroupExpandedRow({
                 </TableHeader>
                 <TableBody>
                   {table.getRowModel().rows.map((row) => (
-                    <TableRow key={row.id}>
+                    <TableRow key={row.id} {...getRowProps(row)}>
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
                           {flexRender(

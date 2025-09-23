@@ -23,6 +23,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { toast } from "@/hooks/use-toast";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface StaffLogTableProps {
   data: StaffLogResponse;
@@ -35,6 +36,19 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
   const [inputPage, setInputPage] = useState(data.page.toString());
   const tableContainerRef = useRef<HTMLTableElement>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const { tableProps } = useDragSelect(null, {
+    isRowSelectedById: (id) => selectedRows.includes(id),
+    toggleRowById: (id, selected) => {
+      setSelectedRows((prev) => {
+        const exists = prev.includes(id);
+        if (selected) {
+          return exists ? prev : [...prev, id];
+        }
+        return prev.filter((x) => x !== id);
+      });
+    },
+  });
 
   useEffect(() => {
     setInputPage(data.page.toString());
@@ -101,25 +115,47 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
   };
 
   const columns: ColumnDef<StaffLog>[] = [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <Checkbox
-          checked={selectedRows.length === data.records.length}
-          onCheckedChange={handleSelectAll}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => {
-        const logId = createLogId(row.original);
-        return (
-          <Checkbox
-            checked={selectedRows.includes(logId)}
-            onCheckedChange={() => handleSelect(row.original)}
-            aria-label="Select row"
-          />
-        );
-      },
+      {
+        id: "select",
+        header: ({ table }) => {
+          const allSelected = selectedRows.length === data.records.length && data.records.length > 0;
+          const someSelected = selectedRows.length > 0 && !allSelected;
+          return (
+            <Checkbox
+              checked={allSelected || (someSelected && "indeterminate")}
+              onCheckedChange={(value) => {
+                const next = !!value;
+                if (next) {
+                  setSelectedRows(data.records.map((log) => createLogId(log)));
+                } else {
+                  setSelectedRows([]);
+                }
+              }}
+              aria-label="Select all"
+            />
+          );
+        },
+        cell: ({ row }) => {
+          const logId = createLogId(row.original);
+          const isChecked = selectedRows.includes(logId);
+          return (
+            <Checkbox
+              checked={isChecked}
+              onCheckedChange={(value) => {
+                const next = !!value;
+                setSelectedRows((prev) => {
+                  if (next) {
+                    if (prev.includes(logId)) return prev;
+                    return [...prev, logId];
+                  } else {
+                    return prev.filter((id) => id !== logId);
+                  }
+                });
+              }}
+              aria-label="Select row"
+            />
+          );
+        },
       enableSorting: false,
       enableHiding: false,
     },
@@ -207,7 +243,7 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
         </div>
       </div>
 
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -227,7 +263,11 @@ export function StaffLogTable({ data }: StaffLogTableProps) {
         {data.records.length > 0 ? (
           <TableBody>
             {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} className="hover:bg-muted/50">
+              <TableRow
+                key={row.id}
+                className="hover:bg-muted/50"
+                data-row-id={createLogId(row.original)}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(

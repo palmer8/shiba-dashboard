@@ -31,6 +31,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Download } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { writeAdminLogAction } from "@/actions/log-action";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface VehicleTableProps {
   data: {
@@ -137,6 +138,7 @@ export function VehicleTable({ data, session }: VehicleTableProps) {
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handlePageChange = useCallback(
     (newPage: number) => {
@@ -212,7 +214,7 @@ export function VehicleTable({ data, session }: VehicleTableProps) {
         </Button>
       </div>
       <div className="rounded-md">
-        <Table ref={tableContainerRef}>
+        <Table ref={tableContainerRef} {...tableProps}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -228,22 +230,23 @@ export function VehicleTable({ data, session }: VehicleTableProps) {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    {...getRowProps(row)}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
             ) : (
               <TableRow>
                 <TableCell

@@ -35,6 +35,7 @@ import { updateGroupAction } from "@/actions/admin-action";
 import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import Empty from "@/components/ui/empty";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface AdminGroupTableProps {
   data: {
@@ -71,7 +72,10 @@ export function AdminGroupTable({ data, session }: AdminGroupTableProps) {
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(!!value)
             }
@@ -156,6 +160,7 @@ export function AdminGroupTable({ data, session }: AdminGroupTableProps) {
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
@@ -191,7 +196,7 @@ export function AdminGroupTable({ data, session }: AdminGroupTableProps) {
         </Button>
       </div>
 
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -211,7 +216,7 @@ export function AdminGroupTable({ data, session }: AdminGroupTableProps) {
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow key={row.id} {...getRowProps(row)}>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

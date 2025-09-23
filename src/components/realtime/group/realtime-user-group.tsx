@@ -33,6 +33,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Download } from "lucide-react";
 import { Session } from "next-auth";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface RealtimeUserGroupProps {
   data: RealtimeGameUserData;
@@ -85,10 +86,14 @@ export default function RealtimeUserGroup({
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(!!value)
             }
+            aria-label="Select all"
           />
         ),
         cell: ({ row }) => (
@@ -129,6 +134,7 @@ export default function RealtimeUserGroup({
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handleCSVDownload = () => {
     const selectedRows = table.getSelectedRowModel().rows;
@@ -186,7 +192,7 @@ export default function RealtimeUserGroup({
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
+        <Table {...tableProps}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="bg-muted/50">
@@ -204,22 +210,23 @@ export default function RealtimeUserGroup({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={row.getIsSelected() ? "bg-muted/50" : undefined}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className={row.getIsSelected() ? "bg-muted/50" : undefined}
+                    {...getRowProps(row)}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
             ) : (
               <TableRow>
                 <TableCell

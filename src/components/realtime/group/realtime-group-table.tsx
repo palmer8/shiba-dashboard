@@ -28,6 +28,7 @@ import Empty from "@/components/ui/empty";
 import { toast } from "@/hooks/use-toast";
 import { updateUserGroupAction } from "@/actions/realtime/realtime-group-action";
 import { RealtimeGroupExpandedRow } from "./realtime-group-expanded-row";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface RealtimeGroupTableProps {
   data: {
@@ -74,16 +75,20 @@ export default function RealtimeGroupTable({
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
             }
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
           />
         ),
         cell: ({ row }) => (
           <Checkbox
+            onClick={(e) => e.stopPropagation()}
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
           />
         ),
       },
@@ -153,6 +158,7 @@ export default function RealtimeGroupTable({
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handleCSVDownload = () => {
     const selectedRows = table.getSelectedRowModel().rows;
@@ -180,7 +186,7 @@ export default function RealtimeGroupTable({
           CSV 다운로드
         </Button>
       </div>
-      <Table>
+      <Table {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -204,6 +210,7 @@ export default function RealtimeGroupTable({
                 <TableRow
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => row.toggleExpanded()}
+                  {...getRowProps(row)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

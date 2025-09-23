@@ -44,6 +44,7 @@ import Empty from "@/components/ui/empty";
 import { Checkbox } from "@/components/ui/checkbox";
 import { JSONContent } from "novel";
 import { Badge } from "@/components/ui/badge";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface CategoryTableProps {
   data: BoardCategory[];
@@ -88,6 +89,7 @@ export default function CategoryTable({ data }: CategoryTableProps) {
         ),
         cell: ({ row }) => (
           <Checkbox
+            onClick={(e) => e.stopPropagation()}
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
             aria-label="Select row"
@@ -239,6 +241,7 @@ export default function CategoryTable({ data }: CategoryTableProps) {
       columnVisibility,
     },
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handleDownloadCSV = async () => {
     const ids = table.getSelectedRowModel().rows.map((row) => row.original.id);
@@ -275,7 +278,7 @@ export default function CategoryTable({ data }: CategoryTableProps) {
         </Button>
         <AddCategoryDialog />
       </div>
-      <Table>
+      <Table {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -313,6 +316,7 @@ export default function CategoryTable({ data }: CategoryTableProps) {
                       row.toggleExpanded();
                     }
                   }}
+                  {...getRowProps(row)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

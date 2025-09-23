@@ -21,6 +21,7 @@ import { formatKoreanDateTime, handleDownloadJson2CSV } from "@/lib/utils";
 import { Payment } from "@/types/payment";
 import { Checkbox } from "@/components/ui/checkbox";
 import Empty from "@/components/ui/empty";
+import { useDragSelect } from "@/hooks/use-drag-select";
 // import { getPaymentsByIdsOriginAction } from "@/actions/payment-action";
 // import { toast } from "@/hooks/use-toast";
 
@@ -71,7 +72,7 @@ export default function PaymentTable({ data }: PaymentTableProps) {
           <Checkbox
             onClick={(e) => e.stopPropagation()}
             checked={row.getIsSelected()}
-            onCheckedChange={() => row.toggleSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
             aria-label="Select row"
           />
         ),
@@ -121,6 +122,8 @@ export default function PaymentTable({ data }: PaymentTableProps) {
     onColumnVisibilityChange: setColumnVisibility,
   });
 
+  const { tableProps, getRowProps } = useDragSelect(table);
+
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", newPage.toString());
@@ -129,7 +132,7 @@ export default function PaymentTable({ data }: PaymentTableProps) {
 
   return (
     <>
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -150,7 +153,7 @@ export default function PaymentTable({ data }: PaymentTableProps) {
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
               <Fragment key={row.id}>
-                <TableRow onClick={() => row.toggleExpanded()}>
+                <TableRow onClick={() => row.toggleExpanded()} {...getRowProps(row)}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(

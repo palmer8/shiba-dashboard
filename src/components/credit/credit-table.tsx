@@ -54,6 +54,7 @@ import {
   STATUS_MAP,
 } from "@/lib/validations/credit";
 import EditCreditDialog from "@/components/dialog/edit-credit-dialog";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface CreditTableProps {
   data: CreditTableData;
@@ -277,6 +278,8 @@ export function CreditTable({ data, session }: CreditTableProps) {
       columnVisibility,
     },
   });
+
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   // useMemo로 계산 최적화
   const isPending = useMemo(
@@ -662,7 +665,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
           session={session}
         />
       )}
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -682,7 +685,7 @@ export function CreditTable({ data, session }: CreditTableProps) {
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow key={row.id} {...getRowProps(row)}>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

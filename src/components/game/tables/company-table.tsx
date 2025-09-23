@@ -37,6 +37,7 @@ import { toast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Session } from "next-auth";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface CompanyTableProps {
   data: {
@@ -92,7 +93,7 @@ export function CompanyTable({ data, session }: CompanyTableProps) {
         <Checkbox
           onClick={(e) => e.stopPropagation()}
           checked={row.getIsSelected()}
-          onCheckedChange={() => row.toggleSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
           aria-label="Select row"
         />
       ),
@@ -156,6 +157,8 @@ export function CompanyTable({ data, session }: CompanyTableProps) {
     getCoreRowModel: getCoreRowModel(),
   });
 
+  const { tableProps, getRowProps } = useDragSelect(table);
+
   const handlePageChange = useCallback(
     (newPage: number) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -211,7 +214,7 @@ export function CompanyTable({ data, session }: CompanyTableProps) {
           CSV 다운로드
         </Button>
       </div>
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -230,7 +233,7 @@ export function CompanyTable({ data, session }: CompanyTableProps) {
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
+            <TableRow key={row.id} {...getRowProps(row)}>
               {row.getVisibleCells().map((cell) => (
                 <TableCell key={cell.id}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

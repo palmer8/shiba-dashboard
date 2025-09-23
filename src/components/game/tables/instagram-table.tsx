@@ -29,6 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { writeAdminLogAction } from "@/actions/log-action";
 import { Session } from "next-auth";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface InstagramTableProps {
   data: {
@@ -64,7 +65,7 @@ export function InstagramTable({ data, session }: InstagramTableProps) {
         <Checkbox
           onClick={(e) => e.stopPropagation()}
           checked={row.getIsSelected()}
-          onCheckedChange={() => row.toggleSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
           aria-label="Select row"
         />
       ),
@@ -110,6 +111,8 @@ export function InstagramTable({ data, session }: InstagramTableProps) {
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
+
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handlePageChange = useCallback(
     (newPage: number) => {
@@ -177,7 +180,7 @@ export function InstagramTable({ data, session }: InstagramTableProps) {
         </Button>
       </div>
 
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -196,7 +199,7 @@ export function InstagramTable({ data, session }: InstagramTableProps) {
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
+            <TableRow key={row.id} {...getRowProps(row)}>
               {row.getVisibleCells().map((cell) => (
                 <TableCell key={cell.id}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

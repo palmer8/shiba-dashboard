@@ -50,6 +50,7 @@ import { hasAccess } from "@/lib/utils";
 import { UserRole } from "@prisma/client";
 import { Session } from "next-auth";
 import { parse as parseCSV } from "csv-parse/sync";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface PersonalMailTableProps {
   data: PersonalMailTableData;
@@ -92,7 +93,10 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(!!value)
             }
@@ -235,6 +239,7 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
     onColumnVisibilityChange: setColumnVisibility,
     getRowCanExpand: () => true,
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handlePageChange = useCallback(
     (newPage: number) => {
@@ -561,7 +566,7 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         onOpenChange={setIsResultDialogOpen}
         results={uploadResults}
       />
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -585,6 +590,7 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
                 <TableRow
                   onClick={() => row.toggleExpanded()}
                   className="cursor-pointer hover:bg-muted/50"
+                  {...getRowProps(row)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

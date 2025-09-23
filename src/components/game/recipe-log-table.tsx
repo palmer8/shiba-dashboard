@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
 import { writeAdminLogAction } from "@/actions/log-action";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface RecipeLogTableProps {
   data: RecipeLogResponse;
@@ -57,7 +58,10 @@ export function RecipeLogTable({ data }: RecipeLogTableProps) {
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(!!value)
             }
@@ -106,6 +110,7 @@ export function RecipeLogTable({ data }: RecipeLogTableProps) {
     columns,
     data: memorizedData,
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handleCSVDownload = async () => {
     try {
@@ -138,7 +143,7 @@ export function RecipeLogTable({ data }: RecipeLogTableProps) {
           CSV 다운로드
         </Button>
       </div>
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -158,7 +163,7 @@ export function RecipeLogTable({ data }: RecipeLogTableProps) {
         <TableBody>
           {table.getRowModel().rows.length > 0 ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow key={row.id} {...getRowProps(row)}>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

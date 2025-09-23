@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Session } from "next-auth";
 import Empty from "../ui/empty";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface BlockTicketTableProps {
   data: {
@@ -78,7 +79,10 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(!!value)
             }
@@ -220,12 +224,14 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
     state: {
       rowSelection,
     },
+    getRowId: (row) => row.id.toString(),
     initialState: {
       columnVisibility: {
         id: false,
       },
     },
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
@@ -238,9 +244,9 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
     setIsLoading(true);
 
     try {
-      const selectedIds = Object.keys(rowSelection).map(
-        (idx) => data.records[parseInt(idx)].id
-      );
+      const selectedIds = table
+        .getSelectedRowModel()
+        .rows.map((row) => row.original.id);
       const result = await approveBlockTicketAction(selectedIds);
 
       if (result.success) {
@@ -270,9 +276,9 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
     setIsLoading(true);
 
     try {
-      const selectedIds = Object.keys(rowSelection).map(
-        (idx) => data.records[parseInt(idx)].id
-      );
+      const selectedIds = table
+        .getSelectedRowModel()
+        .rows.map((row) => row.original.id);
       const result = await rejectBlockTicketAction(selectedIds);
 
       if (result.success) {
@@ -386,7 +392,7 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
         </div>
       )}
 
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -412,6 +418,7 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
                   onClick={(e) => {
                     row.toggleExpanded();
                   }}
+                  {...getRowProps(row)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

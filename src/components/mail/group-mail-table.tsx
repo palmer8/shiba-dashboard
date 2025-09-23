@@ -46,6 +46,7 @@ import EditGroupMailDialog from "@/components/dialog/edit-group-mail-dialog";
 import Empty from "@/components/ui/empty";
 import { Session } from "next-auth";
 import { Badge } from "@/components/ui/badge";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface GroupMailTableProps {
   data: GroupMailTableData;
@@ -98,7 +99,10 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
             onClick={(e) => e.stopPropagation()}
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(!!value)
@@ -232,6 +236,7 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
     onColumnVisibilityChange: setColumnVisibility,
     getRowCanExpand: () => true,
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handlePageChange = useCallback(
     (newPage: number) => {
@@ -303,7 +308,7 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
           추가
         </Button>
       </div>
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -327,6 +332,7 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
                 <TableRow
                   onClick={() => row.toggleExpanded()}
                   className="cursor-pointer hover:bg-muted/50"
+                  {...getRowProps(row)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

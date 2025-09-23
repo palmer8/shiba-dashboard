@@ -67,6 +67,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useDragSelect } from "@/hooks/use-drag-select";
 
 interface GameLogData {
   id: number;
@@ -188,10 +189,14 @@ export function UserDataTable({
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(!!value)
             }
+            aria-label="Select all"
           />
         ),
         cell: ({ row }) => (
@@ -297,6 +302,7 @@ export function UserDataTable({
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
+  const { tableProps, getRowProps } = useDragSelect(table);
 
   const handleBulkDelete = useCallback(async () => {
     if (isDeleting) return;
@@ -463,7 +469,7 @@ export function UserDataTable({
           </Button>
         </div>
       </div>
-      <Table ref={tableContainerRef}>
+      <Table ref={tableContainerRef} {...tableProps}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -481,7 +487,7 @@ export function UserDataTable({
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow key={row.id} {...getRowProps(row)}>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
