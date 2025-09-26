@@ -116,32 +116,32 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
       },
       {
         accessorKey: "user_id",
-        header: "고유번호",
-        cell: ({ row }) => <div>{row.getValue("user_id")}</div>,
+        header: "ID",
+        cell: ({ row }) => <div className="text-xs">{row.getValue("user_id")}</div>,
       },
       {
         accessorKey: "title",
         header: "제목",
-        cell: ({ row }) => <div>{row.getValue("title")}</div>,
+        cell: ({ row }) => <div className="text-sm max-w-[120px] truncate">{row.getValue("title")}</div>,
       },
       {
         accessorKey: "content",
         header: "내용",
         cell: ({ row }) => (
-          <div className="max-w-[400px] truncate">
+          <div className="text-xs max-w-[150px] truncate">
             {row.getValue("content")}
           </div>
         ),
       },
       {
         accessorKey: "used",
-        header: "사용 여부",
+        header: "사용",
         cell: ({ row }) => (
-          <div className="text-center">
+          <div className="text-center text-xs">
             {row.getValue("used") ? (
-              <span className="text-green-600 font-medium">사용됨</span>
+              <span className="text-green-600 font-medium">O</span>
             ) : (
-              <span className="text-gray-500">미사용</span>
+              <span className="text-gray-500">X</span>
             )}
           </div>
         ),
@@ -150,25 +150,24 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         accessorKey: "reward_items",
         header: "보상",
         cell: ({ row }) => (
-          <div className="max-w-[200px] truncate">
-            {Object.entries(row.original.reward_items).map(([itemCode, itemInfo]) => 
-              `${itemInfo.name}: ${itemInfo.amount}개`
-            ).join(", ") || "없음"}
+          <div className="text-xs max-w-[100px] truncate">
+            {Object.entries(row.original.reward_items).length > 0 ? 
+              `${Object.entries(row.original.reward_items).length}개` : "없음"}
           </div>
         ),
       },
       {
         accessorKey: "nickname",
-        header: "작성자",
+        header: "닉네임",
         cell: ({ row }) => (
-          <div>{row.original.nickname || "알 수 없음"}</div>
+          <div className="text-xs max-w-[80px] truncate">{row.original.nickname || "알 수 없음"}</div>
         ),
       },
       {
         accessorKey: "created_at",
         header: "등록일",
         cell: ({ row }) => (
-          <div>{formatKoreanDateTime(row.getValue("created_at"))}</div>
+          <div className="text-xs">{formatKoreanDateTime(row.getValue("created_at")).split(' ')[0]}</div>
         ),
       },
       {
@@ -566,7 +565,8 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
         onOpenChange={setIsResultDialogOpen}
         results={uploadResults}
       />
-      <Table ref={tableContainerRef} {...tableProps}>
+      <div className="w-full overflow-x-auto">
+        <Table ref={tableContainerRef} {...tableProps} className="min-w-full">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -619,6 +619,7 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
           )}
         </TableBody>
       </Table>
+      </div>
       <div className="flex items-center justify-between py-2">
         <div className="text-sm text-muted-foreground">
           총 {data.metadata.total}개 중 {(data.metadata.page - 1) * 50 + 1}-

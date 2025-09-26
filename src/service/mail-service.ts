@@ -24,7 +24,6 @@ import {
 } from "@/lib/validations/mail";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
-// 아이템 이름 매핑 유티 함수
 function mapItemIdsToNames(
   items: Record<string, number>,
   itemNameMap: Map<string, string>
@@ -154,17 +153,13 @@ export async function getPersonalMails(
 
     const totalPages = Math.ceil(totalCount / limit);
 
-    // 조회 조건을 로그로 기록
+    // 조회 조건을 로그로 기록 (상세 정보 추가)
     const filterDesc = [];
     if (filter.userId) filterDesc.push(`유저: ${filter.userId}`);
     if (filter.used !== undefined) filterDesc.push(`사용여부: ${filter.used ? '사용됨' : '미사용'}`);
     if (filter.startDate && filter.endDate) {
       filterDesc.push(`기간: ${filter.startDate} ~ ${filter.endDate}`);
     }
-
-    await logService.writeAdminLog(
-      `개인 우편 목록 조회 (페이지: ${page + 1}, 총: ${totalCount}개${filterDesc.length > 0 ? `, 필터: ${filterDesc.join(', ')}` : ''})`
-    );
 
     return {
       mails,
@@ -235,7 +230,10 @@ export async function createPersonalMail(values: PersonalMailCreateValues): Prom
        WHERE m.id = ?`,
         [mailId]
       ),
-      logService.writeAdminLog(`개인 우편 생성: 유저 ID ${values.user_id}`)
+      // 상세한 로그 작성
+      logService.writeAdminLog(
+        `${session.user.nickname} 개인 우편 생성: 대상=${values.user_id}, 제목="${values.title || '제목없음'}", 내용="${(values.content || '').substring(0, 30)}${(values.content || '').length > 30 ? '...' : ''}", 필요아이템=${values.need_items.length}개, 보상아이템=${values.reward_items.length}개, 사용여부=${values.used ? 'Y' : 'N'}, ID=${mailId}`
+      )
     ]);
 
     const mail = (mailRows as RowDataPacket[])[0];
@@ -299,7 +297,10 @@ export async function sendSimpleMail(values: SimpleMailCreateValues): Promise<Pe
          WHERE m.id = ?`,
         [mailId]
       ),
-      logService.writeAdminLog(`메일 발송: 유저 ID ${values.user_id} - ${values.title}`)
+      // 상세한 로그 작성
+      logService.writeAdminLog(
+        `${session.user.nickname} 간단 메일 발송: 대상=${values.user_id}, 제목="${values.title || '제목없음'}", 내용="${(values.content || '').substring(0, 50)}${(values.content || '').length > 50 ? '...' : ''}", ID=${mailId}`
+      )
     ]);
 
     const mail = (mailRows as RowDataPacket[])[0];
@@ -403,15 +404,17 @@ export async function updatePersonalMail(id: number, values: PersonalMailCreateV
       throw new Error("권한이 없습니다.");
     }
 
-    // 기존 우편 존재 확인
+    // 기존 우편 존재 확인 및 정보 조회 (로그용)
     const [existingRows] = await pool.execute(
-      "SELECT id FROM dokku_mail WHERE id = ?",
+      "SELECT user_id, title FROM dokku_mail WHERE id = ?",
       [id]
     );
 
     if ((existingRows as RowDataPacket[]).length === 0) {
       throw new Error("존재하지 않는 우편입니다.");
     }
+
+    const existingMail = (existingRows as RowDataPacket[])[0];
 
     // need_items와 reward_items를 JSON 형태로 변환
     const needItems: Record<string, number> = {};
@@ -449,7 +452,10 @@ export async function updatePersonalMail(id: number, values: PersonalMailCreateV
        WHERE m.id = ?`,
         [id]
       ),
-      logService.writeAdminLog(`개인 우편 수정: ID ${id}, 유저 ID ${values.user_id}`)
+      // 상세한 로그 작성 (변경 전후 정보 포함)
+      logService.writeAdminLog(
+        `${session.user.nickname} 개인 우편 수정: ID=${id}, 대상변경=${existingMail.user_id}→${values.user_id}, 제목변경="${existingMail.title}"→"${values.title || '제목없음'}", 내용="${(values.content || '').substring(0, 30)}${(values.content || '').length > 30 ? '...' : ''}", 필요아이템=${values.need_items.length}개, 보상아이템=${values.reward_items.length}개, 사용여부=${values.used ? 'Y' : 'N'}`
+      )
     ]);
 
     const mail = (mailRows as RowDataPacket[])[0];
@@ -489,7 +495,7 @@ export async function deletePersonalMail(id: number): Promise<void> {
 
     // 우편 정보 조회 (로그용)
     const [mailRows] = await pool.execute(
-      "SELECT user_id FROM dokku_mail WHERE id = ?",
+      "SELECT user_id, title, content FROM dokku_mail WHERE id = ?",
       [id]
     );
     const mail = (mailRows as RowDataPacket[])[0];
@@ -501,7 +507,10 @@ export async function deletePersonalMail(id: number): Promise<void> {
     // 삭제와 로그 작성을 병렬로 실행
     await Promise.all([
       pool.execute("DELETE FROM dokku_mail WHERE id = ?", [id]),
-      logService.writeAdminLog(`개인 우편 삭제: ID ${id}, 유저 ID ${mail.user_id}`)
+      // 상세한 로그 작성
+      logService.writeAdminLog(
+        `${session.user.nickname} 개인 우편 삭제: ID=${id}, 대상=${mail.user_id}, 제목="${mail.title || '제목없음'}", 내용="${(mail.content || '').substring(0, 30)}${(mail.content || '').length > 30 ? '...' : ''}"`
+      )
     ]);
   } catch (error) {
     console.error("Delete personal mail error:", error);
@@ -596,7 +605,7 @@ export async function getGroupMailReserves(
 
     const totalPages = Math.ceil(totalCount / limit);
 
-    // 조회 조건을 로그로 기록
+    // 조회 조건을 로그로 기록 (상세 정보 추가)
     const filterDesc = [];
     if (filter.title) filterDesc.push(`제목: ${filter.title}`);
     if (filter.startDate && filter.endDate) {
@@ -604,7 +613,7 @@ export async function getGroupMailReserves(
     }
 
     await logService.writeAdminLog(
-      `단체 우편 예약 목록 조회 (페이지: ${page + 1}, 총: ${totalCount}개${filterDesc.length > 0 ? `, 필터: ${filterDesc.join(', ')}` : ''})`
+      `${session.user.nickname} 단체 우편 예약 목록 조회: 페이지=${page + 1}, 총=${totalCount}개${filterDesc.length > 0 ? `, 필터=[${filterDesc.join(', ')}]` : ''}`
     );
 
     return {
@@ -668,7 +677,10 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
     // 생성된 예약 조회와 로그 작성을 병렬로 실행 (외부 API 호출은 비동기 분리)
     const [[reserveRows]] = await Promise.all([
       pool.execute("SELECT * FROM dokku_hottime_event WHERE id = ?", [reserveId]),
-      logService.writeAdminLog(`단체 우편 예약 생성: ${values.title}`)
+      // 상세한 로그 작성
+      logService.writeAdminLog(
+        `${session.user.nickname} 단체 우편 예약 생성: 제목="${values.title}", 내용="${values.content.substring(0, 30)}${values.content.length > 30 ? '...' : ''}", 시작=${startDateTime}, 종료=${endDateTime}, 보상아이템=${values.rewards.length}개, ID=${reserveId}`
+      )
     ]);
 
     // 외부 API 호출은 응답을 블로킹하지 않도록 비동기로 트리거
@@ -678,16 +690,21 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
 
     const reserve = (reserveRows as RowDataPacket[])[0];
 
-    // reward(JSON 배열) -> Record<string, number>로 변환하여 반환(현 UI 호환 유지)
-    let rewardsObj: Record<string, number> = {};
+    // reward 필드를 파싱하여 반환
+    let rewards: Record<string, number> = {};
     try {
-      const arr = JSON.parse(reserve.reward || "[]");
-      if (Array.isArray(arr)) {
-        arr.forEach((r: any) => {
-          if (r?.itemcode && typeof r.amount === "number") rewardsObj[r.itemcode] = r.amount;
+      const parsedRewards = JSON.parse(reserve.reward || "[]");
+      if (Array.isArray(parsedRewards)) {
+        parsedRewards.forEach((item) => {
+          if (item.itemcode && typeof item.amount === "number") {
+            rewards[item.itemcode] = item.amount;
+          }
         });
       }
-    } catch { }
+    } catch (e) {
+      console.warn("Failed to parse reward JSON:", reserve.reward);
+      rewards = {};
+    }
 
     return {
       id: reserve.id,
@@ -695,7 +712,7 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
       content: reserve.content,
       start_time: new Date(reserve.start_time),
       end_time: new Date(reserve.end_time),
-      rewards: rewardsObj,
+      rewards,
     };
   } catch (error) {
     console.error("Create group mail reserve error:", error);
@@ -722,23 +739,36 @@ export async function updateGroupMailReserve(
       throw new Error("권한이 없습니다.");
     }
 
+    // 기존 예약 정보 조회 (로그용)
+    const [existingRows] = await pool.execute(
+      "SELECT title, start_time, end_time FROM dokku_hottime_event WHERE id = ?",
+      [id]
+    );
+
+    if ((existingRows as RowDataPacket[]).length === 0) {
+      throw new Error("존재하지 않는 예약입니다.");
+    }
+
+    const existingReserve = (existingRows as RowDataPacket[])[0];
+
     // rewards를 [{itemcode, amount}] 배열 JSON으로 변환
     const rewardsArray = values.rewards.map((item) => ({
       itemcode: item.itemCode,
       amount: item.count,
     }));
 
-    const updateQuery = `
-      UPDATE dokku_hottime_event
-      SET title = ?, content = ?, start_time = ?, end_time = ?, reward = ?
-      WHERE id = ?
-    `;
-
     // ISO 문자열을 MySQL DATETIME 형식으로 변환
     const startDateTime = new Date(values.start_time).toISOString().slice(0, 19).replace('T', ' ');
     const endDateTime = new Date(values.end_time).toISOString().slice(0, 19).replace('T', ' ');
 
-    // 수정, 조회, 로그 작성(외부 API 호출은 비동기 분리)
+    // 단체 우편 예약 수정
+    const updateQuery = `
+      UPDATE dokku_hottime_event 
+      SET title = ?, content = ?, start_time = ?, end_time = ?, reward = ?
+      WHERE id = ?
+    `;
+
+    // 수정과 조회, 로그 작성을 병렬로 실행
     const [, [reserveRows]] = await Promise.all([
       pool.execute(updateQuery, [
         values.title,
@@ -749,7 +779,10 @@ export async function updateGroupMailReserve(
         id,
       ]),
       pool.execute("SELECT * FROM dokku_hottime_event WHERE id = ?", [id]),
-      logService.writeAdminLog(`단체 우편 예약 수정: ${values.title}`)
+      // 상세한 로그 작성 (변경 전후 정보 포함)
+      logService.writeAdminLog(
+        `${session.user.nickname} 단체 우편 예약 수정: ID=${id}, 제목변경="${existingReserve.title}"→"${values.title}", 내용="${values.content.substring(0, 30)}${values.content.length > 30 ? '...' : ''}", 시작변경=${new Date(existingReserve.start_time).toISOString().slice(0, 19).replace('T', ' ')}→${startDateTime}, 종료변경=${new Date(existingReserve.end_time).toISOString().slice(0, 19).replace('T', ' ')}→${endDateTime}, 보상아이템=${values.rewards.length}개`
+      )
     ]);
 
     // 외부 API 호출은 응답을 블로킹하지 않도록 비동기로 트리거
@@ -759,16 +792,21 @@ export async function updateGroupMailReserve(
 
     const reserve = (reserveRows as RowDataPacket[])[0];
 
-    // reward(JSON 배열) -> Record<string, number>
-    let rewardsObj2: Record<string, number> = {};
+    // reward 필드를 파싱하여 반환
+    let rewards: Record<string, number> = {};
     try {
-      const arr = JSON.parse(reserve.reward || "[]");
-      if (Array.isArray(arr)) {
-        arr.forEach((r: any) => {
-          if (r?.itemcode && typeof r.amount === "number") rewardsObj2[r.itemcode] = r.amount;
+      const parsedRewards = JSON.parse(reserve.reward || "[]");
+      if (Array.isArray(parsedRewards)) {
+        parsedRewards.forEach((item) => {
+          if (item.itemcode && typeof item.amount === "number") {
+            rewards[item.itemcode] = item.amount;
+          }
         });
       }
-    } catch { }
+    } catch (e) {
+      console.warn("Failed to parse reward JSON:", reserve.reward);
+      rewards = {};
+    }
 
     return {
       id: reserve.id,
@@ -776,7 +814,7 @@ export async function updateGroupMailReserve(
       content: reserve.content,
       start_time: new Date(reserve.start_time),
       end_time: new Date(reserve.end_time),
-      rewards: rewardsObj2,
+      rewards,
     };
   } catch (error) {
     console.error("Update group mail reserve error:", error);
@@ -802,7 +840,7 @@ export async function deleteGroupMailReserve(id: number): Promise<void> {
 
     // 예약 정보 조회 (로그용)
     const [reserveRows] = await pool.execute(
-      "SELECT title FROM dokku_hottime_event WHERE id = ?",
+      "SELECT title, start_time, end_time FROM dokku_hottime_event WHERE id = ?",
       [id]
     );
     const reserve = (reserveRows as RowDataPacket[])[0];
@@ -814,7 +852,10 @@ export async function deleteGroupMailReserve(id: number): Promise<void> {
     // 삭제, 로그 작성, API 호출을 병렬로 실행
     await Promise.all([
       pool.execute("DELETE FROM dokku_hottime_event WHERE id = ?", [id]),
-      logService.writeAdminLog(`단체 우편 예약 삭제: ${reserve.title}`)
+      // 상세한 로그 작성
+      logService.writeAdminLog(
+        `${session.user.nickname} 단체 우편 예약 삭제: ID=${id}, 제목="${reserve.title}", 시작=${new Date(reserve.start_time).toISOString().slice(0, 19).replace('T', ' ')}, 종료=${new Date(reserve.end_time).toISOString().slice(0, 19).replace('T', ' ')}`
+      )
     ]);
 
     // 외부 API 호출은 응답을 블로킹하지 않도록 비동기로 트리거
@@ -906,7 +947,7 @@ export async function getGroupMailReserveLogs(
 
     const totalPages = Math.ceil(total / limit);
 
-    // 조회 조건을 로그로 기록
+    // 조회 조건을 로그로 기록 (상세 정보 추가)
     const filterDesc = [];
     if (filter.eventId) filterDesc.push(`이벤트 ID: ${filter.eventId}`);
     if (filter.userId) filterDesc.push(`유저: ${filter.userId}`);
@@ -915,7 +956,7 @@ export async function getGroupMailReserveLogs(
     }
 
     await logService.writeAdminLog(
-      `단체 우편 수령 로그 조회 (페이지: ${page}, 총: ${total}개${filterDesc.length > 0 ? `, 필터: ${filterDesc.join(', ')}` : ''})`
+      `${session.user.nickname} 단체 우편 수령 로그 조회: 페이지=${page}, 총=${total}개${filterDesc.length > 0 ? `, 필터=[${filterDesc.join(', ')}]` : ''}`
     );
 
     return {
@@ -1038,6 +1079,10 @@ export async function createMailTemplate(
       throw new Error("로그인이 필요합니다.");
     }
 
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
     const template = await prisma.mailTemplate.create({
       data: {
         title,
@@ -1054,7 +1099,10 @@ export async function createMailTemplate(
       },
     });
 
-    await logService.writeAdminLog(`메일 템플릿 생성: ${title} (${content.substring(0, 50)}${content.length > 50 ? '...' : ''})`);
+    // 상세한 로그 작성
+    await logService.writeAdminLog(
+      `${session.user.nickname} 메일 템플릿 생성: 제목="${title}", 내용="${content.substring(0, 50)}${content.length > 50 ? '...' : ''}", ID=${template.id}`
+    );
 
     return template;
   } catch (error) {
@@ -1079,6 +1127,10 @@ export async function updateMailTemplate(
       throw new Error("로그인이 필요합니다.");
     }
 
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
     const template = await prisma.mailTemplate.update({
       where: { id },
       data: {
@@ -1095,7 +1147,10 @@ export async function updateMailTemplate(
       },
     });
 
-    await logService.writeAdminLog(`메일 템플릿 수정: ${title} (${content.substring(0, 50)}${content.length > 50 ? '...' : ''})`);
+    // 상세한 로그 작성
+    await logService.writeAdminLog(
+      `${session.user.nickname} 메일 템플릿 수정: ID=${id}, 제목="${title}", 내용="${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`
+    );
 
     return template;
   } catch (error) {
@@ -1116,6 +1171,10 @@ export async function deleteMailTemplate(id: string): Promise<void> {
       throw new Error("로그인이 필요합니다.");
     }
 
+    if (!hasAccess(session.user.role, UserRole.STAFF)) {
+      throw new Error("권한이 없습니다.");
+    }
+
     // 템플릿 정보 조회 (로그용)
     const template = await prisma.mailTemplate.findUnique({
       where: { id },
@@ -1130,7 +1189,10 @@ export async function deleteMailTemplate(id: string): Promise<void> {
       where: { id },
     });
 
-    await logService.writeAdminLog(`메일 템플릿 삭제: ${template.title}`);
+    // 상세한 로그 작성
+    await logService.writeAdminLog(
+      `${session.user.nickname} 메일 템플릿 삭제: ID=${id}, 제목="${template.title}"`
+    );
   } catch (error) {
     console.error("Delete mail template error:", error);
     throw new Error(
