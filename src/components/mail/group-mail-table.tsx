@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { formatKoreanDateTime } from "@/lib/utils";
+import { formatKoreanDateTime, hasAccess } from "@/lib/utils";
 import {
   ColumnDef,
   flexRender,
@@ -45,6 +45,7 @@ import { MoreHorizontal, Trash, Edit2, Plus, Download } from "lucide-react";
 import EditGroupMailDialog from "@/components/dialog/edit-group-mail-dialog";
 import Empty from "@/components/ui/empty";
 import { Session } from "next-auth";
+import { UserRole } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { useDragSelect } from "@/hooks/use-drag-select";
 
@@ -69,6 +70,7 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
   });
   const [inputPage, setInputPage] = useState(data.metadata.page.toString());
   const tableContainerRef = useRef<HTMLTableElement>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // 상태 계산 함수
   const getMailStatus = (startDate: Date, endDate: Date) => {
@@ -238,6 +240,46 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
   });
   const { tableProps, getRowProps } = useDragSelect(table);
 
+  const handleBulkDelete = async () => {
+    const selected = table.getSelectedRowModel().rows;
+    if (!selected.length) {
+      toast({
+        title: "선택된 항목 없음",
+        description: "삭제할 항목을 선택해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm("선택한 항목을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."))
+      return;
+
+    setIsDeleting(true);
+    try {
+      const results = await Promise.all(
+        selected.map((row) => deleteGroupMailReserveAction(parseInt(row.original.id)))
+      );
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.length - successCount;
+      toast({
+        title: "선택 삭제 완료",
+        description:
+          failCount > 0
+            ? `${successCount}건 삭제, ${failCount}건 실패`
+            : `${successCount}건 삭제되었습니다.`,
+      });
+      table.toggleAllPageRowsSelected(false);
+    } catch (error) {
+      toast({
+        title: "삭제 실패",
+        description: "선택 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handlePageChange = useCallback(
     (newPage: number) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -303,6 +345,18 @@ export function GroupMailTable({ data, session }: GroupMailTableProps) {
           <Download className="h-4 w-4" />
           CSV 다운로드
         </Button>
+        {hasAccess(session?.user!.role, UserRole.SUPERMASTER) && (
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={handleBulkDelete}
+            disabled={isDeleting || !table.getSelectedRowModel().rows.length}
+            className="gap-2"
+          >
+            <Trash className="h-4 w-4" />
+            선택 삭제
+          </Button>
+        )}
         <Button size="sm" onClick={() => setOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
           추가

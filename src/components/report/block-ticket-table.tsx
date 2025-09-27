@@ -364,6 +364,41 @@ export function BlockTicketTable({ data, session }: BlockTicketTableProps) {
 
   return (
     <div className="space-y-4">
+      {hasAccess(session?.user!.role, UserRole.SUPERMASTER) && (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="destructive"
+            onClick={async () => {
+              const selected = table.getSelectedRowModel().rows;
+              if (!selected.length) {
+                toast({ title: "선택된 항목이 없습니다.", variant: "destructive" });
+                return;
+              }
+              if (!confirm("선택한 티켓을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."))
+                return;
+              setIsLoading(true);
+              try {
+                const ids = selected.map((r) => r.original.id);
+                const results = await Promise.all(ids.map((id: string) => deleteBlockTicketAction(id)));
+                const success = results.filter((r) => r?.success).length;
+                const fails = results.length - success;
+                toast({
+                  title: "선택 삭제 완료",
+                  description: fails > 0 ? `${success}건 삭제, ${fails}건 실패` : `${success}건 삭제되었습니다.`,
+                });
+                table.resetRowSelection();
+              } catch (e) {
+                toast({ title: "삭제 실패", description: "선택 삭제 중 오류가 발생했습니다.", variant: "destructive" });
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+            disabled={isLoading || table.getSelectedRowModel().rows.length === 0}
+          >
+            <Trash className="h-4 w-4 mr-2" /> 선택 삭제
+          </Button>
+        </div>
+      )}
       {data.records.length > 0 && isPending && (
         <div className="flex justify-end gap-2">
           <Button

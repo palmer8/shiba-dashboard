@@ -586,6 +586,41 @@ export function CreditTable({ data, session }: CreditTableProps) {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const selected = table.getSelectedRowModel().rows;
+    if (!selected.length) {
+      toast({ title: "선택된 항목이 없습니다.", variant: "destructive" });
+      return;
+    }
+
+    if (!confirm("선택한 항목을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."))
+      return;
+
+    setIsLoading(true);
+    try {
+      const ids = selected.map((r) => r.original.id);
+      const results = await Promise.all(ids.map((id) => deleteCreditAction(id)));
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.length - successCount;
+      toast({
+        title: "선택 삭제 완료",
+        description:
+          failCount > 0
+            ? `${successCount}건 삭제, ${failCount}건 실패`
+            : `${successCount}건 삭제되었습니다.`,
+      });
+      table.toggleAllPageRowsSelected(false);
+    } catch (error) {
+      toast({
+        title: "삭제 실패",
+        description: "선택 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", newPage.toString());
@@ -644,6 +679,17 @@ export function CreditTable({ data, session }: CreditTableProps) {
             <Plus className="h-4 w-4" />
             티켓 추가
           </Button>
+          {hasAccess(session?.user!.role, UserRole.SUPERMASTER) && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={isLoading || table.getSelectedRowModel().rows.length === 0}
+            >
+              <Trash className="h-4 w-4 mr-2" />
+              선택 삭제
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

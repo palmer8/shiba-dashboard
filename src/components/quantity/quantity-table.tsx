@@ -525,6 +525,43 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
     }
   }, [table]);
 
+  const handleBulkDelete = useCallback(async () => {
+    const selected = table.getSelectedRowModel().rows;
+    if (!selected.length) {
+      toast({ title: "선택된 항목이 없습니다.", variant: "destructive" });
+      return;
+    }
+
+    if (!confirm("선택한 항목을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."))
+      return;
+
+    setIsLoading(true);
+    try {
+      const ids = selected.map((r) => r.original.id);
+      const results = await Promise.all(
+        ids.map((id) => deleteItemQuantityAction(id))
+      );
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.length - successCount;
+      toast({
+        title: "선택 삭제 완료",
+        description:
+          failCount > 0
+            ? `${successCount}건 삭제, ${failCount}건 실패`
+            : `${successCount}건 삭제되었습니다.`,
+      });
+      table.toggleAllPageRowsSelected(false);
+    } catch (error) {
+      toast({
+        title: "삭제 실패",
+        description: "선택 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [table]);
+
   const isPending = useMemo(
     () =>
       searchParams.get("status") === "PENDING" || !searchParams.get("status"),
@@ -607,6 +644,17 @@ export function ItemQuantityTable({ data, session }: ItemQuantityTableProps) {
             <Button size="sm" onClick={() => setOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               티켓 추가
+            </Button>
+          )}
+          {hasAccess(session?.user?.role, UserRole.SUPERMASTER) && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={isLoading || !table.getSelectedRowModel().rows.length}
+            >
+              <Trash className="h-4 w-4 mr-2" />
+              선택 삭제
             </Button>
           )}
           <Button

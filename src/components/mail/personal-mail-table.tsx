@@ -68,6 +68,7 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
   const [isResultDialogOpen, setIsResultDialogOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
   >({
@@ -526,10 +527,64 @@ export function PersonalMailTable({ data, session }: PersonalMailTableProps) {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const selected = table.getSelectedRowModel().rows;
+    if (!selected.length) {
+      toast({
+        title: "선택된 항목 없음",
+        description: "삭제할 항목을 선택해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm("선택한 항목을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."))
+      return;
+
+    setIsDeleting(true);
+    try {
+      const results = await Promise.all(
+        selected.map((row) => deletePersonalMailAction(row.original.id))
+      );
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.length - successCount;
+
+      toast({
+        title: "선택 삭제 완료",
+        description:
+          failCount > 0
+            ? `${successCount}건 삭제, ${failCount}건 실패`
+            : `${successCount}건 삭제되었습니다.`,
+      });
+      table.toggleAllPageRowsSelected(false);
+    } catch (error) {
+      toast({
+        title: "삭제 실패",
+        description: "선택 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end items-center">
         <div className="flex items-center gap-2">
+          {hasAccess(session?.user!.role, UserRole.SUPERMASTER) && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={
+                isDeleting || table.getSelectedRowModel().rows.length === 0
+              }
+            >
+              <Trash className="h-4 w-4" />
+              선택 삭제
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"

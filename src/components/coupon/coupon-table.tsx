@@ -174,6 +174,43 @@ export function CouponTable({ data, page, session, filters }: CouponTableProps) 
     }
   };
 
+  const handleBulkDelete = async () => {
+    const selected = table.getSelectedRowModel().rows;
+    if (selected.length === 0) {
+      toast({
+        title: "선택된 쿠폰이 없습니다",
+        description: "삭제할 쿠폰을 선택해주세요",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm("선택한 쿠폰을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."))
+      return;
+
+    try {
+      const results = await Promise.all(
+        selected.map((row) => deleteCouponAction(row.original.id))
+      );
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.length - successCount;
+      toast({
+        title: "선택 삭제 완료",
+        description:
+          failCount > 0
+            ? `${successCount}건 삭제, ${failCount}건 실패`
+            : `${successCount}건 삭제되었습니다.`,
+      });
+      table.toggleAllPageRowsSelected(false);
+    } catch (error) {
+      toast({
+        title: "삭제 실패",
+        description: "선택 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const columns: ColumnDef<CouponDisplay>[] = [
     {
       id: "select",
@@ -376,6 +413,18 @@ export function CouponTable({ data, page, session, filters }: CouponTableProps) 
               : "CSV 다운로드"
           }
         </Button>
+        {hasAccess(session?.user!.role, UserRole.SUPERMASTER) && (
+          <Button
+            onClick={handleBulkDelete}
+            variant="destructive"
+            className="gap-2"
+            size="sm"
+            disabled={selectedCount === 0}
+          >
+            <Trash className="h-4 w-4" />
+            선택 삭제
+          </Button>
+        )}
         
         <Button onClick={() => setIsAddDialogOpen(true)} className="gap-2" size="sm">
           <Plus className="h-4 w-4" />
