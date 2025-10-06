@@ -474,6 +474,10 @@ class BoardService {
               createdAt: true,
             },
           },
+          reads: {
+            where: { userId: session.user.id as string },
+            select: { id: true },
+          },
         },
       });
 
@@ -515,6 +519,7 @@ class BoardService {
           registrant: comment.registrant,
         })),
         isLiked: board.likes.some((like) => like.user.id === session.user!.id),
+        isRead: Array.isArray((board as any).reads) && (board as any).reads.length > 0,
         likes: board.likes.map((like) => ({
           id: like.user.id,
           nickname: like.user.nickname,
@@ -550,6 +555,22 @@ class BoardService {
     const userId = session.user.id;
     // userId가 undefined인 경우 처리
     if (!userId) return;
+
+    // 읽음 기록은 중복 조회와 관계없이 보장
+    try {
+      await prisma.boardRead.upsert({
+        where: {
+          boardId_userId: {
+            boardId: id,
+            userId,
+          },
+        },
+        update: {},
+        create: { boardId: id, userId },
+      });
+    } catch (e) {
+      // noop: 읽음 기록 실패는 조회수 증가에 영향을 주지 않음
+    }
 
     // 조회수 증가 여부 확인
     if (!canIncrementView(userId, id)) {
@@ -592,9 +613,6 @@ class BoardService {
               ),
             },
           }),
-        ...(filters.title && {
-          title: { contains: filters.title },
-        }),
         ...(filters.categoryId &&
           filters.categoryId !== "ALL" && {
             categoryId: filters.categoryId,
@@ -629,45 +647,178 @@ class BoardService {
         },
       } as const;
 
-      // 3. Promise.all을 사용하여 병렬 처리
-      const [notices, totalCount, boards] = await Promise.all([
-        prisma.board.findMany({
-          where: {
-            ...baseWhereCondition,
-            isNotice: true,
-          },
-          take: 5,
+      // 로그인 사용자 기준 읽음 여부 판단을 위한 include 확장
+      const listInclude = {
+        ...commonInclude,
+        reads: {
+          where: { userId: session.user.id as string },
+          select: { id: true },
+        },
+      } as const;
+
+      let notices: any[] = [];
+      let boards: any[] = [];
+      let totalCount = 0;
+
+      if (filters.title && filters.title.trim()) {
+        // Raw SQL path to support ILIKE on JSON content
+        const q = `%${filters.title.trim()}%`;
+
+        const conds: Prisma.Sql[] = [Prisma.sql`b.is_notice = false`];
+        const nConds: Prisma.Sql[] = [Prisma.sql`b.is_notice = true`];
+
+        // Role filter (non supermaster)
+        if (session.user.role !== UserRole.SUPERMASTER) {
+          const role = session.user.role;
+          conds.push(Prisma.sql`${role}::user_role = ANY(bc.roles)`);
+          nConds.push(Prisma.sql`${role}::user_role = ANY(bc.roles)`);
+        }
+
+        // Date range
+        if (filters.startDate && filters.endDate) {
+          const start = this.getDateWithoutTime(filters.startDate);
+          const end = new Date(
+            this.getDateWithoutTime(filters.endDate).setHours(23, 59, 59, 999)
+          );
+          conds.push(Prisma.sql`b.created_at BETWEEN ${start} AND ${end}`);
+          nConds.push(Prisma.sql`b.created_at BETWEEN ${start} AND ${end}`);
+        }
+
+        // Category filter
+        if (filters.categoryId && filters.categoryId !== "ALL") {
+          const catId = filters.categoryId;
+          conds.push(Prisma.sql`b.category_id = ${catId}`);
+          nConds.push(Prisma.sql`b.category_id = ${catId}`);
+        }
+
+        // Registrant filter
+        if (filters.registrantId) {
+          const rid = filters.registrantId;
+          conds.push(Prisma.sql`b.registrant_id = ${rid}`);
+          nConds.push(Prisma.sql`b.registrant_id = ${rid}`);
+        }
+
+        // Title or Content match
+        const searchExpr = Prisma.sql`(b.title ILIKE ${q} OR b.content::text ILIKE ${q})`;
+        conds.push(searchExpr);
+        nConds.push(searchExpr);
+
+        // Build WHERE SQL without Prisma.join to avoid syntax issues
+        let whereSql = conds[0];
+        for (let i = 1; i < conds.length; i++) {
+          whereSql = Prisma.sql`${whereSql} AND ${conds[i]}`;
+        }
+
+        let whereNoticeSql = nConds[0];
+        for (let i = 1; i < nConds.length; i++) {
+          whereNoticeSql = Prisma.sql`${whereNoticeSql} AND ${nConds[i]}`;
+        }
+
+        // Count for non-notice
+        const countRows = await prisma.$queryRaw<{ count: number }[]>(
+          Prisma.sql`
+            SELECT COUNT(*)::int as count
+            FROM board b
+            JOIN board_category bc ON bc.id = b.category_id
+            WHERE ${whereSql}
+          `
+        );
+        totalCount = countRows?.[0]?.count || 0;
+
+        // IDs for paginated boards
+        const idRows = await prisma.$queryRaw<{ id: string }[]>(
+          Prisma.sql`
+            SELECT b.id
+            FROM board b
+            JOIN board_category bc ON bc.id = b.category_id
+            WHERE ${whereSql}
+            ORDER BY b.created_at DESC
+            LIMIT ${itemsPerPage} OFFSET ${skip}
+          `
+        );
+
+        const boardIds = idRows.map((r) => r.id);
+        boards = await prisma.board.findMany({
+          where: { id: { in: boardIds } },
+          include: listInclude,
           orderBy: { createdAt: "desc" },
-          include: commonInclude,
-        }),
-        prisma.board.count({
-          where: {
-            ...baseWhereCondition,
-            isNotice: false,
-          },
-        }),
-        prisma.board.findMany({
-          where: {
-            ...baseWhereCondition,
-            isNotice: false,
-          },
-          skip,
-          take: itemsPerPage,
+        });
+
+        // Notices (top 5)
+        const noticeIdRows = await prisma.$queryRaw<{ id: string }[]>(
+          Prisma.sql`
+            SELECT b.id
+            FROM board b
+            JOIN board_category bc ON bc.id = b.category_id
+            WHERE ${whereNoticeSql}
+            ORDER BY b.created_at DESC
+            LIMIT 5
+          `
+        );
+        const noticeIds = noticeIdRows.map((r) => r.id);
+        notices = await prisma.board.findMany({
+          where: { id: { in: noticeIds } },
+          include: listInclude,
           orderBy: { createdAt: "desc" },
-          include: commonInclude,
-        }),
-      ]);
+        });
+      } else {
+        // Original Prisma path (title filter not present)
+        const [noticesRes, totalCountRes, boardsRes] = await Promise.all([
+          prisma.board.findMany({
+            where: {
+              ...baseWhereCondition,
+              isNotice: true,
+            },
+            take: 5,
+            orderBy: { createdAt: "desc" },
+            include: listInclude,
+          }),
+          prisma.board.count({
+            where: {
+              ...baseWhereCondition,
+              isNotice: false,
+            },
+          }),
+          prisma.board.findMany({
+            where: {
+              ...baseWhereCondition,
+              isNotice: false,
+            },
+            skip,
+            take: itemsPerPage,
+            orderBy: { createdAt: "desc" },
+            include: listInclude,
+          }),
+        ]);
+        notices = noticesRes as any[];
+        boards = boardsRes as any[];
+        totalCount = totalCountRes;
+      }
 
       // 4. 메타데이터 계산을 최적화
       const totalPages = Math.ceil(totalCount / itemsPerPage);
       const currentPage = filters.page || 0;
 
+      // 4-1. 읽음 여부를 포함하여 데이터 변환
+      const mapToBoardData = (b: any) => ({
+        id: b.id,
+        title: b.title,
+        createdAt: b.createdAt,
+        updatedAt: b.updatedAt,
+        views: b.views,
+        isNotice: b.isNotice,
+        registrant: b.registrant,
+        category: b.category,
+        _count: b._count,
+        isRead: Array.isArray(b.reads) && b.reads.length > 0,
+      });
+
       return {
         success: true,
         error: null,
         data: {
-          notices: notices as BoardData[],
-          boards: boards as BoardData[],
+          notices: (notices as any[]).map(mapToBoardData) as BoardData[],
+          boards: (boards as any[]).map(mapToBoardData) as BoardData[],
           metadata: {
             totalCount,
             totalPages,
@@ -1001,6 +1152,26 @@ class BoardService {
             };
 
       // 공지사항과 일반 게시글 동시 조회
+      const recentInclude = {
+        id: true,
+        title: true,
+        createdAt: true,
+        isNotice: true,
+        category: {
+          select: { id: true, name: true, roles: true },
+        },
+        registrant: {
+          select: { id: true, nickname: true, image: true, role: true },
+        },
+        _count: {
+          select: { comments: true, likes: true },
+        },
+        reads: {
+          where: { userId: session.user.id as string },
+          select: { id: true },
+        },
+      } as const;
+
       const [recentNotices, recentBoards] = await Promise.all([
         prisma.board.findMany({
           where: {
@@ -1009,7 +1180,7 @@ class BoardService {
           },
           take: 5,
           orderBy: { createdAt: "desc" },
-          select: commonBoardSelect,
+          include: recentInclude as any,
         }),
         prisma.board.findMany({
           where: {
@@ -1018,7 +1189,7 @@ class BoardService {
           },
           take: 5,
           orderBy: { createdAt: "desc" },
-          select: commonBoardSelect,
+          include: recentInclude as any,
         }),
       ]);
 
@@ -1042,6 +1213,7 @@ class BoardService {
           likes: board._count.likes,
           comments: board._count.comments,
         },
+        isRead: Array.isArray((board as any).reads) && (board as any).reads.length > 0,
       });
 
       return {
@@ -1352,6 +1524,8 @@ class BoardService {
     const [year, month, day] = dateStr.split("-").map(Number);
     return new Date(year, month - 1, day, 0, 0, 0);
   }
+
+  // (removed) contentText 사용을 중단함에 따라 평문 추출 로직은 보관하지 않습니다.
 }
 
 export const boardService = new BoardService();

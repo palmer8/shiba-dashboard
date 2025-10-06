@@ -113,6 +113,7 @@ model User {
   boardCategories BoardCategory[]
   boardComments   BoardComment[]
   boardLikes      BoardLike[]
+  boardReads      BoardRead[]
 
   attendanceRecords AttendanceRecord[]
   mailTemplates     MailTemplate[]
@@ -310,6 +311,7 @@ model Board {
   category     BoardCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   comments     BoardComment[]
   likes        BoardLike[]
+  reads        BoardRead[]
 
   @@index([categoryId, createdAt(sort: Desc)], name: "idx_board_category_date")
   @@index([isNotice, createdAt(sort: Desc)], name: "idx_board_notice_date")
@@ -377,6 +379,21 @@ model BoardLike {
   @@map("board_like")
 }
 
+model BoardRead {
+  id        String   @id @default(uuid())
+  boardId   String   @map("board_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, userId])
+  @@index([userId], name: "idx_read_user")
+  @@map("board_read")
+}
+
 model AttendanceRecord {
   id           String    @id @default(uuid())
   userNumericId Int      @map("user_id")
@@ -405,5 +422,3 @@ model MailTemplate {
   @@index([createdAt(sort: Desc)], name: "idx_mail_template_created")
   @@map("mail_template")
 }
-
-

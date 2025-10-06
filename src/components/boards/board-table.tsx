@@ -155,7 +155,11 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             {row.original.isNotice && <Badge variant="secondary">공지</Badge>}
-            {row.original.title}
+            <span
+              className={row.original.isRead ? "text-violet-600" : undefined}
+            >
+              {row.original.title}
+            </span>
             {row.original._count.comments > 0 && (
               <span className="text-sm text-muted-foreground">
                 [{row.original._count.comments}]

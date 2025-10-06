@@ -43,6 +43,7 @@ export interface RecentBoard
     likes: number;
     comments: number;
   };
+  isRead?: boolean;
 }
 
 // 게시글 목록용 타입
@@ -54,6 +55,7 @@ export interface BoardData extends BoardBase {
     likes: number;
     comments: number;
   };
+  isRead?: boolean;
 }
 
 // 게시글 상세 조회용 타입
@@ -64,6 +66,7 @@ export interface BoardDetailView extends BoardBase {
   comments: CommentData[];
   likes: LikeInfo[];
   isLiked: boolean;
+  isRead?: boolean;
   _count: {
     likes: number;
     comments: number;

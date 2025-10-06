@@ -125,9 +125,9 @@ export function BoardFilters({ filters }: BoardFiltersProps) {
         </div>
 
         <div className="space-y-2">
-          <Label>제목</Label>
+          <Label>제목/내용</Label>
           <Input
-            placeholder="제목 입력"
+            placeholder="제목 또는 내용 입력"
             value={localFilter.title || ""}
             onChange={(e) => handleFilterChange("title", e.target.value)}
           />

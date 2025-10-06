@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 30;
 
 interface PageProps {
   searchParams: Promise<{
