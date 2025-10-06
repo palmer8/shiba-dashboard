@@ -436,7 +436,7 @@ class BoardService {
           id,
           ...(session.user.role !== UserRole.SUPERMASTER && {
             category: {
-              OR: [{ role: session.user.role }, { role: null }],
+              roles: { has: session.user.role },
             },
           }),
         },
@@ -519,7 +519,7 @@ class BoardService {
           registrant: comment.registrant,
         })),
         isLiked: board.likes.some((like) => like.user.id === session.user!.id),
-        isRead: Array.isArray((board as any).reads) && (board as any).reads.length > 0,
+        isRead: board.reads && board.reads.length > 0,
         likes: board.likes.map((like) => ({
           id: like.user.id,
           nickname: like.user.nickname,
@@ -601,22 +601,22 @@ class BoardService {
         }),
         ...(filters.startDate &&
           filters.endDate && {
-            createdAt: {
-              gte: this.getDateWithoutTime(filters.startDate),
-              lte: new Date(
-                this.getDateWithoutTime(filters.endDate).setHours(
-                  23,
-                  59,
-                  59,
-                  999
-                )
-              ),
-            },
-          }),
+          createdAt: {
+            gte: this.getDateWithoutTime(filters.startDate),
+            lte: new Date(
+              this.getDateWithoutTime(filters.endDate).setHours(
+                23,
+                59,
+                59,
+                999
+              )
+            ),
+          },
+        }),
         ...(filters.categoryId &&
           filters.categoryId !== "ALL" && {
-            categoryId: filters.categoryId,
-          }),
+          categoryId: filters.categoryId,
+        }),
         ...(filters.registrantId && {
           registrantId: filters.registrantId,
         }),
@@ -1144,19 +1144,15 @@ class BoardService {
         session.user.role === UserRole.SUPERMASTER
           ? {}
           : {
-              category: {
-                roles: {
-                  has: session.user.role,
-                },
+            category: {
+              roles: {
+                has: session.user.role,
               },
-            };
+            },
+          };
 
       // 공지사항과 일반 게시글 동시 조회
       const recentInclude = {
-        id: true,
-        title: true,
-        createdAt: true,
-        isNotice: true,
         category: {
           select: { id: true, name: true, roles: true },
         },
@@ -1170,7 +1166,7 @@ class BoardService {
           where: { userId: session.user.id as string },
           select: { id: true },
         },
-      } as const;
+      };
 
       const [recentNotices, recentBoards] = await Promise.all([
         prisma.board.findMany({
@@ -1180,7 +1176,7 @@ class BoardService {
           },
           take: 5,
           orderBy: { createdAt: "desc" },
-          include: recentInclude as any,
+          include: recentInclude,
         }),
         prisma.board.findMany({
           where: {
@@ -1189,7 +1185,7 @@ class BoardService {
           },
           take: 5,
           orderBy: { createdAt: "desc" },
-          include: recentInclude as any,
+          include: recentInclude,
         }),
       ]);
 
@@ -1213,7 +1209,7 @@ class BoardService {
           likes: board._count.likes,
           comments: board._count.comments,
         },
-        isRead: Array.isArray((board as any).reads) && (board as any).reads.length > 0,
+        isRead: board.reads && board.reads.length > 0,
       });
 
       return {
