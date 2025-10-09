@@ -88,7 +88,7 @@ class ReportService {
 
       const [records] = await pool.execute<RowDataPacket[]>(
         `SELECT * FROM dokku_incident_report ${whereString} 
-         ORDER BY incident_time DESC LIMIT ? OFFSET ?`,
+         ORDER BY report_time DESC LIMIT ? OFFSET ?`,
         [...queryParams, pageSize, offset]
       );
 
@@ -1454,7 +1454,7 @@ class ReportService {
           report_time
         FROM dokku_incident_report 
         WHERE target_user_id = ? 
-        ORDER BY incident_time DESC`,
+        ORDER BY report_time DESC`,
         [targetUserId]
       );
 

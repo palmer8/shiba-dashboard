@@ -182,7 +182,19 @@ export default function IncidentReportTable({
         accessorKey: "admin",
       },
       {
-        header: "보고서 작성 일자",
+        header: "사건 발생 일자",
+        accessorKey: "incident_time",
+        cell: ({ row }) =>
+          row.original.incident_time ? (
+            <span className="whitespace-nowrap">
+              {formatKoreanDateTime(row.original.incident_time)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">정보없음</span>
+          ),
+      },
+      {
+        header: "보고서 생성 일자",
         accessorKey: "report_time",
         cell: ({ row }) =>
           row.original.report_time ? (

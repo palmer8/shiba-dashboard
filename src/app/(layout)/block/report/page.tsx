@@ -11,6 +11,9 @@ import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { Suspense } from "react";
 import { Session } from "next-auth";
 
+// 최신 데이터를 항상 가져오기 위해 캐싱 비활성화
+export const dynamic = 'force-dynamic';
+
 interface ReportPageProps {
   searchParams: Promise<{
     [key: string]: string | undefined;
