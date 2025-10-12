@@ -72,13 +72,10 @@ export function SignUpForm() {
         return;
       }
 
-      if ([1, 2].includes(data.userId)) {
+      if (data.userId === 1) {
         toast({
           title: "회원가입 성공",
-          description:
-            data.userId === 1
-              ? "도꾸님 환영합니다. 슈퍼 마스터 계정으로 활성화되었습니다."
-              : "토리님 환영합니다. 슈퍼 마스터 계정으로 활성화되었습니다.",
+          description: "도꾸님 환영합니다. 슈퍼 마스터 계정으로 활성화되었습니다.",
         });
       } else {
         toast({
