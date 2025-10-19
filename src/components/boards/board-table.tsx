@@ -69,6 +69,11 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
 
   const memorizedData = useMemo(() => [...notices, ...data], [notices, data]);
 
+  // ✅ 페이지 마운트 시 항상 최신 데이터로 새로고침 (뒤로가기 캐시 무효화)
+  useEffect(() => {
+    router.refresh();
+  }, [router]);
+
   const handlePageChange = useCallback(
     (newPage: number) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -156,7 +161,7 @@ export function BoardTable({ data, notices, metadata, page }: BoardTableProps) {
           <div className="flex items-center gap-2">
             {row.original.isNotice && <Badge variant="secondary">공지</Badge>}
             <span
-              className={row.original.isRead ? "text-violet-600" : undefined}
+              style={row.original.isRead ? { color: "rgb(100, 100, 100)" } : undefined}
             >
               {row.original.title}
             </span>
