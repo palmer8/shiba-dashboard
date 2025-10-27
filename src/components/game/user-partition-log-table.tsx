@@ -306,14 +306,21 @@ export function UserPartitionLogTable({
   }, [router, isFlushingLogs]);
 
   const handleCsvDownload = useCallback(async () => {
-    const dateRange = getUTCDateRangeForCSV(range);
-    if (!dateRange) return;
+    if (!range?.from || !range?.to) return;
 
     setCsvLoading(true);
     setCsvError(null);
 
     try {
-      const { startDate, endDate } = dateRange;
+      // 유저 로그 필터와 동일한 날짜 포맷 사용 (YYYY-MM-DD)
+      const formatDate = (date: Date) => {
+        return `${date.getFullYear()}-${String(
+          date.getMonth() + 1
+        ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      };
+      
+      const startDate = formatDate(range.from);
+      const endDate = formatDate(range.to);
       
       // 현재 페이지의 필터 조건 가져오기
       const searchParams = new URLSearchParams(window.location.search);
@@ -679,4 +686,4 @@ export function UserPartitionLogTable({
       </Dialog>
     </div>
   );
-} 
+}
