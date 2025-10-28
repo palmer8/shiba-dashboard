@@ -5,26 +5,27 @@ export const rewardSchema = z
     type: z.enum(["MONEY", "BANK", "ITEM"]),
     itemId: z.string().optional(),
     itemName: z.string().optional(),
-    amount: z.string(),
+    amount: z.string().optional(),
   })
   .refine(
     (data) => {
       if (data.type === "ITEM") {
-        return data.itemId && data.itemName;
+        return data.itemId && data.itemName && data.amount;
+      }
+      if (data.type === "MONEY" || data.type === "BANK") {
+        return data.amount;
       }
       return true;
     },
     {
-      message: "아이템 정보를 선택해주세요",
+      message: "필수 정보를 입력해주세요",
     }
   );
 
 export const GroupMailSchema = z.object({
   reason: z.string().min(1, "제목을 입력해주세요"),
   content: z.string().min(10, "내용은 최소 10자 이상이어야 합니다"),
-  rewards: z
-    .array(rewardSchema)
-    .min(1, "최소 1개 이상의 보상을 설정해주세요"),
+  rewards: z.array(rewardSchema).optional().default([]),
   startDate: z.date({
     required_error: "시작 날짜를 입력해주세요",
   }),
@@ -38,9 +39,7 @@ export type GroupMailValues = z.infer<typeof GroupMailSchema>;
 export const editGroupMailSchema = z.object({
   reason: z.string().min(1, "제목을 입력해주세요"),
   content: z.string().min(10, "내용은 최소 10자 이상이어야 합니다"),
-  rewards: z
-    .array(rewardSchema)
-    .min(1, "최소 1개 이상의 보상을 설정해주세요"),
+  rewards: z.array(rewardSchema).optional().default([]),
   startDate: z.date({
     required_error: "시작 날짜를 입력해주세요",
   }),
@@ -118,7 +117,7 @@ export const groupMailReserveCreateSchema = z.object({
   content: z.string().min(1, "내용을 입력해주세요"),
   start_time: z.string().min(1, "시작 시간을 입력해주세요"),
   end_time: z.string().min(1, "종료 시간을 입력해주세요"),
-  rewards: z.array(mailItemSchema).min(1, "보상 아이템을 최소 1개 이상 추가해주세요"),
+  rewards: z.array(mailItemSchema).optional().default([]),
 });
 
 // 단체 우편 예약 수정 스키마
@@ -127,7 +126,7 @@ export const groupMailReserveEditSchema = z.object({
   content: z.string().min(1, "내용을 입력해주세요"),
   start_time: z.string().min(1, "시작 시간을 입력해주세요"),
   end_time: z.string().min(1, "종료 시간을 입력해주세요"),
-  rewards: z.array(mailItemSchema).min(1, "보상 아이템을 최소 1개 이상 추가해주세요"),
+  rewards: z.array(mailItemSchema).optional().default([]),
 });
 
 // 타입 추출
