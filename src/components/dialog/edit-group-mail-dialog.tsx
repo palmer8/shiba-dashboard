@@ -119,7 +119,7 @@ export default function EditGroupMailDialog({
           .filter(reward => reward.type === "ITEM" && reward.itemId)
           .map(reward => ({
             itemCode: reward.itemId!,
-            count: parseInt(reward.amount) || 1,
+            count: parseInt(reward.amount || "1") || 1,
           }))
       };
       
@@ -320,7 +320,7 @@ export default function EditGroupMailDialog({
                                 />
                                 <div className="text-sm text-muted-foreground">
                                   {formatKoreanNumber(
-                                    parseInt(reward.amount) || 0
+                                    parseInt(reward.amount || "0") || 0
                                   )}
                                   원
                                 </div>

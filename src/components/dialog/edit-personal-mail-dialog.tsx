@@ -252,7 +252,7 @@ export default function EditPersonalMailDialog({
           .filter(reward => (reward as any).itemId)
           .map(reward => ({
             itemCode: (reward as any).itemId,
-            count: parseInt(reward.amount) || 1,
+            count: parseInt(reward.amount || "1") || 1,
           }))
       };
 
@@ -468,7 +468,7 @@ export default function EditPersonalMailDialog({
                                 />
                                 <div className="text-sm text-muted-foreground">
                                   {formatKoreanNumber(
-                                    parseInt(reward.amount) || 0
+                                    parseInt(reward.amount || "0") || 0
                                   )}
                                   원
                                 </div>
@@ -566,7 +566,7 @@ export default function EditPersonalMailDialog({
                                 />
                                 <div className="text-sm text-muted-foreground">
                                   {formatKoreanNumber(
-                                    parseInt(reward.amount) || 0
+                                    parseInt(reward.amount || "0") || 0
                                   )}
                                   원
                                 </div>
