@@ -222,8 +222,22 @@ export function RealtimeUserDataTable({
         accessorKey: "message",
         header: "메시지",
         cell: ({ row }) => (
-          <div className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px]">
-            {row.original.message}
+          <div className="relative group">
+            <div className="overflow-hidden max-w-[300px]">
+              <span
+                className="inline-block whitespace-nowrap overflow-hidden text-ellipsis w-full cursor-help"
+                title={row.original.message}
+              >
+                {row.original.message}
+              </span>
+            </div>
+            {row.original.message && row.original.message.length > 30 && (
+              <div className="absolute left-0 top-0 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                <div className="bg-background border rounded px-2 py-1 shadow-lg text-sm whitespace-nowrap max-w-[600px] overflow-hidden">
+                  <span className="text-foreground">{row.original.message}</span>
+                </div>
+              </div>
+            )}
           </div>
         ),
       },
