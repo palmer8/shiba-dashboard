@@ -24,6 +24,18 @@ import {
 } from "@/lib/validations/mail";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
+// MySQL DATETIME(Local) 포맷터: Date(로컬) → 'YYYY-MM-DD HH:mm:ss'
+function toMySQLDateTimeLocal(date: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 function mapItemIdsToNames(
   items: Record<string, number>,
   itemNameMap: Map<string, string>
@@ -660,9 +672,9 @@ export async function createGroupMailReserve(values: GroupMailReserveCreateValue
       VALUES (?, ?, ?, ?, ?)
     `;
 
-    // ISO 문자열을 MySQL DATETIME 형식으로 변환
-    const startDateTime = new Date(values.start_time).toISOString().slice(0, 19).replace('T', ' ');
-    const endDateTime = new Date(values.end_time).toISOString().slice(0, 19).replace('T', ' ');
+    // 전달된 ISO 문자열(UTC)을 로컬 시간 기준의 MySQL DATETIME 문자열로 변환
+    const startDateTime = toMySQLDateTimeLocal(new Date(values.start_time));
+    const endDateTime = toMySQLDateTimeLocal(new Date(values.end_time));
 
     const [result] = await pool.execute(insertQuery, [
       values.title,
@@ -757,9 +769,9 @@ export async function updateGroupMailReserve(
       amount: item.count,
     }));
 
-    // ISO 문자열을 MySQL DATETIME 형식으로 변환
-    const startDateTime = new Date(values.start_time).toISOString().slice(0, 19).replace('T', ' ');
-    const endDateTime = new Date(values.end_time).toISOString().slice(0, 19).replace('T', ' ');
+    // 전달된 ISO 문자열(UTC)을 로컬 시간 기준의 MySQL DATETIME 문자열로 변환
+    const startDateTime = toMySQLDateTimeLocal(new Date(values.start_time));
+    const endDateTime = toMySQLDateTimeLocal(new Date(values.end_time));
 
     // 단체 우편 예약 수정
     const updateQuery = `
@@ -781,7 +793,7 @@ export async function updateGroupMailReserve(
       pool.execute("SELECT * FROM dokku_hottime_event WHERE id = ?", [id]),
       // 상세한 로그 작성 (변경 전후 정보 포함)
       logService.writeAdminLog(
-        `${session.user.nickname} 단체 우편 예약 수정: ID=${id}, 제목변경="${existingReserve.title}"→"${values.title}", 내용="${values.content.substring(0, 30)}${values.content.length > 30 ? '...' : ''}", 시작변경=${new Date(existingReserve.start_time).toISOString().slice(0, 19).replace('T', ' ')}→${startDateTime}, 종료변경=${new Date(existingReserve.end_time).toISOString().slice(0, 19).replace('T', ' ')}→${endDateTime}, 보상아이템=${values.rewards.length}개`
+        `${session.user.nickname} 단체 우편 예약 수정: ID=${id}, 제목변경="${existingReserve.title}"→"${values.title}", 내용="${values.content.substring(0, 30)}${values.content.length > 30 ? '...' : ''}", 시작변경=${toMySQLDateTimeLocal(new Date(existingReserve.start_time))}→${startDateTime}, 종료변경=${toMySQLDateTimeLocal(new Date(existingReserve.end_time))}→${endDateTime}, 보상아이템=${values.rewards.length}개`
       )
     ]);
 
@@ -854,7 +866,7 @@ export async function deleteGroupMailReserve(id: number): Promise<void> {
       pool.execute("DELETE FROM dokku_hottime_event WHERE id = ?", [id]),
       // 상세한 로그 작성
       logService.writeAdminLog(
-        `${session.user.nickname} 단체 우편 예약 삭제: ID=${id}, 제목="${reserve.title}", 시작=${new Date(reserve.start_time).toISOString().slice(0, 19).replace('T', ' ')}, 종료=${new Date(reserve.end_time).toISOString().slice(0, 19).replace('T', ' ')}`
+        `${session.user.nickname} 단체 우편 예약 삭제: ID=${id}, 제목="${reserve.title}", 시작=${toMySQLDateTimeLocal(new Date(reserve.start_time))}, 종료=${toMySQLDateTimeLocal(new Date(reserve.end_time))}`
       )
     ]);
 
