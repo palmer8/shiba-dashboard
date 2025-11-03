@@ -196,6 +196,11 @@ export const ADMIN_LINKS = {
         href: "/admin/items",
         role: ["MASTER", "SUPERMASTER"],
       },
+      {
+        name: "슈퍼마스터 도구",
+        href: "/supermaster",
+        role: ["SUPERMASTER"],
+      },
     ],
   },
 };
