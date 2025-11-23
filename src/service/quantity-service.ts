@@ -410,10 +410,8 @@ class ItemQuantityService {
         });
 
         await logService.writeAdminLog(
-          `아이템 ${
-            deleteResult.type === "ADD" ? "지급" : "회수"
-          } 티켓 삭제 - [${deleteResult.itemName}] ${
-            deleteResult.amount
+          `아이템 ${deleteResult.type === "ADD" ? "지급" : "회수"
+          } 티켓 삭제 - [${deleteResult.itemName}] ${deleteResult.amount
           }개 / 대상: ${deleteResult.userId}`
         );
 
@@ -474,8 +472,7 @@ class ItemQuantityService {
         });
 
         await logService.writeAdminLog(
-          `아이템 ${data.type === "ADD" ? "지급" : "회수"} 티켓 수정 - [${
-            data.itemName
+          `아이템 ${data.type === "ADD" ? "지급" : "회수"} 티켓 수정 - [${data.itemName
           }] ${data.amount}개 / 대상: ${data.userId}`
         );
 
@@ -527,7 +524,7 @@ class ItemQuantityService {
 
   async createItemQuantity(
     data: CreateItemQuantityData
-  ): Promise<ApiResponse<ItemQuantity>> {
+  ): Promise<ApiResponse<ItemQuantity[]>> {
     const session = await auth();
     if (!session?.user) return redirect("/login");
 
@@ -537,40 +534,44 @@ class ItemQuantityService {
       );
 
       const result = await prisma.$transaction(async (prisma) => {
-        const createResult = await prisma.itemQuantity.create({
-          data: {
-            userId: Number(data.userId),
-            nickname: nicknameResult.data || "",
-            itemId: data.itemId,
-            itemName: data.itemName,
-            amount: data.amount,
-            type: data.type,
-            reason: data.reason,
-            status: "PENDING",
-            registrantId: session.user!.id,
-          },
-          include: {
-            registrant: {
-              select: { nickname: true },
+        const createdItems: ItemQuantityOrigin[] = [];
+
+        for (const item of data.items) {
+          const createResult = await prisma.itemQuantity.create({
+            data: {
+              userId: Number(data.userId),
+              nickname: nicknameResult.data || "",
+              itemId: item.itemId,
+              itemName: item.itemName,
+              amount: item.amount,
+              type: data.type,
+              reason: data.reason,
+              status: "PENDING",
+              registrantId: session.user!.id,
             },
-            approver: {
-              select: { nickname: true },
+            include: {
+              registrant: {
+                select: { nickname: true },
+              },
+              approver: {
+                select: { nickname: true },
+              },
             },
-          },
-        });
+          });
+          createdItems.push(createResult);
+        }
 
         await logService.writeAdminLog(
-          `아이템 ${data.type === "ADD" ? "지급" : "회수"} 티켓 생성 - [${
-            data.itemName
-          }] ${data.amount}개 / 대상: ${data.userId}`
+          `아이템 ${data.type === "ADD" ? "지급" : "회수"} 티켓 생성 - [${data.items.length
+          }건] / 대상: ${data.userId}`
         );
 
-        return createResult;
+        return createdItems;
       });
 
       return {
         success: true,
-        data: result as ItemQuantity,
+        data: result as ItemQuantity[],
         error: null,
       };
     } catch (error) {
@@ -592,11 +593,11 @@ class ItemQuantityService {
 
   private async updateItemQuantityByGame(data: UpdateUserData): Promise<
     | {
-        finalAmount: number;
-        itemName: string;
-        isOnline: boolean;
-        success: boolean;
-      }
+      finalAmount: number;
+      itemName: string;
+      isOnline: boolean;
+      success: boolean;
+    }
     | any
   > {
     const response = await fetch(

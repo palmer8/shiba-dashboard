@@ -9,7 +9,7 @@ import { ItemQuantityValues } from "@/lib/validations/quantity";
 
 export async function createItemQuantityAction(
   data: CreateItemQuantityData
-): Promise<ApiResponse<ItemQuantity>> {
+): Promise<ApiResponse<ItemQuantity[]>> {
   const result = await itemQuantityService.createItemQuantity(data);
 
   if (result.success) {

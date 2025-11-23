@@ -27,9 +27,11 @@ export interface ItemQuantityTableData {
 // 생성 요청 데이터 타입
 export interface CreateItemQuantityData {
   userId: string;
-  itemId: string;
-  itemName: string;
-  amount: string;
+  items: {
+    itemId: string;
+    itemName: string;
+    amount: string;
+  }[];
   type: ActionType;
   reason: string;
   nickname?: string;
