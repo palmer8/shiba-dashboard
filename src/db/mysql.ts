@@ -10,9 +10,11 @@ function getPool(): Pool {
       user: process.env.MYSQL_USER,
       password: process.env.MYSQL_PASSWORD,
       database: process.env.MYSQL_DATABASE,
-      connectionLimit: 10, // 동시 연결 제한
-      waitForConnections: true, // 연결 대기 허용
-      queueLimit: 0, // 무제한 큐 (0은 무제한)
+      connectionLimit: 30, // connection pool 30
+      waitForConnections: true,
+      queueLimit: 0,
+      enableKeepAlive: true, // 성능 개선을 위한 keepAlive 설정
+      keepAliveInitialDelay: 0,
     });
   }
   return globalPool;
