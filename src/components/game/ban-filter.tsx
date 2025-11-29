@@ -41,6 +41,9 @@ export default function BanFilter({ filter }: BanFilterProps) {
     const searchParams = new URLSearchParams();
     searchParams.set("page", "1");
 
+    if (localFilter.id) {
+      searchParams.set("id", localFilter.id);
+    }
     if (localFilter.user_id) {
       searchParams.set("user_id", localFilter.user_id);
     }
@@ -69,7 +72,16 @@ export default function BanFilter({ filter }: BanFilterProps) {
 
   return (
     <>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-6">
+        <div className="space-y-2">
+          <Label htmlFor="id">Ban ID</Label>
+          <Input
+            id="id"
+            placeholder="Ban ID 입력"
+            value={localFilter.id || ""}
+            onChange={(e) => handleFilterChange("id", e.target.value)}
+          />
+        </div>
         <div className="space-y-2">
           <Label htmlFor="user_id">고유번호</Label>
           <Input

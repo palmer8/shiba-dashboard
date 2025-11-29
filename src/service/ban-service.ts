@@ -20,6 +20,7 @@ export type BanRecord = {
 
 export type BanFilters = {
   page?: number;
+  id?: string;
   user_id?: string;
   name?: string;
   banreason?: string;
@@ -90,6 +91,10 @@ class BanService {
     const whereClause: string[] = [];
     const queryParams: (string | number | Date)[] = [];
 
+    if (filters.id) {
+      whereClause.push("id = ?");
+      queryParams.push(filters.id);
+    }
     if (filters.user_id) {
       whereClause.push("user_id = ?");
       queryParams.push(filters.user_id);
@@ -408,8 +413,7 @@ class BanService {
             : data.banreason;
         const idsCount = data.identifiers.length;
         await logService.writeAdminLog(
-          `${session.user.nickname} DB 밴 수정: id=${data.id}, user_id=${
-            data.user_id || "N/A"
+          `${session.user.nickname} DB 밴 수정: id=${data.id}, user_id=${data.user_id || "N/A"
           }, name=${data.name}, 사유=${reasonShort}, ids=${idsCount}개`
         );
       }

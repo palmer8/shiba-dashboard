@@ -20,6 +20,7 @@ export default async function BanPage({ searchParams }: BanPageProps) {
 
   const filter = {
     page: params.page ? parseInt(params.page) : 1,
+    id: params.id,
     user_id: params.user_id,
     name: params.name,
     banreason: params.banreason,
